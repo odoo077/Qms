@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+{% load tailwind_tags %}
+{% block title %}Employee Management Dashboard | Qteam{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 py-6">
+
+  <!-- Overview Cards -->
+  <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+    <div class="stat bg-white rounded-lg shadow">
+      <div class="stat-title">Employees</div>
+      <div class="stat-value text-primary">54</div>
+      <div class="stat-desc">+2 this month</div>
+    </div>
+    <div class="stat bg-white rounded-lg shadow">
+      <div class="stat-title">Objectives</div>
+      <div class="stat-value text-success">31</div>
+      <div class="stat-desc">4 completed</div>
+    </div>
+    <div class="stat bg-white rounded-lg shadow">
+      <div class="stat-title">Active KPIs</div>
+      <div class="stat-value text-warning">86</div>
+      <div class="stat-desc">8 at risk</div>
+    </div>
+    <div class="stat bg-white rounded-lg shadow">
+      <div class="stat-title">Tasks</div>
+      <div class="stat-value text-secondary">119</div>
+      <div class="stat-desc">25 overdue</div>
+    </div>
+  </div>
+
+  <!-- Main Content Grid -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    <!-- Employee List -->
+    <div class="bg-white rounded-xl shadow p-6 col-span-2">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-xl font-semibold">Employee List</h2>
+        <a href="#" class="btn btn-sm btn-primary">+ Add Employee</a>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="table table-zebra">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Department</th>
+              <th>Objectives</th>
+              <th>KPIs</th>
+              <th>Tasks</th>
+              <th>Last Evaluation</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>
+                <div class="flex items-center gap-2">
+                  <div class="avatar">
+                    <div class="w-8 rounded-full">
+                      <img src="https://randomuser.me/api/portraits/women/81.jpg" />
+                    </div>
+                  </div>
+                  Sara Ahmed
+                </div>
+              </td>
+              <td>Marketing</td>
+              <td>4</td>
+              <td>8</td>
+              <td>13</td>
+              <td>
+                <span class="badge badge-success badge-outline">Excellent</span>
+              </td>
+              <td>
+                <a href="#" class="btn btn-xs btn-info">View</a>
+              </td>
+            </tr>
+            <tr>
+              <td>
+                <div class="flex items-center gap-2">
+                  <div class="avatar">
+                    <div class="w-8 rounded-full">
+                      <img src="https://randomuser.me/api/portraits/men/44.jpg" />
+                    </div>
+                  </div>
+                  Ali Saeed
+                </div>
+              </td>
+              <td>IT</td>
+              <td>3</td>
+              <td>7</td>
+              <td>12</td>
+              <td>
+                <span class="badge badge-warning badge-outline">Average</span>
+              </td>
+              <td>
+                <a href="#" class="btn btn-xs btn-info">View</a>
+              </td>
+            </tr>
+            <!-- Add more rows as needed -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <!-- Objectives & KPI Section -->
+    <div class="space-y-8">
+      <!-- Objectives -->
+      <div class="bg-white rounded-xl shadow p-6">
+        <h3 class="font-bold text-lg mb-3">My Objectives</h3>
+        <ul class="timeline timeline-vertical">
+          <li>
+            <div class="timeline-start timeline-box">Launch new marketing campaign</div>
+            <div class="timeline-middle badge badge-primary"></div>
+            <div class="timeline-end text-sm text-gray-500">Due: 31 Aug</div>
+          </li>
+          <li>
+            <div class="timeline-start timeline-box">Implement new HRIS system</div>
+            <div class="timeline-middle badge badge-success"></div>
+            <div class="timeline-end text-sm text-gray-500">Due: 14 Sep</div>
+          </li>
+          <li>
+            <div class="timeline-start timeline-box">Onboard 10 new hires</div>
+            <div class="timeline-middle badge badge-secondary"></div>
+            <div class="timeline-end text-sm text-gray-500">Due: 1 Oct</div>
+          </li>
+        </ul>
+      </div>
+      <!-- KPIs -->
+      <div class="bg-white rounded-xl shadow p-6">
+        <h3 class="font-bold text-lg mb-3">Key Performance Indicators (KPIs)</h3>
+        <div class="space-y-3">
+          <div class="flex justify-between items-center">
+            <span>Sales Target Q3</span>
+            <progress class="progress progress-success w-32" value="85" max="100"></progress>
+            <span class="font-semibold">85%</span>
+          </div>
+          <div class="flex justify-between items-center">
+            <span>Customer Satisfaction</span>
+            <progress class="progress progress-info w-32" value="90" max="100"></progress>
+            <span class="font-semibold">90%</span>
+          </div>
+          <div class="flex justify-between items-center">
+            <span>Task Completion</span>
+            <progress class="progress progress-warning w-32" value="72" max="100"></progress>
+            <span class="font-semibold">72%</span>
+          </div>
+        </div>
+      </div>
+      <!-- Latest Evaluations -->
+      <div class="bg-white rounded-xl shadow p-6">
+        <h3 class="font-bold text-lg mb-3">Latest Evaluations</h3>
+        <ul class="space-y-2">
+          <li class="flex justify-between">
+            <span>Leadership</span>
+            <span class="badge badge-success">Excellent</span>
+          </li>
+          <li class="flex justify-between">
+            <span>Attendance</span>
+            <span class="badge badge-warning">Good</span>
+          </li>
+          <li class="flex justify-between">
+            <span>Teamwork</span>
+            <span class="badge badge-error">Needs Improvement</span>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

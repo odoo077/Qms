@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% load tailwind_tags %}
+{% block title %}Tailwind Test | Qteam{% endblock %}
+
+{% block content %}
+<div class="flex flex-col items-center justify-center min-h-[70vh]">
+    <div class="max-w-md w-full bg-white rounded-xl shadow-md p-8 space-y-6">
+        <h1 class="text-3xl font-bold text-blue-700 text-center">Tailwind CSS Test</h1>
+        <p class="text-gray-600 text-center">If you see colors and spacing, Tailwind is working!</p>
+        <button class="btn btn-primary w-full">daisyUI Button (if enabled)</button>
+        <button class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded w-full mt-4">
+            Pure Tailwind Button
+        </button>
+        <input class="input input-bordered w-full mt-4" placeholder="daisyUI Input (if enabled)">
+        <input class="border border-gray-300 rounded p-2 w-full mt-2" placeholder="Pure Tailwind Input">
+    </div>
+</div>
+{% endblock %}
