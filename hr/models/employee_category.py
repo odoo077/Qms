@@ -1,0 +1,16 @@
+from django.db import models
+from . import TimeStamped, UserStamped
+
+
+class EmployeeCategory(TimeStamped, UserStamped, models.Model):
+    """
+    Odoo-like hr.employee.category (tags).
+    """
+    name = models.CharField(max_length=128, unique=True)
+    color = models.PositiveSmallIntegerField(default=1)
+
+    class Meta:
+        db_table = "hr_employee_category"
+
+    def __str__(self):
+        return self.name

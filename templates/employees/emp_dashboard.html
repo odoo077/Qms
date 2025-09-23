@@ -1,0 +1,531 @@
+<!doctype html>
+<html lang="en" data-theme="corporate">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Employee Dashboard • Tailwind + DaisyUI</title>
+  <!-- DaisyUI (includes Tailwind CSS in this prebuilt file for quick start). For production, wire Tailwind+plugin in your build. -->
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.10/dist/full.min.css" rel="stylesheet" />
+  <!-- Icons -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/tabler-icons.min.css" />
+  <!-- Charts (optional demo) -->
+  <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <style>
+    /* Smooth scroll + sidebar collapse UX */
+    html { scroll-behavior: smooth; }
+    .sidebar-collapsed .sidebar-label { display: none; }
+    .sidebar-collapsed .menu :where(li>details>summary, li>a) { justify-content: center; }
+    .sidebar-collapsed .menu :where(li>details>summary, li>a) .ti { margin-inline: 0; }
+    .sidebar-collapsed .menu .menu-title { display: none; }
+    .glass-card { backdrop-filter: saturate(180%) blur(8px); background-color: hsl(var(--b1) / 0.6); }
+  </style>
+</head>
+<body class="min-h-screen">
+  <!-- Drawer Layout -->
+  <div class="drawer lg:drawer-open">
+    <input id="main-drawer" type="checkbox" class="drawer-toggle" />
+
+    <!-- Main Content -->
+    <div class="drawer-content flex flex-col">
+      <!-- Topbar -->
+      <div class="navbar sticky top-0 z-40 glass-card border-b border-base-200">
+        <div class="flex-none lg:hidden">
+          <label for="main-drawer" class="btn btn-ghost btn-square">
+            <i class="ti ti-menu-2 text-xl"></i>
+          </label>
+        </div>
+        <div class="flex-1">
+          <a class="btn btn-ghost text-lg font-bold">
+            <i class="ti ti-briefcase me-2"></i>
+            HR Dashboard
+          </a>
+        </div>
+        <div class="hidden md:flex items-center gap-2 max-w-xl w-full">
+          <label class="input input-bordered flex items-center gap-2 w-full">
+            <i class="ti ti-search"></i>
+            <input id="global-search" type="text" class="grow" placeholder="Search employees, teams, tickets…" />
+            <kbd class="kbd kbd-sm">⌘</kbd><kbd class="kbd kbd-sm">K</kbd>
+          </label>
+        </div>
+        <div class="flex-none">
+          <div class="join hidden sm:inline-flex me-2">
+            <a class="btn btn-outline join-item" href="#" id="btn-quick-add"><i class="ti ti-plus"></i><span class="hidden md:inline ms-1">Quick Add</span></a>
+            <a class="btn btn-outline join-item" href="#" id="btn-export"><i class="ti ti-download"></i><span class="hidden md:inline ms-1">Export</span></a>
+          </div>
+          <button class="btn btn-ghost btn-square" id="btn-notify" aria-label="Notifications">
+            <div class="indicator">
+              <i class="ti ti-bell text-xl"></i>
+              <span class="indicator-item badge badge-error text-xs">3</span>
+            </div>
+          </button>
+          <div class="dropdown dropdown-end">
+            <div tabindex="0" role="button" class="btn btn-ghost">
+              <i class="ti ti-adjustments"></i>
+              <span class="hidden md:inline">Theme</span>
+              <i class="ti ti-chevron-down hidden md:inline"></i>
+            </div>
+            <ul tabindex="0" class="dropdown-content z-[50] menu p-2 shadow bg-base-100 rounded-box w-52">
+              <li><input type="radio" name="theme-dropdown" class="theme-controller btn btn-sm btn-block" aria-label="Corporate" value="corporate" /></li>
+              <li><input type="radio" name="theme-dropdown" class="theme-controller btn btn-sm btn-block" aria-label="Business" value="business" /></li>
+              <li><input type="radio" name="theme-dropdown" class="theme-controller btn btn-sm btn-block" aria-label="Emerald" value="emerald" /></li>
+              <li><input type="radio" name="theme-dropdown" class="theme-controller btn btn-sm btn-block" aria-label="Light" value="light" /></li>
+              <li><input type="radio" name="theme-dropdown" class="theme-controller btn btn-sm btn-block" aria-label="Dark" value="dark" /></li>
+            </ul>
+          </div>
+          <div class="dropdown dropdown-end">
+            <div tabindex="0" role="button" class="btn btn-ghost btn-circle avatar">
+              <div class="w-9 rounded-full">
+                <img alt="User avatar" src="https://i.pravatar.cc/100?img=12" />
+              </div>
+            </div>
+            <ul tabindex="0" class="mt-3 z-[50] p-2 shadow menu menu-sm dropdown-content bg-base-100 rounded-box w-56">
+              <li><a class="justify-between">Profile <span class="badge">Admin</span></a></li>
+              <li><a>Settings</a></li>
+              <li><a>Logout</a></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- Content Area -->
+      <main class="p-4 md:p-6 lg:p-8 space-y-6">
+        <!-- Hero / Filters Row -->
+        <section class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+          <div class="lg:col-span-8">
+            <div class="card bg-base-100 shadow-xl">
+              <div class="card-body">
+                <div class="flex items-start justify-between gap-4">
+                  <div>
+                    <h1 class="card-title text-2xl">Good day, <span class="font-extrabold">HR Team</span> 👋</h1>
+                    <p class="opacity-70">Track headcount, attendance, performance, and more — all in one place.</p>
+                  </div>
+                  <button id="btn-collapse-sidebar" class="btn btn-ghost" aria-label="Collapse sidebar">
+                    <i class="ti ti-layout-sidebar-right-expand"></i>
+                  </button>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mt-2">
+                  <!-- KPI Cards -->
+                  <div class="stat rounded-box bg-base-200">
+                    <div class="stat-figure text-secondary"><i class="ti ti-users text-2xl"></i></div>
+                    <div class="stat-title">Headcount</div>
+                    <div class="stat-value">123</div>
+                    <div class="stat-desc">+5 this month</div>
+                  </div>
+                  <div class="stat rounded-box bg-base-200">
+                    <div class="stat-figure text-secondary"><i class="ti ti-id-badge text-2xl"></i></div>
+                    <div class="stat-title">Active Today</div>
+                    <div class="stat-value">108</div>
+                    <div class="stat-desc">92% attendance</div>
+                  </div>
+                  <div class="stat rounded-box bg-base-200">
+                    <div class="stat-figure text-secondary"><i class="ti ti-clock-exclamation text-2xl"></i></div>
+                    <div class="stat-title">Late Arrivals</div>
+                    <div class="stat-value">7</div>
+                    <div class="stat-desc">-2 vs yesterday</div>
+                  </div>
+                  <div class="stat rounded-box bg-base-200">
+                    <div class="stat-figure text-secondary"><i class="ti ti-beach text-2xl"></i></div>
+                    <div class="stat-title">PTO Today</div>
+                    <div class="stat-value">4</div>
+                    <div class="stat-desc">12 upcoming</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="lg:col-span-4">
+            <div class="card bg-base-100 shadow-xl">
+              <div class="card-body">
+                <h2 class="card-title">Quick Filters</h2>
+                <div class="grid grid-cols-2 gap-3">
+                  <select class="select select-bordered w-full">
+                    <option disabled selected>Company</option>
+                    <option>Sumer Land</option>
+                    <option>Afaq Al Fikr</option>
+                  </select>
+                  <select class="select select-bordered w-full">
+                    <option disabled selected>Department</option>
+                    <option>Quality</option>
+                    <option>ERP/BSS</option>
+                    <option>Sales</option>
+                  </select>
+                  <select class="select select-bordered w-full">
+                    <option disabled selected>Work Shift</option>
+                    <option>08:00–16:00</option>
+                    <option>09:00–17:00</option>
+                  </select>
+                  <select class="select select-bordered w-full">
+                    <option disabled selected>Status</option>
+                    <option>Active</option>
+                    <option>On Leave</option>
+                    <option>Inactive</option>
+                  </select>
+                </div>
+                <div class="form-control mt-3">
+                  <label class="label"><span class="label-text">Date range</span></label>
+                  <div class="join w-full">
+                    <input type="date" class="input input-bordered join-item w-full" />
+                    <input type="date" class="input input-bordered join-item w-full" />
+                    <button class="btn btn-primary join-item">Apply</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Analytics Row -->
+        <section class="grid grid-cols-1 2xl:grid-cols-3 gap-4">
+          <div class="card bg-base-100 shadow-xl 2xl:col-span-2">
+            <div class="card-body">
+              <div class="flex items-center justify-between">
+                <h2 class="card-title">Attendance Trend</h2>
+                <div class="join">
+                  <button class="btn btn-sm join-item">W</button>
+                  <button class="btn btn-sm join-item btn-active">M</button>
+                  <button class="btn btn-sm join-item">Q</button>
+                </div>
+              </div>
+              <canvas id="chartAttendance" height="120"></canvas>
+            </div>
+          </div>
+          <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+              <h2 class="card-title">Utilization</h2>
+              <div class="grid grid-cols-3 gap-3 text-center">
+                <div>
+                  <div class="radial-progress text-primary" style="--value:95;" role="progressbar">95%</div>
+                  <p class="mt-2 text-sm opacity-70">Quality</p>
+                </div>
+                <div>
+                  <div class="radial-progress text-secondary" style="--value:88;" role="progressbar">88%</div>
+                  <p class="mt-2 text-sm opacity-70">ERP/BSS</p>
+                </div>
+                <div>
+                  <div class="radial-progress text-accent" style="--value:76;" role="progressbar">76%</div>
+                  <p class="mt-2 text-sm opacity-70">Support</p>
+                </div>
+              </div>
+              <div class="mt-4 space-y-2">
+                <div class="flex items-center justify-between text-sm"><span>Target</span><progress class="progress progress-primary w-40" value="90" max="100"></progress><span>90%</span></div>
+                <div class="flex items-center justify-between text-sm"><span>SLA</span><progress class="progress progress-success w-40" value="96" max="100"></progress><span>96%</span></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Tables & Lists -->
+        <section class="grid grid-cols-1 xl:grid-cols-3 gap-4">
+          <div class="xl:col-span-2 card bg-base-100 shadow-xl">
+            <div class="card-body">
+              <div class="flex items-center justify-between">
+                <h2 class="card-title">Today’s Attendance</h2>
+                <div class="join">
+                  <button class="btn btn-sm join-item">Export CSV</button>
+                  <button class="btn btn-sm join-item">View all</button>
+                </div>
+              </div>
+              <div class="overflow-x-auto">
+                <table class="table">
+                  <thead>
+                    <tr>
+                      <th>Employee</th>
+                      <th>Dept</th>
+                      <th>Check-in</th>
+                      <th>Status</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>
+                        <div class="flex items-center gap-3">
+                          <div class="avatar">
+                            <div class="mask mask-squircle w-10 h-10">
+                              <img src="https://i.pravatar.cc/100?img=5" alt="Avatar" />
+                            </div>
+                          </div>
+                          <div>
+                            <div class="font-bold">Hussein Kareem</div>
+                            <div class="text-sm opacity-50">Senior QA</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td>Quality</td>
+                      <td>08:04</td>
+                      <td><span class="badge badge-warning">Late</span></td>
+                      <td>
+                        <div class="join">
+                          <button class="btn btn-xs join-item">Profile</button>
+                          <button class="btn btn-xs btn-outline join-item">Ping</button>
+                        </div>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>
+                        <div class="flex items-center gap-3">
+                          <div class="avatar"><div class="mask mask-squircle w-10 h-10"><img src="https://i.pravatar.cc/100?img=8" alt="Avatar" /></div></div>
+                          <div><div class="font-bold">Zainab Ali</div><div class="text-sm opacity-50">ERP Dev</div></div>
+                        </div>
+                      </td>
+                      <td>ERP/BSS</td>
+                      <td>07:58</td>
+                      <td><span class="badge badge-success">On Time</span></td>
+                      <td>
+                        <div class="join">
+                          <button class="btn btn-xs join-item">Profile</button>
+                          <button class="btn btn-xs btn-outline join-item">Ping</button>
+                        </div>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td>
+                        <div class="flex items-center gap-3">
+                          <div class="avatar"><div class="mask mask-squircle w-10 h-10"><img src="https://i.pravatar.cc/100?img=22" alt="Avatar" /></div></div>
+                          <div><div class="font-bold">Ahmed J.</div><div class="text-sm opacity-50">Section Head</div></div>
+                        </div>
+                      </td>
+                      <td>Quality</td>
+                      <td>08:00</td>
+                      <td><span class="badge">Present</span></td>
+                      <td>
+                        <div class="join">
+                          <button class="btn btn-xs join-item">Profile</button>
+                          <button class="btn btn-xs btn-outline join-item">Ping</button>
+                        </div>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+              <h2 class="card-title">Open Items</h2>
+              <div class="tabs tabs-lifted">
+                <a class="tab tab-active">Leaves</a>
+                <a class="tab">Tickets</a>
+                <a class="tab">Assets</a>
+              </div>
+              <div class="mt-3 space-y-3">
+                <!-- Leaves -->
+                <div class="alert">
+                  <i class="ti ti-beach me-2"></i>
+                  <div>
+                    <h3 class="font-bold">Annual Leave • 3 days</h3>
+                    <div class="text-xs opacity-70">Ali Salman • 24–26 Sep • Pending Approval</div>
+                  </div>
+                  <div class="ms-auto join">
+                    <button class="btn btn-sm join-item">Approve</button>
+                    <button class="btn btn-sm btn-outline join-item">Reject</button>
+                  </div>
+                </div>
+                <div class="alert">
+                  <i class="ti ti-beach me-2"></i>
+                  <div>
+                    <h3 class="font-bold">Sick Leave • Today</h3>
+                    <div class="text-xs opacity-70">Mona F. • Medical</div>
+                  </div>
+                  <div class="ms-auto join">
+                    <button class="btn btn-sm join-item">Approve</button>
+                    <button class="btn btn-sm btn-outline join-item">Reject</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Performance & Activity -->
+        <section class="grid grid-cols-1 xl:grid-cols-3 gap-4">
+          <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+              <div class="flex items-center justify-between">
+                <h2 class="card-title">Performance Snapshot</h2>
+                <button class="btn btn-ghost btn-sm"><i class="ti ti-dots"></i></button>
+              </div>
+              <canvas id="chartPerformance" height="160"></canvas>
+              <div class="divider"></div>
+              <ul class="menu menu-sm bg-base-200 rounded-box">
+                <li><a><span>Objectives on track</span> <span class="badge badge-success">86%</span></a></li>
+                <li><a><span>Tasks overdue</span> <span class="badge badge-error">12</span></a></li>
+                <li><a><span>Avg. evaluation score</span> <span class="badge">4.2</span></a></li>
+              </ul>
+            </div>
+          </div>
+          <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+              <h2 class="card-title">Recent Activity</h2>
+              <ul class="timeline timeline-vertical">
+                <li>
+                  <div class="timeline-start timeline-box">New ticket • Laptop issue</div>
+                  <div class="timeline-middle"><i class="ti ti-ticket"></i></div>
+                  <hr/>
+                </li>
+                <li>
+                  <hr/>
+                  <div class="timeline-middle"><i class="ti ti-file-check"></i></div>
+                  <div class="timeline-end timeline-box">Leave approved • Zainab</div>
+                  <hr/>
+                </li>
+                <li>
+                  <hr/>
+                  <div class="timeline-middle"><i class="ti ti-checklist"></i></div>
+                  <div class="timeline-end timeline-box">Objective updated • QA</div>
+                </li>
+              </ul>
+            </div>
+          </div>
+          <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+              <h2 class="card-title">My Tasks</h2>
+              <div class="grid grid-cols-3 gap-2">
+                <div>
+                  <h3 class="font-semibold mb-2">To Do</h3>
+                  <div class="space-y-2">
+                    <div class="card bg-base-200"><div class="card-body p-3 text-sm">Review attendance exceptions</div></div>
+                    <div class="card bg-base-200"><div class="card-body p-3 text-sm">Publish policy update</div></div>
+                  </div>
+                </div>
+                <div>
+                  <h3 class="font-semibold mb-2">In Progress</h3>
+                  <div class="space-y-2">
+                    <div class="card bg-base-200"><div class="card-body p-3 text-sm">Quarterly evaluations</div></div>
+                  </div>
+                </div>
+                <div>
+                  <h3 class="font-semibold mb-2">Done</h3>
+                  <div class="space-y-2">
+                    <div class="card bg-base-200"><div class="card-body p-3 text-sm">Onboard 2 hires</div></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Footer -->
+        <footer class="flex items-center justify-between text-xs opacity-70 py-6">
+          <div>© <span id="year"></span> Your Company • HR Suite</div>
+          <div class="flex items-center gap-3">
+            <a class="link link-hover">Docs</a>
+            <a class="link link-hover">Changelog</a>
+            <a class="link link-hover">Support</a>
+          </div>
+        </footer>
+      </main>
+    </div>
+
+    <!-- Sidebar -->
+    <div id="sidebar" class="drawer-side transition-all duration-200 w-72 lg:w-80">
+      <label for="main-drawer" aria-label="close sidebar" class="drawer-overlay"></label>
+      <aside class="bg-base-100 border-r border-base-200 min-h-full">
+        <div class="p-4 flex items-center justify-between">
+          <a href="#" class="btn btn-ghost text-xl font-extrabold"><i class="ti ti-hexagon-letter-h me-2"></i>HR Suite</a>
+          <button id="btn-collapse-sidebar-2" class="btn btn-ghost btn-square" aria-label="Collapse sidebar">
+            <i class="ti ti-layout-sidebar-left-collapse"></i>
+          </button>
+        </div>
+        <div class="px-3">
+          <div class="form-control mb-3">
+            <label class="input input-bordered flex items-center gap-2"><i class="ti ti-search"></i><input type="text" placeholder="Quick search…" class="grow" /></label>
+          </div>
+          <ul class="menu">
+            <li class="menu-title">Overview</li>
+            <li><a class="active"><i class="ti ti-dashboard"></i><span class="sidebar-label">Dashboard</span></a></li>
+            <li><a><i class="ti ti-users"></i><span class="sidebar-label">Employees</span></a></li>
+            <li><a><i class="ti ti-calendar-stats"></i><span class="sidebar-label">Attendance</span></a></li>
+            <li><a><i class="ti ti-plane"></i><span class="sidebar-label">Leaves</span></a></li>
+            <li><a><i class="ti ti-clipboard-text"></i><span class="sidebar-label">Evaluations</span></a></li>
+            <li><a><i class="ti ti-briefcase"></i><span class="sidebar-label">Assets</span></a></li>
+            <li><a><i class="ti ti-ticket"></i><span class="sidebar-label">Helpdesk</span></a></li>
+            <li class="menu-title mt-2">Admin</li>
+            <li><a><i class="ti ti-device-floppy"></i><span class="sidebar-label">Payroll</span></a></li>
+            <li><a><i class="ti ti-report-analytics"></i><span class="sidebar-label">Reports</span></a></li>
+            <li><a><i class="ti ti-settings"></i><span class="sidebar-label">Settings</span></a></li>
+          </ul>
+          <div class="mt-4 p-4 bg-base-200 rounded-box">
+            <div class="flex items-center gap-2 mb-2"><i class="ti ti-sparkles"></i><h3 class="font-semibold">Tips</h3></div>
+            <p class="text-sm opacity-70">Press <kbd class="kbd kbd-xs">⌘</kbd><kbd class="kbd kbd-xs">K</kbd> to open the command palette.</p>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <!-- Command Palette Modal -->
+  <dialog id="cmdk" class="modal">
+    <div class="modal-box max-w-2xl">
+      <form method="dialog"><button class="btn btn-sm btn-circle btn-ghost absolute right-2 top-2">✕</button></form>
+      <h3 class="font-bold text-lg mb-3">Command Palette</h3>
+      <label class="input input-bordered flex items-center gap-2 w-full mb-3"><i class="ti ti-search"></i><input type="text" placeholder="Type a command or search…" class="grow" id="cmdk-input" /></label>
+      <div class="grid grid-cols-2 gap-3">
+        <button class="btn btn-outline justify-start"><i class="ti ti-user-plus me-2"></i>Add Employee</button>
+        <button class="btn btn-outline justify-start"><i class="ti ti-plane-departure me-2"></i>Create Leave</button>
+        <button class="btn btn-outline justify-start"><i class="ti ti-ticket me-2"></i>New Ticket</button>
+        <button class="btn btn-outline justify-start"><i class="ti ti-file-export me-2"></i>Export Report</button>
+      </div>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>close</button></form>
+  </dialog>
+
+  <!-- Scripts -->
+  <script>
+    // Persist theme
+    (function() {
+      const saved = localStorage.getItem('theme');
+      if (saved) document.documentElement.setAttribute('data-theme', saved);
+      document.querySelectorAll('.theme-controller').forEach(ctrl => {
+        ctrl.addEventListener('click', () => {
+          const t = ctrl.value; localStorage.setItem('theme', t); document.documentElement.setAttribute('data-theme', t);
+        });
+      });
+      document.getElementById('year').textContent = new Date().getFullYear();
+    })();
+
+    // Command palette (Ctrl/Cmd + K)
+    (function(){
+      const modal = document.getElementById('cmdk');
+      const input = document.getElementById('cmdk-input');
+      function open(){ modal.showModal(); setTimeout(()=>input && input.focus(), 10); }
+      function close(){ modal.close(); }
+      document.getElementById('global-search').addEventListener('focus', ()=>{});
+      document.addEventListener('keydown', (e)=>{
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); open(); }
+        if (e.key === 'Escape') close();
+      });
+    })();
+
+    // Sidebar collapse (desktop)
+    (function(){
+      const sidebar = document.getElementById('sidebar');
+      const toggleBtns = [document.getElementById('btn-collapse-sidebar'), document.getElementById('btn-collapse-sidebar-2')];
+      let collapsed = localStorage.getItem('sidebarCollapsed') === '1';
+      apply();
+      toggleBtns.forEach(b=> b && b.addEventListener('click', ()=>{ collapsed = !collapsed; localStorage.setItem('sidebarCollapsed', collapsed ? '1':'0'); apply(); }));
+      function apply(){
+        if (!sidebar) return;
+        const base = 'transition-all duration-200';
+        if (collapsed) {
+          sidebar.classList.add('sidebar-collapsed');
+          sidebar.style.width = '5rem';
+        } else {
+          sidebar.classList.remove('sidebar-collapsed');
+          sidebar.style.width = '';
+        }
+      }
+    })();
+
+    // Charts demo (replace with real data)
+    window.addEventListener('DOMContentLoaded', ()=>{
+      const a = document.getElementById('chartAttendance');
+      if (a && window.Chart) new Chart(a, { type: 'line', data: { labels: ['W1','W2','W3','W4'], datasets: [{ label: 'Present %', data: [92, 95, 90, 93], tension: .35, fill: false }] }, options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { min: 70, max: 100, ticks: { callback: v => v + '%' }}} }});
+      const p = document.getElementById('chartPerformance');
+      if (p && window.Chart) new Chart(p, { type: 'bar', data: { labels: ['Objectives','Tasks','Skills','Peer Review'], datasets: [{ label: 'Score', data: [86, 72, 80, 90] }] }, options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { min:0, max:100 } } }});
+    });
+  </script>
+</body>
+</html>
