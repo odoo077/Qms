@@ -5,6 +5,7 @@ from .mixins import TimeStamped
 from hr.models import Employee
 from .resume_line_type import HrResumeLineType
 
+
 class HrResumeLine(TimeStamped):
     employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name="resume_lines", db_index=True)
     # avatar_128/company/department can be derived via employee relations (display-time), as in Odoo relateds. :contentReference[oaicite:28]{index=28}
