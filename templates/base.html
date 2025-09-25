@@ -57,7 +57,7 @@
             {% comment %}
             <!--                {% if user.is_authenticated %}-->
             {% endcomment %}
-            <span class="text-gray-500 mr-2 hidden md:inline">Welcome, {{ user.first_name|default:user.username }}!</span>
+            <span class="text-gray-500 mr-2 hidden md:inline">Welcome, {{ user.name|default:user.email }}!</span>
             <div class="dropdown dropdown-end">
                 <label tabindex="0" class="btn btn-ghost btn-circle avatar">
                     <div class="w-9 rounded-full">

@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     'hr',
     'skills',
     'assets',
+    'performance',
 
 ]
 
@@ -128,7 +129,15 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
 
+# static
 STATIC_URL = 'static/'
+# folder where collectstatic will place all files (for DEBUG=False or production)
+STATIC_ROOT = BASE_DIR / "staticfiles"
+
+# optional: where your own project-level static sources live during dev
+STATICFILES_DIRS = [
+    BASE_DIR / "static",   # e.g. static/assets/kvjson/kvjson.js
+]
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field

@@ -1,0 +1,8 @@
+.kvjson-widget { margin-top: 6px; }
+.kvjson-table { width:100%; border-collapse: collapse; margin-bottom: 8px; }
+.kvjson-table th, .kvjson-table td { border-bottom: 1px solid #2A2A2A; padding: 6px; }
+.kvjson-row-remove { cursor: pointer; }
+.kvjson-add { padding: 6px 10px; }
+.kvjson-hint { display:block; color:#888; margin-top:6px; }
+.kvjson-input { width:100%; }
+.kvjson-key { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }

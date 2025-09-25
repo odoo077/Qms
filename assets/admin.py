@@ -2,6 +2,7 @@
 from django.contrib import admin
 from django.utils import timezone
 from .models import AssetType, AssetModel, AssetItem, EmployeeAsset
+from .forms import AssetModelAdminForm
 
 
 # ------------------------
@@ -38,6 +39,7 @@ class AssetTypeAdmin(admin.ModelAdmin):
 
 @admin.register(AssetModel)
 class AssetModelAdmin(admin.ModelAdmin):
+    form = AssetModelAdminForm
     list_display = ("name", "type", "manufacturer", "sku", "active")
     list_filter = ("type", "active")
     search_fields = ("name", "manufacturer", "sku")
