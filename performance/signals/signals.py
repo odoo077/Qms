@@ -10,21 +10,34 @@ from performance.models import (
 # Participants: rebuild when assignments change
 # -----------------------------
 
+from typing import Optional
+
+def _get_objective_safe(obj_id) -> Optional[Objective]:
+    if not obj_id:
+        return None
+    try:
+        return Objective.objects.only("id").get(pk=obj_id)
+    except Objective.DoesNotExist:
+        return None
+
+# -----------------------------
+# Participants: rebuild when assignments change
+# -----------------------------
+
 
 @receiver(post_save, sender=ObjectiveDepartmentAssignment)
 @receiver(post_delete, sender=ObjectiveDepartmentAssignment)
 def rebuild_participants_on_dept_assignment_change(sender, instance, **kwargs):
-    obj = instance.objective
-    # Safe guard: only for persisted objectives
-    if obj and obj.pk:
+    obj = _get_objective_safe(getattr(instance, "objective_id", None))
+    if obj:
         obj._rebuild_participants()
 
 
 @receiver(post_save, sender=ObjectiveEmployeeAssignment)
 @receiver(post_delete, sender=ObjectiveEmployeeAssignment)
 def rebuild_participants_on_emp_assignment_change(sender, instance, **kwargs):
-    obj = instance.objective
-    if obj and obj.pk:
+    obj = _get_objective_safe(getattr(instance, "objective_id", None))
+    if obj:
         obj._rebuild_participants()
 
 # -----------------------------
@@ -40,12 +53,18 @@ def _recompute_objective(obj: Objective):
 @receiver(post_save, sender=KPI)
 @receiver(post_delete, sender=KPI)
 def recompute_objective_on_kpi_change(sender, instance, **kwargs):
-    if instance.objective_id:
-        _recompute_objective(instance.objective)
+    obj = _get_objective_safe(getattr(instance, "objective_id", None))
+    if obj:
+        _recompute_objective(obj)
 
 
 @receiver(post_save, sender=Task)
 @receiver(post_delete, sender=Task)
 def recompute_objective_on_task_change(sender, instance, **kwargs):
-    if instance.objective_id:
-        _recompute_objective(instance.objective)
+    obj = _get_objective_safe(getattr(instance, "objective_id", None))
+    if obj:
+        _recompute_objective(obj)
+
+# Note: We fetch Objective by id inside signals instead of touching instance.objective directly
+# because post_delete handlers may run after the related Objective has been removed (cascade),
+# and dereferencing `instance.objective` could raise DoesNotExist. Using the id avoids that race.

@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     'skills',
     'assets',
     'performance',
+    'payroll',
 
 ]
 

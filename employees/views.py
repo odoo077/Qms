@@ -14,6 +14,7 @@ def home(request):
 def uploaddata(request):
     return render(request, 'employees/uploaddata.html')
 
+
 def EmployeeProfile(request):
     return render(request, 'employees/e_profile.html')
 
