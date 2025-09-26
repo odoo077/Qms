@@ -1,0 +1,127 @@
+{% extends "base/users/auth_base.html" %}
+{% load widget_tweaks %}
+{% block title %}Profile{% endblock %}
+
+{% block content %}
+<div class="min-h-[70vh] grid place-items-center px-4 py-10">
+  <div class="w-full max-w-3xl">
+
+    <!-- Profile Card -->
+    <div class="card bg-base-100/80 backdrop-blur shadow-2xl">
+      <div class="card-body p-6 sm:p-8">
+
+        <!-- Header -->
+        <div class="flex flex-col sm:flex-row sm:items-center gap-5">
+          <!-- Avatar -->
+          <div class="avatar placeholder">
+            <div class="w-20 sm:w-24 rounded-full bg-primary/10 text-primary">
+              <!-- أيقونة افتراضية -->
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M5.121 17.804A9 9 0 1118.88 17.8M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+              </svg>
+            </div>
+          </div>
+
+          <!-- Name + badges -->
+          <div class="flex-1">
+            <h1 class="text-2xl sm:text-3xl font-bold leading-tight">
+              {{ request.user.get_full_name|default:request.user.username }}
+            </h1>
+
+            <div class="mt-2 flex flex-wrap items-center gap-2">
+              {% if request.user.company %}
+                <div class="badge badge-ghost">{{ request.user.company }}</div>
+              {% else %}
+                <div class="badge badge-ghost">No company</div>
+              {% endif %}
+
+              {% if request.user.is_active %}
+                <div class="badge badge-success gap-1">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.2l-3.5-3.5 1.4-1.4L9 13.4l7.1-7.1 1.4 1.4z"/></svg>
+                  Active
+                </div>
+              {% else %}
+                <div class="badge badge-warning gap-1">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-width="2" d="M12 9v4m0 4h.01M10.29 3.86l-8 14A2 2 0 004 21h16a2 2 0 001.71-3.14l-8-14a2 2 0 00-3.42 0z"/></svg>
+                  Inactive
+                </div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+
+        <!-- Info -->
+        <div class="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div class="rounded-xl bg-base-200/60 p-4">
+            <p class="text-xs opacity-60">Email</p>
+            <div class="mt-1 flex items-center gap-2">
+              <span class="font-medium break-all" id="user-email">{{ request.user.email }}</span>
+              <button type="button" class="btn btn-ghost btn-xs" data-copy="#user-email">
+                Copy
+              </button>
+            </div>
+          </div>
+
+          <div class="rounded-xl bg-base-200/60 p-4">
+            <p class="text-xs opacity-60">Username</p>
+            <p class="mt-1 font-medium">{{ request.user.username }}</p>
+          </div>
+
+          <div class="rounded-xl bg-base-200/60 p-4">
+            <p class="text-xs opacity-60">Name</p>
+            <p class="mt-1 font-medium">{{ request.user.get_full_name|default:"—" }}</p>
+          </div>
+
+          <div class="rounded-xl bg-base-200/60 p-4">
+            <p class="text-xs opacity-60">Default company</p>
+            <p class="mt-1 font-medium">{{ request.user.company|default:"—" }}</p>
+          </div>
+
+          <div class="rounded-xl bg-base-200/60 p-4">
+            <p class="text-xs opacity-60">Joined</p>
+            <p class="mt-1 font-medium">{{ request.user.date_joined|date:"M j, Y" }}</p>
+          </div>
+
+          <div class="rounded-xl bg-base-200/60 p-4">
+            <p class="text-xs opacity-60">Last login</p>
+            <p class="mt-1 font-medium">{{ request.user.last_login|date:"M j, Y, g:i a"|default:"—" }}</p>
+          </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="mt-6 flex flex-col sm:flex-row gap-2">
+          <a href="{% url 'base:edit_profile' %}" class="btn btn-primary grow sm:grow-0">Edit profile</a>
+          <a href="{% url 'base:logout' %}" class="btn btn-ghost">Sign out</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Secondary links -->
+    <div class="mt-4 text-center text-xs text-base-content/60">
+      Need to change your password?
+      <a href="{% url 'base:password_change' %}" class="link link-hover">Update password</a>.
+    </div>
+
+  </div>
+</div>
+
+<!-- Small UX helpers -->
+<script>
+  (function () {
+    // copy to clipboard
+    document.addEventListener('click', function (e) {
+      var btn = e.target.closest('[data-copy]');
+      if (!btn) return;
+      var target = document.querySelector(btn.getAttribute('data-copy'));
+      if (!target) return;
+      var text = target.textContent.trim();
+      navigator.clipboard.writeText(text).then(function () {
+        var original = btn.textContent;
+        btn.textContent = 'Copied!';
+        setTimeout(function () { btn.textContent = original; }, 1200);
+      });
+    });
+  })();
+</script>
+{% endblock %}

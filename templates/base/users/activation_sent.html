@@ -1,0 +1,61 @@
+{% extends "base/users/auth_base.html" %}
+{% block title %}Activation email sent{% endblock %}
+
+{% block content %}
+<div class="min-h-[70vh] grid place-items-center px-4 py-10">
+  <div class="w-full max-w-lg">
+    <div class="card bg-base-100/80 backdrop-blur shadow-2xl">
+      <div class="card-body items-center text-center p-8">
+
+        <!-- Icon -->
+        <div class="rounded-full bg-success/10 text-success w-16 h-16 grid place-items-center mb-3">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M9 12l2 2 4-4M12 22C6.477 22 2 17.523 2 12S6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z"/>
+          </svg>
+        </div>
+
+        <h1 class="text-2xl font-bold">Check your inbox</h1>
+        <p class="text-sm text-base-content/60 max-w-md">
+          We’ve sent an activation link to
+          <span class="font-medium text-base-content">
+            {{ email|default:"your email" }}
+          </span>.
+          Please click the link to activate your account.
+        </p>
+
+        <!-- Tips -->
+        <div class="alert alert-info mt-4 text-left">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 100 20 10 10 0 000-20z"/>
+          </svg>
+          <div>
+            <h3 class="font-semibold">Didn’t see it?</h3>
+            <ul class="list-disc list-inside text-sm text-base-content/70">
+              <li>Check your <span class="font-medium">Spam</span> or <span class="font-medium">Promotions</span> folder.</li>
+              <li>Make sure your email address is correct.</li>
+            </ul>
+          </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="w-full mt-4 space-y-2">
+          <a href="{% url 'base:resend_activation' %}" class="btn btn-primary btn-block">Resend activation email</a>
+          <div class="flex items-center justify-center gap-3 text-sm">
+            <a href="mailto:" class="link link-hover">Open email app</a>
+            <span class="opacity-40">•</span>
+            <a href="{% url 'base:login' %}" class="link link-hover">Back to sign in</a>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <p class="mt-4 text-center text-xs text-base-content/60">
+      If you still can’t find the email, contact support.
+    </p>
+  </div>
+</div>
+{% endblock %}

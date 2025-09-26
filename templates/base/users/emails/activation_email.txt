@@ -1,0 +1,10 @@
+Hi {{ user.get_full_name|default:user.email }},
+
+Please activate your account by visiting the link below:
+
+{{ activate_url }}
+
+If you didn’t sign up, you can ignore this email.
+
+Thanks,
+360 Manager Team

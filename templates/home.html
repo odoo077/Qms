@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Dashboard · 360 Manager{% endblock %}
+
+{% block content %}
+<div class="px-4 py-6 space-y-8">
+
+  <!-- Header / Context -->
+  <div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+    <div>
+      <h1 class="text-2xl font-bold text-base-content">Welcome back</h1>
+      <p class="mt-1 text-sm text-base-content/70">
+        {% if current_company %}
+          Working under <span class="font-medium text-base-content">{{ current_company.name }}</span>
+        {% else %}
+          No active company selected — choose one to scope your workspace.
+        {% endif %}
+      </p>
+    </div>
+
+    <div class="flex flex-wrap items-center gap-2">
+      <a href="{% url 'base:company_switch' %}" class="btn btn-outline btn-sm md:btn-md">Select company</a>
+      <a href="{% url 'base:partner_create' %}" class="btn btn-primary btn-sm md:btn-md">+ New partner</a>
+    </div>
+  </div>
+
+  <!-- KPI Cards -->
+  <section class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+    <article class="card bg-base-100 shadow-sm ring-1 ring-base-300">
+      <div class="card-body p-5">
+        <div class="text-sm text-base-content/70">Companies (allowed)</div>
+        <div class="mt-2 text-3xl font-semibold">{{ companies_count|default:"0" }}</div>
+        <div class="mt-3">
+          <a href="{% url 'base:company_switch' %}" class="link link-primary text-sm">Manage access</a>
+        </div>
+      </div>
+    </article>
+
+    <article class="card bg-base-100 shadow-sm ring-1 ring-base-300">
+      <div class="card-body p-5">
+        <div class="text-sm text-base-content/70">
+          Partners{% if current_company %} — {{ current_company.name }}{% endif %}
+        </div>
+        <div class="mt-2 text-3xl font-semibold">{{ partners_count|default:"0" }}</div>
+        <div class="mt-3">
+          <a href="{% url 'base:partner_list' %}" class="link link-primary text-sm">View all partners</a>
+        </div>
+      </div>
+    </article>
+
+    <article class="card bg-base-100 shadow-sm ring-1 ring-base-300">
+      <div class="card-body p-5">
+        <div class="text-sm text-base-content/70">
+          Users{% if current_company %} — {{ current_company.name }}{% endif %}
+        </div>
+        <div class="mt-2 text-3xl font-semibold">{{ users_count|default:"0" }}</div>
+        <div class="mt-3">
+          <a href="{% url 'base:profile' %}" class="link link-primary text-sm">Your profile</a>
+        </div>
+      </div>
+    </article>
+  </section>
+
+  <!-- Two columns: recent partners / recent users -->
+  <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <!-- Recent partners -->
+    <div class="card bg-base-100 shadow-sm ring-1 ring-base-300 overflow-hidden">
+      <header class="px-5 py-4 border-b border-base-300">
+        <h2 class="text-lg font-semibold">Recent partners{% if current_company %} — {{ current_company.name }}{% endif %}</h2>
+      </header>
+
+      <div class="p-5">
+        {% if recent_partners %}
+          <ul class="divide-y divide-base-300">
+            {% for p in recent_partners %}
+              <li class="py-3 flex items-center justify-between gap-3">
+                <div class="min-w-0">
+                  <div class="font-medium truncate">{{ p.display_name }}</div>
+                  <div class="text-sm text-base-content/70 truncate">
+                    {{ p.get_company_type_display }}{% if p.company %} • {{ p.company }}{% endif %}
+                  </div>
+                </div>
+                <div class="flex items-center gap-3 shrink-0">
+                  <a href="{% url 'base:partner_detail' p.id %}" class="btn btn-xs">Open</a>
+                  <a href="{% url 'base:partner_edit' p.id %}" class="btn btn-xs btn-outline">Edit</a>
+                </div>
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <div class="grid gap-2">
+            <p class="text-sm text-base-content/70">No partners yet.</p>
+            <!-- skeleton -->
+            <div class="skeleton h-4 w-2/3"></div>
+            <div class="skeleton h-4 w-1/2"></div>
+          </div>
+        {% endif %}
+      </div>
+
+      <footer class="px-5 py-3 border-t border-base-300 bg-base-200/60 text-right">
+        <a href="{% url 'base:partner_list' %}" class="link link-primary text-sm">View all</a>
+      </footer>
+    </div>
+
+    <!-- Recent users -->
+    <div class="card bg-base-100 shadow-sm ring-1 ring-base-300 overflow-hidden">
+      <header class="px-5 py-4 border-b border-base-300">
+        <h2 class="text-lg font-semibold">Recent users</h2>
+      </header>
+
+      <div class="p-5">
+        {% if recent_users %}
+          <ul class="divide-y divide-base-300">
+            {% for u in recent_users %}
+              <li class="py-3 flex items-center justify-between gap-3">
+                <div class="min-w-0">
+                  <div class="font-medium truncate">{{ u.get_full_name|default:u.email }}</div>
+                  <div class="text-sm text-base-content/70 truncate">
+                    {{ u.email }}{% if u.company %} • {{ u.company }}{% endif %}
+                  </div>
+                </div>
+                <div class="text-xs text-base-content/60 shrink-0">
+                  Joined {{ u.date_joined|date:"Y-m-d" }}
+                </div>
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <div class="grid gap-2">
+            <p class="text-sm text-base-content/70">No users yet.</p>
+            <!-- skeleton -->
+            <div class="skeleton h-4 w-2/3"></div>
+            <div class="skeleton h-4 w-1/2"></div>
+          </div>
+        {% endif %}
+      </div>
+
+      <footer class="px-5 py-3 border-t border-base-300 bg-base-200/60 text-right">
+        <a href="{% url 'base:profile' %}" class="link link-primary text-sm">Your profile</a>
+      </footer>
+    </div>
+  </section>
+
+  <!-- Allowed companies -->
+  <section class="card bg-base-100 shadow-sm ring-1 ring-base-300 overflow-hidden">
+    <header class="px-5 py-4 border-b border-base-300 flex items-center justify-between">
+      <h2 class="text-lg font-semibold">Allowed companies</h2>
+      <a href="{% url 'base:company_switch' %}" class="btn btn-sm">Manage</a>
+    </header>
+
+    <div class="p-5">
+      {% if recent_companies %}
+        <ul class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+          {% for c in recent_companies %}
+            <li class="rounded-2xl border border-base-300 p-4 flex items-center justify-between
+                       transition hover:shadow-md {% if current_company and c.id == current_company.id %}bg-primary/10{% else %}bg-base-100{% endif %}">
+              <div class="min-w-0">
+                <div class="font-medium truncate">{{ c.name }}</div>
+                <div class="text-xs text-base-content/60">{{ c.currency.code|default:"—" }}</div>
+              </div>
+
+              {% if current_company and c.id == current_company.id %}
+                <span class="badge badge-primary badge-outline">Current</span>
+              {% else %}
+                <a href="{% url 'base:company_switch' %}" class="btn btn-xs btn-outline">Switch</a>
+              {% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="text-sm text-base-content/70">No companies available for your account.</p>
+      {% endif %}
+    </div>
+  </section>
+
+</div>
+{% endblock %}

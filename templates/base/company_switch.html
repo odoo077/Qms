@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% load widget_tweaks %}
+{% block title %}Switch Company · 360 Manager{% endblock %}
+
+{% block content %}
+<div class="px-4 py-6">
+  <!-- Breadcrumbs -->
+  <nav class="text-sm breadcrumbs mb-4">
+    <ul>
+      <li><a href="{% url 'base:partner_list' %}">Home</a></li>
+      <li>Company</li>
+      <li class="font-semibold">Switch</li>
+    </ul>
+  </nav>
+
+  <div class="grid gap-4 md:grid-cols-5">
+    <!-- Form card -->
+    <div class="md:col-span-3">
+      <div class="card bg-base-100/90 shadow-2xl border border-base-300">
+        <div class="card-body p-6 sm:p-8">
+          <h1 class="text-2xl font-bold">Switch Active Company</h1>
+          <p class="text-sm text-base-content/60">
+            Choose a company to work under. Lists and forms will be automatically scoped.
+          </p>
+
+          {% if messages %}
+            <div class="mt-3 space-y-2">
+              {% for message in messages %}
+                <div class="alert {{ message.tags|default:'alert-info' }}"><span>{{ message }}</span></div>
+              {% endfor %}
+            </div>
+          {% endif %}
+
+          <form method="post" class="mt-5 space-y-4">
+            {% csrf_token %}
+            <div class="form-control">
+              <label class="label py-1"><span class="label-text">Companies</span></label>
+              {{ form.companies }}
+              {% if form.companies.errors %}
+                <p class="mt-1 text-xs text-error">{{ form.companies.errors|join:", " }}</p>
+              {% endif %}
+              <p class="mt-1 text-xs text-base-content/60">Tip: Hold Ctrl/Cmd to select multiple.</p>
+            </div>
+
+            <div class="rounded-xl bg-base-200/70 p-3 text-sm">
+              <div class="flex items-center gap-2">
+                <span>Current:</span>
+                {% if current_company %}
+                  <span class="badge badge-outline">{{ current_company.name }}</span>
+                {% else %}
+                  <span class="opacity-60">—</span>
+                {% endif %}
+              </div>
+            </div>
+
+            <div class="flex flex-col sm:flex-row gap-2">
+              <button type="submit" class="btn btn-primary">Switch</button>
+              <a href="{% url 'base:partner_list' %}" class="btn btn-ghost">Cancel</a>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Context card -->
+    <aside class="md:col-span-2">
+      <div class="card bg-base-100 border border-base-300">
+        <div class="card-body p-6">
+          <h3 class="card-title">Allowed companies</h3>
+          {% if allowed_companies %}
+            <div class="flex flex-wrap gap-2">
+              {% for c in allowed_companies %}
+                <span class="badge badge-outline">{{ c.name }}</span>
+              {% endfor %}
+            </div>
+          {% else %}
+            <p class="text-sm text-base-content/60">No companies configured for your account.</p>
+          {% endif %}
+          <div class="divider my-3"></div>
+          <a href="{% url 'base:partner_list' %}" class="btn btn-sm">Back to partners</a>
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>
+{% endblock %}

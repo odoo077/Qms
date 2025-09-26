@@ -1,0 +1,15 @@
+{% extends "base/users/auth_base.html" %}
+{% block title %}Resend activation{% endblock %}
+{% block content %}
+<h1 class="text-xl font-semibold mb-4">Resend activation email</h1>
+<form method="post" class="space-y-4">
+  {% csrf_token %}
+  <div>
+    <label class="block text-sm mb-1">Email</label>
+    <input type="email" name="email" required class="w-full rounded-md border-gray-300">
+  </div>
+  <div class="flex items-center justify-end">
+    <button type="submit" class="px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700">Send</button>
+  </div>
+</form>
+{% endblock %}

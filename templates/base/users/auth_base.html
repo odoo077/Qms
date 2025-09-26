@@ -1,0 +1,103 @@
+{% load static %}
+<!doctype html>
+<html lang="en" class="no-transitions" data-theme="{{ request.COOKIES.theme|default:'corporate' }}">
+  <head>
+    <meta charset="utf-8" />
+    <title>{% block title %}Auth{% endblock %} • 360 Manager</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link href="{% static 'css/dist/styles.css' %}" rel="stylesheet" />
+    <link rel="icon" href="{% static 'images/favicon.ico' %}" />
+    <style>
+      .no-transitions *, .no-transitions *::before, .no-transitions *::after {
+        transition: none !important; animation: none !important;
+      }
+      html[data-theme="corporate"] { background:#f3f4f6; color:#111827; }
+      html[data-theme="business"]  { background:#0b1220; color:#e5e7eb; }
+      body { min-height:100vh; }
+    </style>
+    {% block head_extra %}{% endblock %}
+  </head>
+  <body class="bg-base-200 text-base-content flex flex-col">
+    <!-- Topbar -->
+    <header class="navbar bg-base-100 shadow-sm sticky top-0 z-40">
+      <div class="container mx-auto px-4 md:px-6 w-full">
+        <div class="flex-1">
+          <a href="{% url 'base:partner_list' %}" class="font-bold text-lg">
+            <span class="text-primary">360</span><span class="text-error">Manager</span>
+          </a>
+        </div>
+        <div class="flex-none flex items-center gap-2">
+          <!-- Theme toggle -->
+          <button id="theme-toggle" class="btn btn-ghost btn-sm" title="Toggle theme">
+            <span id="theme-sun" class="hidden">☀️</span>
+            <span id="theme-moon">🌙</span>
+          </button>
+          {% block header_actions %}{% endblock %}
+        </div>
+      </div>
+    </header>
+
+    <!-- Content -->
+    <main class="flex-1">
+      <div class="container mx-auto px-4 md:px-6 py-10 max-w-md">
+        {% if messages %}
+          <div class="space-y-2 mb-4">
+            {% for message in messages %}
+              <div class="alert {% if 'error' in message.tags %}alert-error{% elif 'success' in message.tags %}alert-success{% else %}alert-info{% endif %} text-sm">
+                <span>{{ message }}</span>
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+
+        <div class="card bg-base-100 shadow-xl">
+          <div class="card-body">
+            {% block content %}{% endblock %}
+          </div>
+        </div>
+
+        <p class="mt-6 text-center text-xs opacity-70">© {% now "Y" %} 360 Manager</p>
+      </div>
+    </main>
+  </body>
+
+  <!-- Theme toggle logic (يحفظ الاختيار في Cookie + localStorage) -->
+  <script>
+    (function () {
+      const html = document.documentElement;
+      const btn  = document.getElementById("theme-toggle");
+      const sun  = document.getElementById("theme-sun");
+      const moon = document.getElementById("theme-moon");
+      const DARK = new Set(["business"]);
+
+      function setCookie(name, value, days){
+        const maxAge = days ? `; max-age=${days*24*60*60}` : "";
+        document.cookie = `${name}=${encodeURIComponent(value)}; path=/${maxAge}`;
+      }
+      function applyIcons(theme){
+        const isDark = DARK.has(theme);
+        if (isDark) { sun.classList.remove("hidden"); moon.classList.add("hidden"); }
+        else        { sun.classList.add("hidden");  moon.classList.remove("hidden"); }
+      }
+      let theme = html.getAttribute("data-theme") ||
+                  (document.cookie.match(/(?:^|; )theme=([^;]+)/)||[])[1] ||
+                  localStorage.getItem("theme") || "corporate";
+      theme = decodeURIComponent(theme);
+      html.setAttribute("data-theme", theme);
+      applyIcons(theme);
+
+      btn?.addEventListener("click", () => {
+        const now  = html.getAttribute("data-theme") || "corporate";
+        const next = (now === "business") ? "corporate" : "business";
+        html.setAttribute("data-theme", next);
+        localStorage.setItem("theme", next);
+        setCookie("theme", next, 365);
+        applyIcons(next);
+      });
+
+      window.addEventListener("DOMContentLoaded", () => {
+        html.classList.remove("no-transitions");
+      });
+    })();
+  </script>
+</html>

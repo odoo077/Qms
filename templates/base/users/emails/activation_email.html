@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html>
+  <body style="font-family: system-ui, -apple-system, Segoe UI, Roboto, 'Helvetica Neue', Arial, 'Noto Sans', 'Apple Color Emoji', 'Segoe UI Emoji'; color:#111827;">
+    <p>Hi {{ user.get_full_name|default:user.email }},</p>
+    <p>Please activate your account by clicking the button below:</p>
+    <p style="margin:20px 0;">
+      <a href="{{ activate_url }}" style="background:#2563eb;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none;">Activate account</a>
+    </p>
+    <p>or copy & paste this link:</p>
+    <p><a href="{{ activate_url }}">{{ activate_url }}</a></p>
+    <p>If you didn’t sign up, you can ignore this email.</p>
+    <p style="color:#6b7280;">Thanks,<br>360 Manager Team</p>
+  </body>
+</html>

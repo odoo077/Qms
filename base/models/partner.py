@@ -1,7 +1,7 @@
-# base/models/partner.py
 from django.db import models
 from django.core.validators import RegexValidator
-from .mixins import TimeStampedMixin, ActivableMixin, AddressMixin
+from .mixins import TimeStampedMixin, ActivableMixin, AddressMixin, CompanyOwnedMixin
+
 
 
 class PartnerCategory(models.Model):
@@ -18,13 +18,13 @@ class PartnerCategory(models.Model):
         return self.name
 
 
-class Partner(TimeStampedMixin, ActivableMixin, AddressMixin):
+class Partner(CompanyOwnedMixin, TimeStampedMixin, ActivableMixin, AddressMixin):
     """
     Django flavor of Odoo's res.partner.
     - companies & persons share same table
     - company/person switch via company_type
     - parent link to represent a company's contacts
-    - commercial_partner (computed in properties)
+    - commercial_partner (computed-like property)
     """
     TYPE_CHOICES = [
         ("contact", "Contact"),
@@ -55,13 +55,15 @@ class Partner(TimeStampedMixin, ActivableMixin, AddressMixin):
 
     categories = models.ManyToManyField(PartnerCategory, related_name="partners", blank=True)
 
-    # Salesperson (warning in Odoo: this is NOT inverse of user.partner_id)
     salesperson = models.ForeignKey(
         "base.User", null=True, blank=True, on_delete=models.SET_NULL, related_name="customer_set"
     )
 
-    # Convenience flags
-    employee = models.BooleanField(default=False)  # As in Odoo: a partner may be flagged as employee
+    employee = models.BooleanField(default=False)
+
+    # علاقات يجب أن تُطابق شركتها نفس شركة السجل (للتحقق cross-company)
+    company_dependent_relations = ("parent",)
+
 
     class Meta:
         db_table = "partner"
@@ -77,7 +79,6 @@ class Partner(TimeStampedMixin, ActivableMixin, AddressMixin):
 
     @property
     def display_name(self) -> str:
-        # Similar to Odoo's complete_name behavior for child contacts. :contentReference[oaicite:11]{index=11}
         if self.parent and not self.is_company:
             parent_name = self.parent.name or ""
             this = self.name or dict(self.TYPE_CHOICES).get(self.type, "").strip()
@@ -87,10 +88,6 @@ class Partner(TimeStampedMixin, ActivableMixin, AddressMixin):
 
     @property
     def commercial_partner(self) -> "Partner":
-        """
-        If this is a person/child, return its top-level commercial entity (company).
-        Mirrors Odoo's commercial_partner_id logic. :contentReference[oaicite:12]{index=12}
-        """
         node = self
         while node and not node.is_company and node.parent:
             node = node.parent

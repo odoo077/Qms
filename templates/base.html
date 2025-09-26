@@ -1,96 +1,161 @@
-{% load static tailwind_tags %}
-<!DOCTYPE html>
-<html lang="en" data-theme="corporate">
+{% load static %}
+
+<html lang="en" class="no-transitions" data-theme="{{ request.COOKIES.theme|default:'corporate' }}">
 <head>
-    <meta charset="UTF-8">
-    <title>{% block title %}Qteam HR Dashboard{% endblock %}</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    {% tailwind_css %}
-    <link rel="icon" href="{% static 'images/favicon.ico' %}">
+  <meta charset="utf-8" />
+  <title>{% block title %}360 Manager{% endblock %}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="light dark" />
+
+  <!-- Prevent flash before CSS loads -->
+  <style>
+    .no-transitions *, .no-transitions *::before, .no-transitions *::after {
+      transition: none !important; animation: none !important;
+    }
+    html[data-theme="corporate"] { background:#f3f4f6; color:#111827; }
+    html[data-theme="business"]  { background:#0b1220; color:#e5e7eb; }
+    body { min-height:100vh; }
+  </style>
+
+  <!-- Tailwind / DaisyUI build -->
+  <link href="{% static 'css/dist/styles.css' %}" rel="stylesheet">
+  <link rel="icon" href="{% static 'images/favicon.ico' %}">
 </head>
-<body class="bg-gray-100 min-h-screen">
+<body class="bg-base-200 text-base-content flex flex-col">
 
-<!-- Header/Navbar -->
-<nav class="navbar bg-white shadow-sm mb-10">
-    <div class="container mx-auto flex flex-row items-center justify-between px-6 py-3">
-        <!-- Left: Logo/Brand & Main Nav -->
-        <div class="flex flex-row items-center gap-8">
-            <!-- Logo/Brand -->
-            <!--                <div class="flex flex-row items-center gap-2">-->
-            <!--                    <svg class="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" stroke-width="2"-->
-            <!--                        viewBox="0 0 24 24">-->
-            <!--                        <path stroke-linecap="round" stroke-linejoin="round"-->
-            <!--                            d="M16 16v-4a4 4 0 0 0-8 0v4M12 12V8m0 8h.01"/>-->
-            <!--                    </svg>-->
-            <!--                    <span class="text-xl font-bold text-blue-700">360 Manager</span>-->
-            <!--                </div>-->
+<!-- Top Navbar -->
+<nav class="navbar bg-base-100 shadow-md sticky top-0 z-40">
+  <div class="container mx-auto px-4 md:px-6 flex items-center justify-between">
 
-            <div class="flex items-center gap-2">
-                <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-                    <circle cx="16" cy="16" r="12" stroke="#2563eb" stroke-width="2.5"/>
-                    <circle cx="8" cy="16" r="2" fill="#ef4444"/>
-                    <circle cx="24" cy="16" r="2" fill="#facc15"/>
-                    <circle cx="16" cy="8" r="2" fill="#2563eb"/>
-                </svg>
-                <span>
-    <span class="font-bold text-blue-700">360</span>
-    <span class="font-bold text-red-500"> Manager</span>
-  </span>
-            </div>
+    <!-- Brand + primary nav -->
+    <div class="flex items-center gap-6">
+      <a href="{% url 'home' %}" class="flex items-center gap-2 font-bold text-xl">
+        <svg width="28" height="28" viewBox="0 0 32 32" fill="none">
+          <circle cx="16" cy="16" r="12" stroke="#2563eb" stroke-width="2.5"></circle>
+          <circle cx="8"  cy="16" r="2"  fill="#ef4444"></circle>
+          <circle cx="24" cy="16" r="2"  fill="#facc15"></circle>
+          <circle cx="16" cy="8"  r="2"  fill="#2563eb"></circle>
+        </svg>
+        <span><span class="text-primary">360</span><span class="text-error">Manager</span></span>
+      </a>
 
-
-            <!-- Main Navigation Links -->
-            <div class="flex flex-row items-center gap-4 ml-6">
-                <a href="{% url 'home' %}" class="btn btn-ghost font-semibold">Dashboard</a>
-                <a href="{% url 'tailwind_test' %}" class="btn btn-ghost font-semibold">Employees</a>
-                <a href="{% url 'eprofile' %}" class="btn btn-ghost font-semibold">Objectives</a>
-                <a href="{% url 'emp_dashboard' %}" class="btn btn-ghost font-semibold">KPIs</a>
-                <a href="{#}" class="btn btn-ghost font-semibold">Tasks</a>
-                <a href="{#}" class="btn btn-ghost font-semibold">Evaluations</a>
-                <a href="{#}" class="btn btn-ghost font-semibold">Reports</a>
-                <a href="{% url 'uploaddata' %}" class="btn btn-ghost font-semibold">Upload</a>
-
-            </div>
-        </div>
-        <!-- Right: User/Profile -->
-        <div class="flex flex-row items-center gap-4">
-            {% comment %}
-            <!--                {% if user.is_authenticated %}-->
-            {% endcomment %}
-            <span class="text-gray-500 mr-2 hidden md:inline">Welcome, {{ user.name|default:user.email }}!</span>
-            <div class="dropdown dropdown-end">
-                <label tabindex="0" class="btn btn-ghost btn-circle avatar">
-                    <div class="w-9 rounded-full">
-                        <img src="{{ user.profile.avatar.url|default:'https://randomuser.me/api/portraits/men/32.jpg' }}" />
-                    </div>
-                </label>
-                <ul tabindex="0" class="menu menu-sm dropdown-content mt-3 z-[1] p-2 shadow bg-base-100 rounded-box w-44">
-                    {% comment %}
-                    <li><a href="{% url 'profile' %}">Profile</a></li>
-                    <li><a href="{% url 'settings' %}">Settings</a></li>
-                    <li><a href="{% url 'logout' %}">Logout</a></li>
-                    {% endcomment %}
-                </ul>
-            </div>
-            {% comment %}
-            <!--                {% else %}-->
-            <!--                    <a href="{% url 'login' %}" class="btn btn-primary">Login</a>-->
-            <!--                {% endif %}-->
-            {% endcomment %}
-        </div>
+      {% if user.is_authenticated %}
+      <div class="hidden md:flex items-center gap-4">
+        <a href="{% url 'base:partner_list' %}" class="px-2 py-1 font-semibold text-base-content/70 hover:text-primary">
+          Partners
+        </a>
+        <a href="{% url 'base:company_switch' %}" class="px-2 py-1 font-semibold text-base-content/70 hover:text-primary">
+          Switch Company
+        </a>
+      </div>
+      {% endif %}
     </div>
+
+
+    <!-- Right side: theme + user -->
+
+
+
+    {# داخل شريط التنقل في base.html #}
+    {% if current_company %}
+      <a href="{% url 'base:company_switch' %}" class="btn btn-xs md:btn-sm btn-outline gap-2">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 md:w-5 md:h-5" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M3 7h18v2H3zm0 4h12v2H3zm0 4h18v2H3z"/>
+        </svg>
+        {{ current_company.name }}
+      </a>
+    {% else %}
+      <a href="{% url 'base:company_switch' %}" class="btn btn-xs md:btn-sm btn-outline">Select company</a>
+    {% endif %}
+
+
+    <div class="flex items-center gap-3">
+      <!-- Theme toggle -->
+      <button id="theme-toggle" class="btn btn-circle btn-ghost btn-sm" title="Toggle Theme">
+        <svg id="theme-sun" class="hidden w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M12 18a6 6 0 100-12 6 6 0 000 12z"/>
+          <path d="M12 2v2m0 16v2m10-10h-2M4 12H2m16.95 6.95l-1.41-1.41M6.46 6.46L5.05 5.05m13.9 0l-1.41 1.41M6.46 17.54l-1.41 1.41"/>
+        </svg>
+        <svg id="theme-moon" class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
+        </svg>
+      </button>
+
+
+      {% if user.is_authenticated %}
+        <span class="hidden md:inline text-sm text-base-content/70">
+          Hi, {{ user.name|default:user.email }}
+        </span>
+
+        <!-- User dropdown -->
+        <div class="dropdown dropdown-end">
+          <label tabindex="0" class="btn btn-ghost btn-circle avatar">
+            <div class="w-9 rounded-full">
+              <img src="https://api.dicebear.com/8.x/initials/svg?seed={{ user.name|default:user.email }}" alt="avatar" />
+            </div>
+          </label>
+          <ul tabindex="0" class="menu menu-sm dropdown-content mt-3 z-[1] p-2 shadow bg-base-100 rounded-box w-48">
+            <li><a href="{% url 'base:profile' %}">Profile</a></li>
+            <li><a href="{% url 'base:edit_profile' %}">Edit profile</a></li>
+            <li><a href="{% url 'base:password_change' %}">Change password</a></li>
+            <li><a href="{% url 'base:logout' %}" class="text-error">Logout</a></li>
+          </ul>
+        </div>
+      {% else %}
+        <a href="{% url 'base:login' %}?next={{ request.path|urlencode }}" class="btn btn-primary btn-sm">Login</a>
+      {% endif %}
+    </div>
+  </div>
 </nav>
 
-<!-- Content block for child templates -->
-<div class="container mx-auto px-4">
-    {% block content %}
-    <!-- Child templates will override this -->
-    {% endblock %}
-</div>
+<!-- Main -->
+<main class="flex-grow container mx-auto px-4 md:px-6 py-6">
+  {% block content %}{% endblock %}
+</main>
 
-<footer class="mt-12 text-center text-gray-400 py-4">
-    &copy; {% now "Y" %} Qteam. All rights reserved.
+<!-- Footer -->
+<footer class="bg-base-100 border-t mt-12 py-6 text-center text-sm text-base-content/70">
+  &copy; {% now "Y" %} 360 Manager · All rights reserved.
 </footer>
+
+<!-- Theme toggle logic -->
+<script>
+  (function() {
+    const html = document.documentElement;
+    const btn  = document.getElementById("theme-toggle");
+    const sun  = document.getElementById("theme-sun");
+    const moon = document.getElementById("theme-moon");
+    const DARK = new Set(["business"]);
+    function setCookie(name, value, days){
+      const maxAge = days ? `; max-age=${days*24*60*60}` : "";
+      document.cookie = `${name}=${encodeURIComponent(value)}; path=/${maxAge}`;
+    }
+    function applyIcons(theme){
+      const isDark = DARK.has(theme);
+      if (isDark) { sun.classList.remove("hidden"); moon.classList.add("hidden"); }
+      else        { sun.classList.add("hidden");  moon.classList.remove("hidden"); }
+    }
+    // initial
+    let theme = html.getAttribute("data-theme") || (document.cookie.match(/(?:^|; )theme=([^;]+)/)||[])[1];
+    theme = theme ? decodeURIComponent(theme) : (localStorage.getItem("theme") || "corporate");
+    html.setAttribute("data-theme", theme);
+    applyIcons(theme);
+
+    btn?.addEventListener("click", () => {
+      const now  = html.getAttribute("data-theme") || "corporate";
+      const next = (now === "business") ? "corporate" : "business";
+      html.setAttribute("data-theme", next);
+      localStorage.setItem("theme", next);
+      setCookie("theme", next, 365);
+      applyIcons(next);
+    });
+
+    // remove transition lock after paint
+    window.addEventListener("DOMContentLoaded", () => {
+      document.documentElement.classList.remove("no-transitions");
+    });
+  })();
+</script>
 
 </body>
 </html>

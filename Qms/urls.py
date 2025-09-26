@@ -14,23 +14,37 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
+# Qms/urls.py
 from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from django.views.generic import RedirectView
+from base.views.user_views import home_view
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
-    path("employees/", include("employees.urls")),
+    # الجذر "/" يذهب مباشرةً إلى home_view (home.html)
+    path("", home_view, name="home"),
+
+    # ضمّن جميع مسارات تطبيق base (partners/، users/، ...)
+    path("", include(("base.urls", "base"), namespace="base")),
+
+    # (اختياري) توجيه أي مسار قديم يبدأ بـ /base/ إلى الجذر home
+    path("base/", RedirectView.as_view(pattern_name="home", permanent=False)),
+
+    # باقي التطبيقات
+    path("employees/", include(("employees.urls", "employees"), namespace="employees")),
+
+    # لوحة الإدارة
+    path("admin/", admin.site.urls),
 ]
 
-# CSS tailwind
+# Helpers أثناء التطوير
 if settings.DEBUG:
-    # Include django_browser_reload URLs only in DEBUG mode
-    urlpatterns += [
-        path("__reload__/", include("django_browser_reload.urls")),
-    ]
+    # Live reload (django_browser_reload)
+    urlpatterns += [path("__reload__/", include("django_browser_reload.urls"))]
 
-# In development this helps serve /static/ files
-if settings.DEBUG:
+    # تقديم الملفات الثابتة وملفات الميديا في التطوير
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+

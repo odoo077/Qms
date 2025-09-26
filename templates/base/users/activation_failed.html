@@ -1,0 +1,11 @@
+{% extends "base/users/auth_base.html" %}
+{% block title %}Activation failed{% endblock %}
+{% block content %}
+<h1 class="text-xl font-semibold mb-2">Activation failed</h1>
+<p class="text-gray-600">
+  The activation link is invalid or expired. You can request a new one below.
+</p>
+<div class="mt-4">
+  <a href="{% url 'base:resend_activation' %}" class="px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700">Resend activation</a>
+</div>
+{% endblock %}

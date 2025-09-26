@@ -1,10 +1,9 @@
-# base/models/company.py
 from django.db import models
 from .mixins import TimeStampedMixin, ActivableMixin, AddressMixin
 
 
 class Currency(models.Model):
-    """Very light currency model so Company can point to one."""
+    """Very light currency model so Company can point to one (Odoo-like)."""
     code = models.CharField(max_length=10, unique=True)  # e.g., IQD, USD
     name = models.CharField(max_length=64, blank=True)
 
@@ -18,7 +17,7 @@ class Company(TimeStampedMixin, ActivableMixin, AddressMixin):
     - parent/children tree
     - identity details + reporting fields
     - default currency
-    - accepted_users: users allowed to switch to this company
+    - accepted_users: users allowed to switch to this company (Odoo-like)
     """
     name = models.CharField(max_length=255, unique=True)
     parent = models.ForeignKey(
@@ -36,7 +35,12 @@ class Company(TimeStampedMixin, ActivableMixin, AddressMixin):
 
     currency = models.ForeignKey(Currency, on_delete=models.PROTECT, null=True, blank=True)
 
-    # Mirror Odoo's "Accepted Users" (res.company.user_ids)
+    # ✅ جديد: جهة الاتصال المقابلة للشركة
+    partner = models.OneToOneField(
+        "base.Partner", null=True, blank=True,
+        on_delete=models.PROTECT, related_name="company_profile"
+    )
+
     accepted_users = models.ManyToManyField(
         "base.User", related_name="companies_allowed", blank=True
     )
