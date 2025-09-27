@@ -1,0 +1,32 @@
+{# HR dropdown for the top navbar #}
+<li>
+  <details class="dropdown">
+    <summary class="btn btn-ghost">
+      <span class="font-medium">HR</span>
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 ml-1 opacity-70" viewBox="0 0 20 20" fill="currentColor">
+        <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clip-rule="evenodd" />
+      </svg>
+    </summary>
+    <ul class="menu dropdown-content bg-base-100 rounded-box z-[1] w-64 p-2 shadow">
+      <li class="{% if request.path|slice:':4' == '/hr' and 'employees' in request.path %}bg-base-200{% endif %}">
+        <a href="{% url 'hr:employee_list' %}">Employees</a>
+      </li>
+      <li class="{% if request.path|slice:':4' == '/hr' and 'departments' in request.path %}bg-base-200{% endif %}">
+        <a href="{% url 'hr:department_list' %}">Departments</a>
+      </li>
+      <li class="{% if request.path|slice:':4' == '/hr' and 'jobs' in request.path %}bg-base-200{% endif %}">
+        <a href="{% url 'hr:job_list' %}">Jobs</a>
+      </li>
+      <li class="{% if request.path|slice:':4' == '/hr' and 'work-locations' in request.path %}bg-base-200{% endif %}">
+        <a href="{% url 'hr:work_location_list' %}">Work locations</a>
+      </li>
+      <li class="menu-title"><span>Config</span></li>
+      <li class="{% if request.path|slice:':4' == '/hr' and 'categories' in request.path %}bg-base-200{% endif %}">
+        <a href="{% url 'hr:category_list' %}">Employee categories</a>
+      </li>
+      <li class="{% if request.path|slice:':4' == '/hr' and 'contract-types' in request.path %}bg-base-200{% endif %}">
+        <a href="{% url 'hr:contract_type_list' %}">Contract types</a>
+      </li>
+    </ul>
+  </details>
+</li>

@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}{{ location.name }} · Work Location{% endblock %}
+{% block content %}
+<div class="flex items-center justify-between mb-4">
+  <div>
+    <h1 class="text-2xl font-bold">{{ location.name }}</h1>
+    <div class="text-sm opacity-70">{{ location.company }}</div>
+  </div>
+  <div class="join">
+    <a href="{% url 'hr:work_location_update' location.id %}" class="btn join-item">Edit</a>
+    <a href="{% url 'hr:work_location_list' %}" class="btn btn-outline join-item">Back</a>
+  </div>
+</div>
+
+<div class="card bg-base-100 shadow">
+  <div class="card-body grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div><span class="opacity-70 text-sm">Type</span><div class="capitalize">{{ location.location_type }}</div></div>
+    <div><span class="opacity-70 text-sm">Address</span><div>{{ location.address }}</div></div>
+    <div><span class="opacity-70 text-sm">Number</span><div>{{ location.location_number|default:"—" }}</div></div>
+    <div><span class="opacity-70 text-sm">Status</span>
+      <div>{% if location.active %}<span class="badge badge-success">Active</span>{% else %}<span class="badge">Inactive</span>{% endif %}</div>
+    </div>
+  </div>
+</div>
+{% endblock %}

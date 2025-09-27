@@ -11,10 +11,11 @@ class CurrencyAdmin(admin.ModelAdmin):
 
 @admin.register(Company)
 class CompanyAdmin(admin.ModelAdmin):
-    list_display = ("name", "parent", "currency", "active")
+    list_display = ("name", "sequence", "parent", "currency", "active")
+    ordering = ("sequence", "name")
     list_filter = ("active",)
-    search_fields = ("name",)
-    filter_horizontal = ("accepted_users",)
+    search_fields = ("name", "company_registry", "vat")
+
 
 @admin.register(PartnerCategory)
 class PartnerCategoryAdmin(admin.ModelAdmin):
@@ -25,7 +26,7 @@ class PartnerCategoryAdmin(admin.ModelAdmin):
 class PartnerAdmin(admin.ModelAdmin):
     list_display = ("display_name", "company", "company_type", "type", "active")
     list_filter = ("company_type", "type", "active")
-    search_fields = ("name", "email", "phone")
+    search_fields = ("display_name", "name", "email", "vat", "company_registry")
     autocomplete_fields = ("parent", "company", "salesperson", "categories")
 
 class UserSettingsInline(admin.StackedInline):

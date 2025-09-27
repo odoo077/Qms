@@ -4,7 +4,10 @@ from django.db import models
 from .managers import CompanyScopeManager
 from ..company_context import get_company_id
 
+
+# ---------- أساسية (وقت/تفعيل/عنوان) ----------
 class TimeStampedMixin(models.Model):
+    """ختم إنشـاء/تعديل مع فهارس."""
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     updated_at = models.DateTimeField(auto_now=True, db_index=True)
 
@@ -13,6 +16,7 @@ class TimeStampedMixin(models.Model):
 
 
 class ActivableMixin(models.Model):
+    """حقل active مع فهرسة."""
     active = models.BooleanField(default=True, db_index=True)
 
     class Meta:
@@ -20,6 +24,7 @@ class ActivableMixin(models.Model):
 
 
 class AddressMixin(models.Model):
+    """حقول عنوان أساسية (نصية بسيطة كما في Odoo)."""
     street = models.CharField(max_length=255, blank=True)
     street2 = models.CharField(max_length=255, blank=True)
     zip = models.CharField(max_length=24, blank=True)
@@ -31,22 +36,28 @@ class AddressMixin(models.Model):
         abstract = True
 
 
+# ---------- شركات وسكوب ----------
 class CompanyOwnedMixin(models.Model):
     """
     أي موديل يرث منه سيحصل على:
-    - حقل company
-    - مدير objects يقيّد على الشركة النشطة
-    - ضبط الشركة الافتراضية عند الإنشاء لو لم تُحدد
-    - فحص cross-company للعلاقات المعرفة في company_dependent_relations
+    - حقل company (مع related_name عام)
+    - مدير objects يقيّد الاستعلامات على الشركة النشطة
+    - ضبط الشركة تلقائيًا من السياق عند الإنشاء إن لم تُحدد
+    - فحص cross-company للعلاقات المذكورة في company_dependent_relations
     """
-    company = models.ForeignKey("base.Company", on_delete=models.PROTECT, related_name="%(app_label)s_%(class)s_set", db_index=True)
+    company = models.ForeignKey(
+        "base.Company",
+        on_delete=models.PROTECT,
+        related_name="%(app_label)s_%(class)s_set",
+        db_index=True,
+    )
 
-    # مدير مقيّد افتراضيًا
+    # مدير مقيَّد افتراضيًا على الشركة الحالية
     objects = CompanyScopeManager()
-    # مدير غير مقيّد عند الحاجة (للأدمن/الخدمات)
+    # مدير عام غير مقيَّد عند الحاجة
     all_objects = models.Manager()
 
-    # أسماء الحقول العلائقية التي يجب أن تتطابق شركاتها مع self.company
+    # أسماء الحقول العلائقية التي يجب أن تطابق self.company
     company_dependent_relations: tuple[str, ...] = ()
 
     class Meta:
@@ -55,20 +66,51 @@ class CompanyOwnedMixin(models.Model):
 
     def clean(self):
         super().clean()
-        # تحقق cross-company الأساسي
+        # تحقق cross-company عام
         for rel_name in getattr(self, "company_dependent_relations", ()):
             rel = getattr(self, rel_name, None)
-            if rel is None:
+            if not rel:
                 continue
-            # يدعم FK أو OneToOne
             related_company_id = getattr(rel, "company_id", None)
             if related_company_id and related_company_id != self.company_id:
                 raise ValidationError({rel_name: "Related record belongs to a different company."})
 
     def save(self, *args, **kwargs):
-        # اضبط الشركة افتراضياً من السياق إن لم تُمرر
+        # اضبط company من سياق الجلسة إن لم تُملأ
         if not self.company_id:
             cid = get_company_id()
             if cid:
                 self.company_id = cid
         return super().save(*args, **kwargs)
+
+
+# ---------- تتبّع المستخدم (create_uid/write_uid على طريقة Odoo) ----------
+class UserStampedMixin(models.Model):
+    """حقول created_by / updated_by مرتبطة بمستخدم base.User."""
+    created_by = models.ForeignKey(
+        "base.User",
+        null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name="%(class)s_created",
+    )
+    updated_by = models.ForeignKey(
+        "base.User",
+        null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name="%(class)s_updated",
+    )
+
+    class Meta:
+        abstract = True
+
+
+# ---------- Aliases للتوافق مع كود HR الحالي ----------
+# (حتى لو كان كودك في hr يستخدم TimeStamped/UserStamped، لن تحتاج لتعديل كبير)
+class TimeStamped(TimeStampedMixin):
+    class Meta:
+        abstract = True
+
+
+class UserStamped(UserStampedMixin):
+    class Meta:
+        abstract = True

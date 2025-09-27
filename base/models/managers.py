@@ -6,13 +6,13 @@ from ..company_context import get_company_id, get_allowed_company_ids
 class CompanyScopeQuerySet(models.QuerySet):
     def _apply_company_scope(self):
         cid = get_company_id()
-        if cid is not None and self.model._meta.get_field("company"):
+        if cid is None:
+            return self
+        # فحص آمن لوجود الحقل بدون إثارة استثناء
+        has_company_field = any(f.name == "company" for f in self.model._meta.get_fields())
+        if has_company_field:
             return self.filter(company_id=cid)
         return self
-
-    # افتراضيًا أي QuerySet يبدأ مقيدًا
-    def iterator(self, *args, **kwargs):
-        return super(CompanyScopeQuerySet, self._apply_company_scope()).iterator(*args, **kwargs)
 
     # تسهيلات شائعة
     def for_current_company(self):

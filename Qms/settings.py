@@ -80,7 +80,7 @@ INSTALLED_APPS = [
     # Project apps (Odoo-like)
     "base",         # ← يحتوي User/Company/Partner… (يجب أن يأتي أولاً)
     "employees",
-    "hr",
+    "hr.apps.HrConfig",
     "skills",
     "assets",
     "performance",

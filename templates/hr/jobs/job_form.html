@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}{% if object %}Edit{% else %}New{% endif %} Job{% endblock %}
+{% block content %}
+<div class="max-w-4xl mx-auto">
+  <div class="flex items-center justify-between mb-4">
+    <h1 class="text-2xl font-bold">{% if object %}Edit{% else %}New{% endif %} Job</h1>
+    <a href="{% url 'hr:job_list' %}" class="btn btn-ghost">Back</a>
+  </div>
+  <form method="post" class="card bg-base-100 shadow">
+    {% csrf_token %}
+    <div class="card-body space-y-6">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <label class="form-control"><span class="label-text">Active</span>{{ form.active }}</label>
+        <label class="form-control"><span class="label-text">Company</span>{{ form.company }}</label>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <label class="form-control"><span class="label-text">Name</span>{{ form.name }}</label>
+        <label class="form-control"><span class="label-text">Sequence</span>{{ form.sequence }}</label>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <label class="form-control"><span class="label-text">Department</span>{{ form.department }}</label>
+        <label class="form-control"><span class="label-text">Recruiter</span>{{ form.recruiter }}</label>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <label class="form-control"><span class="label-text">Contract type</span>{{ form.contract_type }}</label>
+        <label class="form-control"><span class="label-text">Target (No. of recruitment)</span>{{ form.no_of_recruitment }}</label>
+      </div>
+      <label class="form-control"><span class="label-text">Description</span>{{ form.description }}</label>
+      <label class="form-control"><span class="label-text">Requirements</span>{{ form.requirements }}</label>
+      <div class="card-actions justify-end"><button class="btn btn-primary">Save</button></div>
+    </div>
+  </form>
+</div>
+{% endblock %}

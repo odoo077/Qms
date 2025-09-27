@@ -19,10 +19,21 @@ class Company(TimeStampedMixin, ActivableMixin, AddressMixin):
     - default currency
     - accepted_users: users allowed to switch to this company (Odoo-like)
     """
+
+    # داخل class Company:
+    SYNCED_WITH_PARTNER_FIELDS = (
+        "name", "email", "phone", "website",
+        "street", "street2", "city", "state", "zip", "country",
+        "vat", "company_registry",
+    )
+
     name = models.CharField(max_length=255, unique=True)
     parent = models.ForeignKey(
         "self", null=True, blank=True, related_name="children", on_delete=models.PROTECT
     )
+    sequence = models.PositiveIntegerField(default=10, db_index=True)
+    parent_path = models.CharField(max_length=255, blank=True, db_index=True)
+
     email = models.EmailField(blank=True)
     phone = models.CharField(max_length=64, blank=True)
     website = models.URLField(blank=True)
@@ -44,6 +55,19 @@ class Company(TimeStampedMixin, ActivableMixin, AddressMixin):
     accepted_users = models.ManyToManyField(
         "base.User", related_name="companies_allowed", blank=True
     )
+
+    def save(self, *args, **kwargs):
+        is_new = self.pk is None
+        super().save(*args, **kwargs)
+        # حساب المسار المادّي بعد وجود pk
+        path = f"{self.pk}/"
+        if self.parent and self.parent.parent_path:
+            path = f"{self.parent.parent_path}{self.pk}/"
+        elif self.parent:
+            path = f"{self.parent.pk}/{self.pk}/"
+        if self.parent_path != path:
+            self.parent_path = path
+            super().save(update_fields=["parent_path"])
 
     class Meta:
         db_table = "company"

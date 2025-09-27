@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Delete Department{% endblock %}
+{% block content %}
+<div class="max-w-xl mx-auto card bg-base-100 shadow">
+  <div class="card-body">
+    <h1 class="card-title">Delete department</h1>
+    <p>Are you sure you want to delete <b>{{ object }}</b>?</p>
+    <form method="post" class="card-actions justify-end mt-4">
+      {% csrf_token %}
+      <a href="{% url 'hr:department_detail' object.id %}" class="btn btn-ghost">Cancel</a>
+      <button class="btn btn-error">Delete</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

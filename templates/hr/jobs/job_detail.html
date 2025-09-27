@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}{{ job.name }} · Job{% endblock %}
+{% block content %}
+<div class="flex items-center justify-between mb-4">
+  <div>
+    <h1 class="text-2xl font-bold">{{ job.name }}</h1>
+    <div class="text-sm opacity-70">{{ job.company }} · {{ job.department|default:"—" }}</div>
+  </div>
+  <div class="join">
+    <a href="{% url 'hr:job_update' job.id %}" class="btn join-item">Edit</a>
+    <a href="{% url 'hr:job_list' %}" class="btn btn-outline join-item">Back</a>
+  </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+  <div class="lg:col-span-2 space-y-6">
+    <div class="card bg-base-100 shadow">
+      <div class="card-body">
+        <h3 class="card-title">Overview</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div><span class="opacity-70 text-sm">Employees</span><div>{{ job.no_of_employee }}</div></div>
+          <div><span class="opacity-70 text-sm">Target</span><div>{{ job.no_of_recruitment }}</div></div>
+          <div><span class="opacity-70 text-sm">Expected total</span><div>{{ job.expected_employees }}</div></div>
+          <div><span class="opacity-70 text-sm">Recruiter</span><div>{{ job.recruiter|default:"—" }}</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="card bg-base-100 shadow">
+      <div class="card-body">
+        <h3 class="card-title">Description</h3>
+        <div class="prose dark:prose-invert">{{ job.description|safe }}</div>
+      </div>
+    </div>
+    <div class="card bg-base-100 shadow">
+      <div class="card-body">
+        <h3 class="card-title">Requirements</h3>
+        <div class="whitespace-pre-wrap">{{ job.requirements }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

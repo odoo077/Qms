@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}{{ ctype.name }} · Contract Type{% endblock %}
+{% block content %}
+<div class="flex items-center justify-between mb-4">
+  <h1 class="text-2xl font-bold">{{ ctype.name }}</h1>
+  <div class="join">
+    <a href="{% url 'hr:contract_type_update' ctype.id %}" class="btn join-item">Edit</a>
+    <a href="{% url 'hr:contract_type_list' %}" class="btn btn-outline join-item">Back</a>
+  </div>
+</div>
+<div class="card bg-base-100 shadow">
+  <div class="card-body grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div><span class="opacity-70 text-sm">Code</span><div>{{ ctype.code }}</div></div>
+    <div><span class="opacity-70 text-sm">Sequence</span><div>{{ ctype.sequence }}</div></div>
+  </div>
+</div>
+{% endblock %}

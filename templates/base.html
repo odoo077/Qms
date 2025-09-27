@@ -40,36 +40,63 @@
       </a>
 
       {% if user.is_authenticated %}
-      <div class="hidden md:flex items-center gap-4">
+      <!-- Primary links (desktop) -->
+      <div class="flex items-center gap-4">
         <a href="{% url 'base:partner_list' %}" class="px-2 py-1 font-semibold text-base-content/70 hover:text-primary">
           Partners
         </a>
         <a href="{% url 'base:company_switch' %}" class="px-2 py-1 font-semibold text-base-content/70 hover:text-primary">
           Switch Company
         </a>
+
+        <!-- HR dropdown -->
+        <div class="dropdown">
+          <div tabindex="0" role="button" class="px-2 py-1 font-semibold text-base-content/70 hover:text-primary flex items-center gap-1">
+            HR
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 opacity-70" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clip-rule="evenodd" />
+            </svg>
+          </div>
+          <ul tabindex="0" class="menu dropdown-content bg-base-100 rounded-box z-[1] w-64 p-2 shadow">
+            <li class="{% if request.path|slice:':4' == '/hr' and 'employees' in request.path %}bg-base-200{% endif %}">
+              <a href="{% url 'hr:employee_list' %}">Employees</a>
+            </li>
+            <li class="{% if request.path|slice:':4' == '/hr' and 'departments' in request.path %}bg-base-200{% endif %}">
+              <a href="{% url 'hr:department_list' %}">Departments</a>
+            </li>
+            <li class="{% if request.path|slice:':4' == '/hr' and 'jobs' in request.path %}bg-base-200{% endif %}">
+              <a href="{% url 'hr:job_list' %}">Jobs</a>
+            </li>
+            <li class="{% if request.path|slice:':4' == '/hr' and 'work-locations' in request.path %}bg-base-200{% endif %}">
+              <a href="{% url 'hr:work_location_list' %}">Work locations</a>
+            </li>
+            <li class="menu-title"><span>Config</span></li>
+            <li class="{% if request.path|slice:':4' == '/hr' and 'categories' in request.path %}bg-base-200{% endif %}">
+              <a href="{% url 'hr:category_list' %}">Employee categories</a>
+            </li>
+            <li class="{% if request.path|slice:':4' == '/hr' and 'contract-types' in request.path %}bg-base-200{% endif %}">
+              <a href="{% url 'hr:contract_type_list' %}">Contract types</a>
+            </li>
+          </ul>
+        </div>
+        <!-- /HR dropdown -->
       </div>
       {% endif %}
     </div>
 
-
-    <!-- Right side: theme + user -->
-
-
-
-    {# داخل شريط التنقل في base.html #}
-    {% if current_company %}
-      <a href="{% url 'base:company_switch' %}" class="btn btn-xs md:btn-sm btn-outline gap-2">
-        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 md:w-5 md:h-5" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M3 7h18v2H3zm0 4h12v2H3zm0 4h18v2H3z"/>
-        </svg>
-        {{ current_company.name }}
-      </a>
-    {% else %}
-      <a href="{% url 'base:company_switch' %}" class="btn btn-xs md:btn-sm btn-outline">Select company</a>
-    {% endif %}
-
-
+    <!-- Right side: company badge + theme + user -->
     <div class="flex items-center gap-3">
+      {% if current_company %}
+        <a href="{% url 'base:company_switch' %}" class="btn btn-xs md:btn-sm btn-outline gap-2">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 md:w-5 md:h-5" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M3 7h18v2H3zm0 4h12v2H3zm0 4h18v2H3z"/>
+          </svg>
+          {{ current_company.name }}
+        </a>
+      {% else %}
+        <a href="{% url 'base:company_switch' %}" class="btn btn-xs md:btn-sm btn-outline">Select company</a>
+      {% endif %}
+
       <!-- Theme toggle -->
       <button id="theme-toggle" class="btn btn-circle btn-ghost btn-sm" title="Toggle Theme">
         <svg id="theme-sun" class="hidden w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24">
@@ -80,7 +107,6 @@
           <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
         </svg>
       </button>
-
 
       {% if user.is_authenticated %}
         <span class="hidden md:inline text-sm text-base-content/70">
@@ -105,8 +131,10 @@
         <a href="{% url 'base:login' %}?next={{ request.path|urlencode }}" class="btn btn-primary btn-sm">Login</a>
       {% endif %}
     </div>
+    <!-- /Right side -->
   </div>
 </nav>
+
 
 <!-- Main -->
 <main class="flex-grow container mx-auto px-4 md:px-6 py-6">

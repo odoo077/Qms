@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}Employees · HR{% endblock %}
+{% block content %}
+<div class="flex items-center justify-between mb-4">
+  <h1 class="text-2xl font-bold">Employees</h1>
+  <a href="{% url 'hr:employee_create' %}" class="btn btn-primary">+ New employee</a>
+</div>
+
+<form method="get" class="mb-4">
+  <div class="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+    <label class="form-control">
+      <span class="label-text">Search</span>
+      <input type="text" name="q" value="{{ request.GET.q }}" class="input input-bordered w-full" placeholder="Name, email, phone..." />
+    </label>
+
+    <label class="form-control">
+      <span class="label-text">Department</span>
+      <select name="department" class="select select-bordered w-full">
+        <option value="">All</option>
+        {% for d in departments %}
+          <option value="{{ d.id }}" {% if request.GET.department|default:'' == d.id|stringformat:'s' %}selected{% endif %}>
+            {{ d.company.name }} — {{ d.complete_name|default:d.name }}
+          </option>
+        {% endfor %}
+      </select>
+    </label>
+
+    <label class="form-control">
+      <span class="label-text">Company</span>
+      <select name="company" class="select select-bordered w-full">
+        <option value="">All</option>
+        {% for c in companies %}
+          <option value="{{ c.id }}" {% if request.GET.company|default_if_none:'' == c.id|stringformat:'s' %}selected{% endif %}>
+            {{ c.name }}
+          </option>
+        {% endfor %}
+      </select>
+    </label>
+
+
+    <label class="form-control">
+      <span class="label-text">Status</span>
+      <select name="active" class="select select-bordered w-full">
+        <option value="">All</option>
+        <option value="true"  {% if request.GET.active == "true" %}selected{% endif %}>Active</option>
+        <option value="false" {% if request.GET.active == "false" %}selected{% endif %}>Inactive</option>
+      </select>
+    </label>
+  </div>
+  <div class="mt-3">
+    <button class="btn btn-outline btn-sm">Apply</button>
+    <a href="{% url 'hr:employee_list' %}" class="btn btn-ghost btn-sm">Reset</a>
+  </div>
+</form>
+
+<div class="overflow-x-auto bg-base-100 rounded-box shadow">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Company</th>
+        <th>Department</th>
+        <th>Job</th>
+        <th>Manager</th>
+        <th>Status</th>
+        <th class="w-40"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for e in employees %}
+      <tr>
+        <td>
+          <a href="{% url 'hr:employee_detail' e.id %}" class="link link-hover font-semibold">{{ e.name }}</a>
+          <div class="text-xs opacity-70">{{ e.work_email }}</div>
+        </td>
+        <td>{{ e.company.name }}</td>
+        <td>{{ e.department.complete_name|default:e.department }}</td>
+        <td>{{ e.job }}</td>
+        <td>{{ e.manager }}</td>
+        <td>
+          {% if e.active %}<span class="badge badge-success">Active</span>
+          {% else %}<span class="badge badge-ghost">Inactive</span>{% endif %}
+        </td>
+        <td>
+          <div class="join justify-end">
+            <a href="{% url 'hr:employee_update' e.id %}" class="btn btn-sm join-item">Edit</a>
+            <a href="{% url 'hr:employee_detail' e.id %}" class="btn btn-sm btn-outline join-item">View</a>
+          </div>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="7" class="text-center opacity-70">No employees found.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="mt-4 flex items-center justify-between">
+  <div class="text-sm opacity-70">
+    Page {{ employees.number }} of {{ employees.paginator.num_pages }} · {{ employees.paginator.count }} total
+  </div>
+  <div class="join">
+    {% if employees.has_previous %}
+      <a class="btn btn-sm join-item" href="?{% if request.GET.q %}q={{ request.GET.q }}&{% endif %}{% if request.GET.department %}department={{ request.GET.department }}&{% endif %}{% if request.GET.active %}active={{ request.GET.active }}&{% endif %}page={{ employees.previous_page_number }}">« Prev</a>
+    {% endif %}
+    <span class="btn btn-sm join-item btn-ghost">Page {{ employees.number }}</span>
+    {% if employees.has_next %}
+      <a class="btn btn-sm join-item" href="?{% if request.GET.q %}q={{ request.GET.q }}&{% endif %}{% if request.GET.department %}department={{ request.GET.department }}&{% endif %}{% if request.GET.active %}active={{ request.GET.active }}&{% endif %}page={{ employees.next_page_number }}">Next »</a>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

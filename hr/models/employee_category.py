@@ -1,11 +1,8 @@
 from django.db import models
-from . import TimeStamped, UserStamped
-
+from base.models.mixins import TimeStamped, UserStamped
 
 class EmployeeCategory(TimeStamped, UserStamped, models.Model):
-    """
-    Odoo-like hr.employee.category (tags).
-    """
+    """Odoo-like hr.employee.category (tags)."""
     name = models.CharField(max_length=128, unique=True)
     color = models.PositiveSmallIntegerField(default=1)
 

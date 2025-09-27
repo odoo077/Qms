@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% block title %}{% if object %}Edit{% else %}New{% endif %} Employee · HR{% endblock %}
+{% block content %}
+<div class="max-w-5xl mx-auto">
+  <div class="flex items-center justify-between mb-4">
+    <h1 class="text-2xl font-bold">{% if object %}Edit{% else %}New{% endif %} Employee</h1>
+    <div class="join">
+      <a href="{% url 'hr:employee_list' %}" class="btn btn-ghost join-item">Back</a>
+      {% if object %}
+        <a href="{% url 'hr:employee_detail' object.id %}" class="btn btn-outline join-item">View</a>
+      {% endif %}
+    </div>
+  </div>
+
+  <form method="post" class="card bg-base-100 shadow">
+    {% csrf_token %}
+    <div class="card-body space-y-6">
+
+      {% if form.non_field_errors %}
+        <div class="alert alert-error">
+          <ul class="list-disc list-inside text-sm">
+            {% for err in form.non_field_errors %}<li>{{ err }}</li>{% endfor %}
+          </ul>
+        </div>
+      {% endif %}
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <label class="form-control">
+          <span class="label-text">Active</span>
+          {{ form.active }}
+        </label>
+
+        <label class="form-control">
+          <span class="label-text">Company</span>
+          {{ form.company }}
+          {% if form.company.errors %}<span class="text-error text-sm">{{ form.company.errors.0 }}</span>{% endif %}
+        </label>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <label class="form-control">
+          <span class="label-text">Name</span>
+          {{ form.name }}
+          {% if form.name.errors %}<span class="text-error text-sm">{{ form.name.errors.0 }}</span>{% endif %}
+        </label>
+        <label class="form-control">
+          <span class="label-text">User</span>
+          {{ form.user }}
+        </label>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <label class="form-control">
+          <span class="label-text">Department</span>
+          {{ form.department }}
+          {% if form.department.errors %}<span class="text-error text-sm">{{ form.department.errors.0 }}</span>{% endif %}
+        </label>
+        <label class="form-control">
+          <span class="label-text">Job</span>
+          {{ form.job }}
+          {% if form.job.errors %}<span class="text-error text-sm">{{ form.job.errors.0 }}</span>{% endif %}
+        </label>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <label class="form-control">
+          <span class="label-text">Manager</span>
+          {{ form.manager }}
+          {% if form.manager.errors %}<span class="text-error text-sm">{{ form.manager.errors.0 }}</span>{% endif %}
+        </label>
+        <label class="form-control">
+          <span class="label-text">Coach</span>
+          {{ form.coach }}
+          {% if form.coach.errors %}<span class="text-error text-sm">{{ form.coach.errors.0 }}</span>{% endif %}
+        </label>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <label class="form-control">
+          <span class="label-text">Work contact</span>
+          {{ form.work_contact }}
+        </label>
+        <label class="form-control">
+          <span class="label-text">Work email</span>
+          {{ form.work_email }}
+        </label>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <label class="form-control">
+          <span class="label-text">Work phone</span>
+          {{ form.work_phone }}
+        </label>
+        <label class="form-control">
+          <span class="label-text">Mobile phone</span>
+          {{ form.mobile_phone }}
+        </label>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <label class="form-control">
+          <span class="label-text">Work location</span>
+          {{ form.work_location }}
+        </label>
+        <label class="form-control">
+          <span class="label-text">Categories</span>
+          {{ form.categories }}
+        </label>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <label class="form-control">
+          <span class="label-text">Barcode</span>
+          {{ form.barcode }}
+        </label>
+        <label class="form-control">
+          <span class="label-text">PIN</span>
+          {{ form.pin }}
+        </label>
+      </div>
+
+      <div class="card-actions justify-end">
+        <button class="btn btn-primary">Save</button>
+      </div>
+    </div>
+  </form>
+</div>
+{% endblock %}

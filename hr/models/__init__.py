@@ -1,4 +1,3 @@
-from .mixins import *
 from .department import Department
 from .employee_category import EmployeeCategory
 from .contract_type import ContractType

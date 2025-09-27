@@ -117,7 +117,6 @@ def activation_sent_view(request):
     email = request.session.get("last_activation_email")
     return render(request, "base/users/activation_sent.html", {"email": email})
 
-
 def activation_failed_view(request):
     return render(request, "base/users/activation_failed.html")
 

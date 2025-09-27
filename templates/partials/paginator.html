@@ -1,0 +1,16 @@
+{% if page_obj %}
+<div class="mt-4 flex items-center justify-between">
+  <div class="text-sm opacity-70">
+    Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }} · {{ page_obj.paginator.count }} total
+  </div>
+  <div class="join">
+    {% if page_obj.has_previous %}
+      <a class="btn btn-sm join-item" href="?page={{ page_obj.previous_page_number }}">« Prev</a>
+    {% endif %}
+    <span class="btn btn-sm join-item btn-ghost">Page {{ page_obj.number }}</span>
+    {% if page_obj.has_next %}
+      <a class="btn btn-sm join-item" href="?page={{ page_obj.next_page_number }}">Next »</a>
+    {% endif %}
+  </div>
+</div>
+{% endif %}

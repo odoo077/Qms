@@ -1,6 +1,5 @@
 from django.db import models
-from . import TimeStamped, UserStamped
-
+from base.models.mixins import TimeStamped, UserStamped
 
 class EmployeePublic(TimeStamped, UserStamped, models.Model):
     """

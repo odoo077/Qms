@@ -20,11 +20,11 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from django.views.generic import RedirectView
-from base.views.user_views import home_view
+from base.views import HomeView
 
 urlpatterns = [
-    # الجذر "/" يذهب مباشرةً إلى home_view (home.html)
-    path("", home_view, name="home"),
+    # الجذر "/" يستخدم HomeView الجديدة التي تحسب إحصاءات الـ Dashboard
+    path("", HomeView.as_view(), name="home"),
 
     # ضمّن جميع مسارات تطبيق base (partners/، users/، ...)
     path("", include(("base.urls", "base"), namespace="base")),
@@ -37,6 +37,9 @@ urlpatterns = [
 
     # لوحة الإدارة
     path("admin/", admin.site.urls),
+
+    path("hr/", include("hr.urls"))
+
 ]
 
 # Helpers أثناء التطوير
