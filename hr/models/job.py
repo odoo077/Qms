@@ -10,6 +10,7 @@ class Job(CompanyOwnedMixin, TimeStamped, UserStamped, models.Model):
 
     department = models.ForeignKey("hr.Department", null=True, blank=True, on_delete=models.PROTECT, related_name="jobs")
     company = models.ForeignKey("base.Company", on_delete=models.PROTECT, related_name="jobs")
+    # عدّ تلقائي للعاملين على الوظيفة
     recruiter = models.ForeignKey("base.User", null=True, blank=True, on_delete=models.SET_NULL, related_name="recruiting_jobs")
     contract_type = models.ForeignKey("hr.ContractType", null=True, blank=True, on_delete=models.SET_NULL)
 

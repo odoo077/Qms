@@ -1,93 +1,116 @@
-from django.db import models
+from django.db import models, transaction
 from django.core.exceptions import ValidationError
+from datetime import date, timedelta
 from .mixins import TimeStamped
 from .skill_type import HrSkillType
 from .skill_level import HrSkillLevel
 from .skill import HrSkill
-from datetime import date
 
 class HrIndividualSkillMixin(TimeStamped):
     """
-    Abstract Odoo-like skill model with versioning & validity logic.
-    Mirrors: fields, constraints, and 'archive-on-change' ideas. :contentReference[oaicite:15]{index=15}
+    Odoo-like individual skill mixin (versioned skills/certifications).
+    يطبّق:
+      - skill_type / skill / skill_level
+      - valid_from / valid_to
+      - is_certification (من skill_type)
+      - قيد عدم التداخل (skills) والسماح بتعدد الشهادات ضمن مدى زمني مختلف
+      - الأرشفة عند التعديل (turn write into archive+create)
     """
     class Meta:
         abstract = True
-        ordering = ["skill_type_id_id", "skill_level_id_id"]  # mimic Odoo ordering
+        ordering = ["skill_type_id", "skill_level_id"]
 
-    # Core / active fields (Odoo: store=True + domains) :contentReference[oaicite:16]{index=16}
+    # linked field يحدده النموذج الوارث (employee في HrEmployeeSkill)
+    def _linked_field_name(self):
+        raise NotImplementedError
+
+    # الحقول الأساسية
     skill_type = models.ForeignKey(HrSkillType, on_delete=models.CASCADE)
     skill = models.ForeignKey(HrSkill, on_delete=models.CASCADE)
     skill_level = models.ForeignKey(HrSkillLevel, on_delete=models.CASCADE)
 
-    # Validity window
     valid_from = models.DateField(default=date.today)
     valid_to = models.DateField(null=True, blank=True)
 
-    # Related helpers (Odoo: related) :contentReference[oaicite:17]{index=17}
     @property
-    def level_progress(self) -> int:
-        return self.skill_level.level_progress if self.skill_level_id else 0
-
-    @property
-    def color(self) -> int:
-        return self.skill_type.color if self.skill_type_id else 0
-
-    @property
-    def levels_count(self) -> int:
-        return self.skill_type.levels_count if self.skill_type_id else 0
-
-    @property
-    def is_certification(self) -> bool:
+    def is_certification(self):
         return bool(self.skill_type and self.skill_type.is_certification)
 
-    # Display name (Odoo compute) :contentReference[oaicite:18]{index=18}
     @property
-    def display_name(self) -> str:
-        if not (self.skill_id and self.skill_level_id):
-            return ""
-        return f"{self.skill.name}: {self.skill_level.name}"
+    def level_progress(self):
+        return self.skill_level.level_progress if self.skill_level_id else None
 
-    # --- Constraints mirroring Odoo’s behavior ---
     def clean(self):
         super().clean()
-        # Date order check (valid_from <= valid_to) :contentReference[oaicite:19]{index=19}
-        if self.valid_to and self.valid_from and self.valid_from > self.valid_to:
-            raise ValidationError("Validity stop date must be after the start date.")
-
-        # Skill must belong to type; level must belong to type. :contentReference[oaicite:20]{index=20}
-        if self.skill_id and self.skill_type_id and self.skill.skill_type_id_id != self.skill_type_id:
-            raise ValidationError("Selected skill does not match skill type.")
-        if self.skill_level_id and self.skill_type_id and self.skill_level.skill_type_id_id != self.skill_type_id:
-            raise ValidationError("Selected level is not valid for this skill type.")
-
-        # Overlap rules:
-        # Regular skills → only one active per (linked, skill); certifications may coexist if date ranges differ. :contentReference[oaicite:21]{index=21}
-        linked_name = self._linked_field_name()
-        linked_value = getattr(self, linked_name + "_id", None)
-        if not linked_value or not self.skill_id:
-            return
-
-        qs = self.__class__.objects.filter(**{linked_name: linked_value, "skill": self.skill}).exclude(pk=self.pk)
-
-        if not self.is_certification:
-            # For regular skills, deny another active skill for the same (linked, skill) where ranges overlap or are open-ended. :contentReference[oaicite:22]{index=22}
-            if self.valid_to:
-                overlap = qs.filter(models.Q(valid_to__isnull=True) | models.Q(valid_to__gte=self.valid_from),
-                                    valid_from__lte=self.valid_to).exists()
-            else:
-                overlap = qs.filter(models.Q(valid_to__isnull=True) | models.Q(valid_to__gte=self.valid_from)).exists()
-            if overlap:
-                raise ValidationError("Only one active skill per skill is allowed for the same individual.")
+        # 1) type/skill/level consistency
+        if self.skill_id and self.skill_type_id and self.skill.skill_type_id != self.skill_type_id:
+            raise ValidationError({"skill": "Skill and skill type don't match."})
+        if self.skill_level_id and self.skill_type_id and self.skill_level.skill_type_id != self.skill_type_id:
+            raise ValidationError({"skill_level": "Skill level doesn't belong to selected skill type."})
+        # 2) dates order
+        if self.valid_to and self.valid_from and self.valid_to < self.valid_from:
+            raise ValidationError({"valid_to": "The stop date cannot be before the start date."})
+        # 3) overlap constraint
+        linked_field = self._linked_field_name()
+        filt = {
+            f"{linked_field}_id": getattr(self, f"{linked_field}_id"),
+            "skill_id": self.skill_id,
+        }
+        qs = self.__class__.objects.filter(**filt).exclude(pk=self.pk)
+        if self.is_certification:
+            # نفس skill و level و نفس المدى الزمني بالضبط ممنوع (عند السماح بتعديل المدى)
+            same = qs.filter(skill_level_id=self.skill_level_id,
+                             valid_from=self.valid_from,
+                             valid_to=self.valid_to)
+            if same.exists():
+                raise ValidationError("Duplicate certification with same level and validity.")
         else:
-            # Certifications may coexist but must not be identical tuples (level, from, to). :contentReference[oaicite:23]{index=23}
-            same = qs.filter(skill_level=self.skill_level, valid_from=self.valid_from, valid_to=self.valid_to).exists()
-            if same:
-                raise ValidationError("Duplicate certification with the same level and validity window is not allowed.")
+            # لا يسمح بتداخل المدد لنفس skill
+            for rec in qs:
+                start1, end1 = self.valid_from, self.valid_to
+                start2, end2 = rec.valid_from, rec.valid_to
+                end1 = end1 or date.max
+                end2 = end2 or date.max
+                if max(start1, start2) <= min(end1, end2):
+                    raise ValidationError("Overlapping skill validity for the same skill is not allowed.")
 
-    # Odoo adds versioning commands for write/create to preserve history; in Django,
-    # trigger this behavior at the service layer (views/serializers) when changing core fields. :contentReference[oaicite:24]{index=24}
+    # --- منطق الأرشفة عند التغيير (تبسيط مقابل write-command في Odoo) ---
+    def save(self, *args, **kwargs):
+        linked_field = self._linked_field_name()
+        # تحديث قياسي
+        is_update = bool(self.pk)
+        if not is_update:
+            return super().save(*args, **kwargs)
 
-    def _linked_field_name(self) -> str:
-        """Child classes must return the name of the FK linking the individual (e.g. 'employee')."""
-        raise NotImplementedError()
+        # عند تعديل أي من (linked, skill, level, type) على سجل فعّال:
+        old = self.__class__.objects.get(pk=self.pk)
+        core_changed = (
+            getattr(old, f"{linked_field}_id") != getattr(self, f"{linked_field}_id")
+            or old.skill_id != self.skill_id
+            or old.skill_level_id != self.skill_level_id
+            or old.skill_type_id != self.skill_type_id
+        )
+        if not core_changed:
+            return super().save(*args, **kwargs)
+
+        # بدلاً من تعديل السجل: أرشف القديم وأنشئ سجلًا جديدًا
+        with transaction.atomic():
+            # أرشفة القديم إن لم يكن منتهي الصلاحية
+            yesterday = date.today() - timedelta(days=1)
+            if not old.valid_to or old.valid_to > yesterday:
+                old.valid_to = yesterday
+                super(self.__class__, old).save(update_fields=["valid_to"])
+            # أنشئ جديدًا بالقيم الحالية
+            new = self.__class__(
+                **{
+                    f"{linked_field}_id": getattr(self, f"{linked_field}_id"),
+                    "skill_type": self.skill_type,
+                    "skill": self.skill,
+                    "skill_level": self.skill_level,
+                    "valid_from": date.today() if not self.is_certification else (self.valid_from or date.today()),
+                    "valid_to": None if not self.is_certification else self.valid_to,
+                }
+            )
+            super(self.__class__, new).save()
+            # لا نكمل حفظ السجل القديم المتغير
+            return

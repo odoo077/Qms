@@ -80,6 +80,54 @@
           </ul>
         </div>
         <!-- /HR dropdown -->
+
+        <!-- Skills dropdown -->
+        <div class="dropdown">
+          <div tabindex="0" role="button" class="px-2 py-1 font-semibold text-base-content/70 hover:text-primary flex items-center gap-1">
+            Skills
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 opacity-70" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clip-rule="evenodd" />
+            </svg>
+          </div>
+          <ul tabindex="0" class="menu dropdown-content bg-base-100 rounded-box z-[1] w-72 p-2 shadow">
+            <!-- Skill Types -->
+            <li class="{% if request.path|slice:':20' == '/skills/skill-types/' %}bg-base-200{% endif %}">
+              <a href="{% url 'skills:skill_type_list' %}">Skill types</a>
+            </li>
+
+            <!-- Skill Levels -->
+            <li class="{% if request.path|slice:':21' == '/skills/skill-levels/' %}bg-base-200{% endif %}">
+              <a href="{% url 'skills:skill_level_list' %}">Skill levels</a>
+            </li>
+
+            <!-- Skills (الكيان نفسه) -->
+            <li class="{% if request.path|slice:':15' == '/skills/skills/' %}bg-base-200{% endif %}">
+              <a href="{% url 'skills:skill_list' %}">Skills</a>
+            </li>
+
+            <li class="menu-title"><span>Employees</span></li>
+
+            <!-- Employee Skills -->
+            <li class="{% if request.path|slice:':24' == '/skills/employee-skills/' %}bg-base-200{% endif %}">
+              <a href="{% url 'skills:employee_skill_list' %}">Employee skills</a>
+            </li>
+
+            <li class="menu-title"><span>Resume</span></li>
+
+            <!-- Resume Lines -->
+            <li class="{% if request.path|slice:':21' == '/skills/resume-lines/' %}bg-base-200{% endif %}">
+              <a href="{% url 'skills:resume_line_list' %}">Resume lines</a>
+            </li>
+
+            <!-- Resume Line Types -->
+            <li class="{% if request.path|slice:':26' == '/skills/resume-line-types/' %}bg-base-200{% endif %}">
+              <a href="{% url 'skills:resume_line_type_list' %}">Resume line types</a>
+            </li>
+          </ul>
+        </div>
+        <!-- /Skills dropdown -->
+
+
       </div>
       {% endif %}
     </div>

@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% load widget_tweaks %}
+{% block content %}
+<div class="max-w-2xl mx-auto p-6">
+  <h1 class="text-2xl font-bold mb-4">{{ form.instance.id|yesno:"Edit Resume Line,Add Resume Line" }}</h1>
+  <form method="post" enctype="multipart/form-data" class="space-y-4">
+    {% csrf_token %}
+    {{ form.non_field_errors }}
+
+    <div class="form-control">
+      <label class="label">Employee</label>
+      {{ form.employee|add_class:"select select-bordered w-full" }}
+    </div>
+
+    <div class="form-control">
+      <label class="label">Title</label>
+      {{ form.name|add_class:"input input-bordered w-full" }}
+    </div>
+
+    <div class="form-control">
+      <label class="label">Type</label>
+      {{ form.line_type|add_class:"select select-bordered w-full" }}
+    </div>
+
+    <div class="grid grid-cols-2 gap-4">
+      <div>
+        <label class="label">Date Start</label>
+        {{ form.date_start|add_class:"input input-bordered w-full" }}
+      </div>
+      <div>
+        <label class="label">Date End</label>
+        {{ form.date_end|add_class:"input input-bordered w-full" }}
+      </div>
+    </div>
+
+    <div class="form-control">
+      <label class="label">Description</label>
+      {{ form.description|add_class:"textarea textarea-bordered w-full" }}
+    </div>
+
+    <div class="form-control">
+      <label class="label">External URL</label>
+      {{ form.external_url|add_class:"input input-bordered w-full" }}
+    </div>
+
+    <div class="form-control">
+      <label class="label">Certificate File</label>
+      {{ form.certificate_file|add_class:"file-input file-input-bordered w-full" }}
+    </div>
+
+    <button type="submit" class="btn btn-primary w-full mt-4">Save</button>
+  </form>
+</div>
+{% endblock %}

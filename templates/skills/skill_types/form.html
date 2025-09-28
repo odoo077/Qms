@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% load widget_tweaks %}
+{% block content %}
+<div class="max-w-2xl mx-auto p-6">
+  <h1 class="text-2xl font-bold mb-4">{{ form.instance.id|yesno:"Edit Skill Type,Add Skill Type" }}</h1>
+  <form method="post" class="space-y-4">
+    {% csrf_token %}
+    {{ form.non_field_errors }}
+
+    <div class="form-control">
+      <label class="label">Name</label>
+      {{ form.name|add_class:"input input-bordered w-full" }}
+    </div>
+
+    <div class="form-control">
+      <label class="label">Sequence</label>
+      {{ form.sequence|add_class:"input input-bordered w-full" }}
+    </div>
+
+    <div class="form-control">
+      <label class="cursor-pointer flex items-center gap-2">
+        {{ form.is_certification }} <span>Is Certification?</span>
+      </label>
+    </div>
+
+    <button type="submit" class="btn btn-primary w-full mt-4">Save</button>
+  </form>
+</div>
+{% endblock %}

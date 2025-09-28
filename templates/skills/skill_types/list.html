@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="p-6">
+  <h1 class="text-2xl font-bold mb-4">Skill Types</h1>
+  <a href="{% url 'skills:skill_type_create' %}" class="btn btn-primary mb-4">+ Add Skill Type</a>
+
+  <div class="overflow-x-auto">
+    <table class="table w-full">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Sequence</th>
+          <th>Certification?</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for st in skill_types %}
+        <tr>
+          <td>{{ st.name }}</td>
+          <td>{{ st.sequence }}</td>
+          <td>
+            {% if st.is_certification %}
+              <span class="badge badge-success">Yes</span>
+            {% else %}
+              <span class="badge">No</span>
+            {% endif %}
+          </td>
+          <td>
+            <a href="{% url 'skills:skill_type_update' st.id %}" class="btn btn-xs btn-outline">Edit</a>
+            <a href="{% url 'skills:skill_type_delete' st.id %}" class="btn btn-xs btn-error">Delete</a>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="4" class="text-center text-gray-500">No skill types found</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -7,12 +7,8 @@ class Department(CompanyOwnedMixin, TimeStamped, UserStamped, models.Model):
     active = models.BooleanField(default=True)
     company = models.ForeignKey("base.Company", on_delete=models.PROTECT, related_name="departments")
     parent = models.ForeignKey("self", null=True, blank=True, on_delete=models.PROTECT, related_name="children")
-
     manager = models.ForeignKey("hr.Employee", null=True, blank=True, on_delete=models.SET_NULL, related_name="managed_departments")
-
     company_dependent_relations = ("parent", "manager")
-
-    # store=True in Odoo → persist in DB
     complete_name = models.CharField(max_length=1024, blank=True, db_index=True)
     parent_path = models.CharField(max_length=2048, blank=True, db_index=True)
     total_employee = models.IntegerField(default=0)
@@ -35,15 +31,9 @@ class Department(CompanyOwnedMixin, TimeStamped, UserStamped, models.Model):
             models.UniqueConstraint(fields=["company", "name"], name="uniq_department_name_per_company"),
         ]
 
-    def save(self, *args, **kwargs):
-        old_manager_id = None
-        if self.pk:
-            old_manager_id = type(self).objects.only("manager_id").get(pk=self.pk).manager_id
-
-        super().save(*args, **kwargs)
-
-        # recompute stored fields
-        names, ids = [self.name], [str(self.pk)]
+    def _recompute_lineage_fields(self):
+        """احسب complete_name و parent_path للقسم الحالي فقط."""
+        names, ids = [self.name], [str(self.pk)] if self.pk else [""]
         p = self.parent
         while p:
             names.insert(0, p.name)
@@ -51,8 +41,40 @@ class Department(CompanyOwnedMixin, TimeStamped, UserStamped, models.Model):
             p = p.parent
         self.complete_name = " / ".join(names)
         self.parent_path = "/".join(ids) + "/"
+
+    def _recompute_subtree(self):
+        """
+        أعِد حساب complete_name/parent_path لكل الفروع (DFS).
+        يعتمد أن parent_path/complete_name للحالي صحيحة قبل الاستدعاء.
+        """
+        stack = list(self.children.all().only("pk", "name", "parent"))
+        while stack:
+            node = stack.pop()
+            names, ids = [node.name], [str(node.pk)]
+            p = node.parent
+            while p:
+                names.insert(0, p.name)
+                ids.insert(0, str(p.pk))
+                p = p.parent
+            node.complete_name = " / ".join(names)
+            node.parent_path = "/".join(ids) + "/"
+            node.save(update_fields=["complete_name", "parent_path"])
+            stack.extend(list(node.children.all().only("pk", "name", "parent")))
+
+    def save(self, *args, **kwargs):
+        old_manager_id = None
+        if self.pk:
+            old_manager_id = type(self).objects.only("manager_id").get(pk=self.pk).manager_id
+
+        super().save(*args, **kwargs)
+
+        # 1) أعِد حساب القسم الحالي
+        self._recompute_lineage_fields()
         self.total_employee = self.members.filter(active=True).count()
         super().save(update_fields=["complete_name", "parent_path", "total_employee"])
+
+        # 2) أعِد بناء المتتاليات لكل الأبناء
+        self._recompute_subtree()
 
         if old_manager_id != getattr(self.manager, "id", None):
             from django.apps import apps

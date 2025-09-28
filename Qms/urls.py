@@ -34,6 +34,7 @@ urlpatterns = [
 
     # باقي التطبيقات
     path("employees/", include(("employees.urls", "employees"), namespace="employees")),
+    path("skills/", include(("skills.urls", "skills"), namespace="skills")),
 
     # لوحة الإدارة
     path("admin/", admin.site.urls),
