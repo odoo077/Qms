@@ -45,8 +45,8 @@ class UserSettingsInline(admin.StackedInline):
 @admin.register(User)
 class UserAdmin(DjangoUserAdmin):
     model = User
-    list_display = ("id", "display_name", "email", "company", "is_active", "active", "is_staff", "is_superuser", "email_verified")
-    list_filter = ("is_active", "active", "is_staff", "is_superuser", "email_verified")
+    list_display = ("id", "display_name", "email", "company", "active", "is_staff", "is_superuser", "email_verified")
+    list_filter = ( "active", "is_staff", "is_superuser", "email_verified")
     search_fields = ("email", "username", "first_name", "last_name", "partner__name")
     ordering = ("-date_joined",)
     readonly_fields = ("created_at", "updated_at", "last_login", "date_joined", "email_verified_at", "last_session_key")
@@ -56,7 +56,7 @@ class UserAdmin(DjangoUserAdmin):
         (None, {"fields": ("email", "username", "password")}),
         ("Identity", {"fields": ("first_name", "last_name", "avatar", "partner")}),
         ("Company", {"fields": ("company", "companies")}),
-        ("Status", {"fields": ("is_active", "active", "is_staff", "is_superuser",
+        ("Status", {"fields": ( "active", "is_staff", "is_superuser",
                                "email_verified", "email_verified_at", "last_session_key")}),
         ("Permissions", {"fields": ("groups", "user_permissions")}),
         ("Timestamps", {"fields": ("created_at", "updated_at", "last_login", "date_joined")}),
@@ -67,7 +67,7 @@ class UserAdmin(DjangoUserAdmin):
             "classes": ("wide",),
             "fields": ("email", "username", "password1", "password2",
                        "first_name", "last_name", "company", "companies",
-                       "is_active", "active", "is_staff", "is_superuser", "groups"),
+                     "active", "is_staff", "is_superuser", "groups"),
         }),
     )
 

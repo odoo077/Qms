@@ -8,9 +8,10 @@
   <div class="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
     <div>
       <h1 class="text-2xl font-bold">Partners</h1>
-      <p class="text-base-content/60 text-sm">
-        {% if current_company %}Scoped to <span class="badge badge-outline">{{ current_company.name }}</span>{% else %}All{% endif %}
-      </p>
+        <p class="text-base-content/60 text-sm">
+          {% if current_company %}Scoped to <span class="badge badge-outline">{{ current_company.name }}</span> · {% endif %}
+          {{ page_obj.paginator.count }} result{{ page_obj.paginator.count|pluralize }}
+        </p>
     </div>
     <div class="flex items-center gap-2">
       <form method="get" action="" class="flex items-center gap-2">

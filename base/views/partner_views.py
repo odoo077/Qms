@@ -12,7 +12,12 @@ class PartnerListView(LoginRequiredMixin, ListView):
 
     def get_queryset(self):
         # لم نعد نقرأ من session. مدير CompanyOwnedMixin يطبق التصفية تلقائياً
-        return super().get_queryset().order_by("name")
+        return (
+            super()
+            .get_queryset()
+            .select_related("company", "parent")
+            .order_by("name")
+        )
 
 
 class PartnerCreateView(LoginRequiredMixin, CreateView):
@@ -32,3 +37,11 @@ class PartnerUpdateView(LoginRequiredMixin, UpdateView):
 class PartnerDetailView(LoginRequiredMixin, DetailView):
     model = Partner
     template_name = "base/partner_detail.html"
+
+    # إضافة جديدة
+    def get_queryset(self):
+        return (
+            super()
+            .get_queryset()
+            .select_related("company", "parent")
+        )

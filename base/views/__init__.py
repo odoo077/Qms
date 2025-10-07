@@ -5,7 +5,7 @@ from .partner_views import PartnerListView, PartnerDetailView, PartnerCreateView
 from .user_views import (
     register_view, activate_view, activation_sent_view, activation_failed_view, resend_activation_view,
     login_view, logout_view, profile_view, edit_profile_view,
-    password_change_view, password_change_done_view, home_view,
+    password_change_view, password_change_done_view,
 )
 from .dashboard import HomeView  # NEW
 
@@ -19,6 +19,5 @@ __all__ = [
     "login_view", "logout_view", "profile_view", "edit_profile_view",
     "password_change_view", "password_change_done_view",
     # dashboards
-    "home_view",  # موجود للتوافق الخلفي
     "HomeView",   # الجديد الذي سنربطه على الجذر
 ]

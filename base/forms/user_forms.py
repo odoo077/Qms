@@ -9,7 +9,7 @@ class UserCreateForm(forms.ModelForm):
 
     class Meta:
         model = User
-        fields = ("email", "username", "first_name", "last_name", "company", "companies", "partner")
+        fields = ("email", "username", "first_name", "last_name", "company", "companies")
 
     def clean_password2(self):
         p1 = self.cleaned_data.get("password1")
@@ -34,7 +34,7 @@ class UserUpdateForm(forms.ModelForm):
         model = User
         fields = (
             "email", "username", "first_name", "last_name",
-            "company", "companies", "partner",
+            "company", "companies",
             "is_staff", "is_superuser", "is_active", "active"
         )
 

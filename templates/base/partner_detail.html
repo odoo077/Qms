@@ -40,6 +40,16 @@
               <div class="text-base-content/60">Company</div>
               <div class="font-medium">{{ object.company|default:"—" }}</div>
             </div>
+             <div>
+              <div class="text-base-content/60">Parent</div>
+              <div class="font-medium">
+                {% if object.parent %}
+                  <a href="{% url 'base:partner_detail' object.parent_id %}" class="link">{{ object.parent.display_name }}</a>
+                {% else %}
+                  —
+                {% endif %}
+              </div>
+            </div>
             <div>
               <div class="text-base-content/60">Type</div>
               <div class="font-medium">{{ object.get_company_type_display }}</div>

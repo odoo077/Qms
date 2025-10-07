@@ -46,7 +46,7 @@ def _send_activation_email(request, user):
 # ===== Auth & Profile =====
 def register_view(request):
     if request.user.is_authenticated:
-        return redirect("home")  # تعديل طفيف ليتسق مع توجيهنا الافتراضي
+        return redirect("base:home")
     form = RegisterForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
         user = form.save()
@@ -122,7 +122,7 @@ def activation_failed_view(request):
 
 def login_view(request):
     if request.user.is_authenticated:
-        return redirect("home")
+        return redirect("base:home")
     form = LoginForm(request, data=request.POST or None)
     if request.method == "POST" and form.is_valid():
         user = form.get_user()
@@ -151,7 +151,7 @@ def login_view(request):
 
         # إعادة التوجيه
         next_url = request.GET.get("next") or request.POST.get("next")
-        return redirect(next_url or "home")
+        return redirect(next_url or "base:home")
     return render(request, "base/users/login.html", {"form": form})
 
 def logout_view(request):
@@ -194,7 +194,3 @@ def password_change_view(request):
 def password_change_done_view(request):
     return render(request, "base/users/password_change_done.html")
 
-@login_required
-def home_view(request):
-    # أي سياق إضافي للوحة البداية
-    return render(request, "home.html")

@@ -4,7 +4,7 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db.models.functions import Lower
 from django.utils import timezone
-
+from django.db.models import Q
 from .mixins import TimeStampedMixin, ActivableMixin  # لديك هذه الميكسنز بالفعل
 # الربط مع كيانات المشروع الجديد
 # ملاحظة: نستخدم سلاسل لتفادي الدوران، لأن models تُحمَّل مبكرًا
@@ -81,23 +81,26 @@ class User(TimeStampedMixin, ActivableMixin, AbstractUser):
     REQUIRED_FIELDS = ["username"]  # AbstractUser يتطلب username كحقل موجود
 
     class Meta:
-        db_table = "user"
+        db_table = "user"  # لا نغيّر الاسم لتجنّب ترحيلات ثقيلة (Odoo يستخدم res_users لكن المنطق نفسه)
         ordering = ("-date_joined",)
+
+        # فهارس عملية للبحث والتقارير (PostgreSQL)
         indexes = [
-            models.Index(fields=["email"]),
-            models.Index(fields=["username"]),
-            models.Index(fields=["active"]),
-            models.Index(fields=["is_active", "date_joined"]),
+            models.Index(Lower("email"), name="user_email_ci_idx"),  # بحث/فلترة بالبريد بحساسية حروف = صفر
+            models.Index(fields=["company"], name="user_company_idx"),  # شائع في multi-company
+            models.Index(fields=["is_active", "date_joined"], name="user_active_joined_idx"),
+            models.Index(fields=["last_login"], name="user_last_login_idx"),
+            models.Index(fields=["username"], name="user_username_idx"),  # إبقائه إن كان يُستخدم داخليًا
         ]
-        # فريد مع تجاهل حالة الأحرف للبريد (PostgreSQL)
+
+        # قيود تكامل (Odoo-like: login/email فريد وغير فارغ)
         constraints = [
-            models.UniqueConstraint(
-                Lower("email"),
-                name="uniq_user_email_ci",
-            )
+            models.UniqueConstraint(Lower("email"), name="uniq_user_email_ci"),
+            models.CheckConstraint(check=~Q(email=""), name="user_email_not_empty"),
         ]
+
+        # صلاحيات مخصّصة يمكن التوسّع بها لاحقًا
         permissions = [
-            # أمثلة لأذونات مخصصة (يمكن توسيعها لاحقًا)
             ("share_user", "Can share user object"),
         ]
 

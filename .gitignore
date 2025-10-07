@@ -59,6 +59,7 @@ gunicorn*.pid
 .pytest_cache/
 .coverage
 .coverage.*
+coverage.xml
 htmlcov/
 .tox/
 .nox/
@@ -71,15 +72,30 @@ htmlcov/
 # Type checkers / formatters
 pyrightconfig.json.tmp
 
-# --- Node/Tailwind (if used) ---
+# --- Node / Tailwind / Frontend ---
 node_modules/
 .pnpm-store/
+.pnpm-debug.log*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 .browserslistrc.tmp
 *.tsbuildinfo
 
 # Build artifacts (keep your actual src under e.g. app/static/src)
+# ضع مساراتك الفعلية هنا (مثال: theme/...)
+theme/static/css/dist/
+theme/static/js/dist/
+assets/dist/
+public/build/
+build/
 *.map
 *.min.*.map
+
+# إذا كنت تنتج CSS النهائي في مجلد ثابت معيّن، تجاهله
+# مثال:
+# project/static/dist/
+# app_name/static/app_name/dist/
 
 # --- Editors / OS ---
 # VS Code
@@ -113,4 +129,5 @@ docker-compose.override.yml
 *.csr
 
 # --- Misc ---
-# If you generat
+# lockfiles يجب أن تبقى مُتتبَّعة (لا تضفها هنا):
+# package-lock.json / yarn.lock / pnpm-lock.yaml

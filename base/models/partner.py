@@ -2,7 +2,7 @@ from django.db import models
 from django.core.validators import RegexValidator
 from .mixins import TimeStampedMixin, ActivableMixin, AddressMixin, CompanyOwnedMixin
 from django.core.exceptions import ValidationError
-
+from django.db.models.functions import Lower
 
 class PartnerCategory(models.Model):
     """Partner tags (res.partner.category)."""
@@ -100,6 +100,7 @@ class Partner(CompanyOwnedMixin, TimeStampedMixin, ActivableMixin, AddressMixin)
 
     # Categorization / relations
     categories = models.ManyToManyField(PartnerCategory, related_name="partners", blank=True)
+    # هذه علاقة “مسوّق\مندوب” شائعة في أودو، لكنها ليست ضرورية الآن لأن مشروعك HR فقط—يمكن إبقاؤها بدون استعمال
     salesperson = models.ForeignKey(
         "base.User", null=True, blank=True, on_delete=models.SET_NULL, related_name="customer_set"
     )
@@ -110,43 +111,79 @@ class Partner(CompanyOwnedMixin, TimeStampedMixin, ActivableMixin, AddressMixin)
 
     class Meta:
         db_table = "partner"
+
+        # ترتيب عرض افتراضي غير حساس لحالة الأحرف (للقوائم الكبيرة)
+        ordering = [Lower("name")]
+
+        # فهارس عملية (PostgreSQL-friendly)
         indexes = [
-            models.Index(fields=["name"]),
-            models.Index(fields=["display_name"]),
-            models.Index(fields=["company_type"]),
-            models.Index(fields=["type"]),
-            models.Index(fields=["active"]),
-            models.Index(fields=["parent_company", "company_type", "type"]),
+            models.Index(Lower("name"), name="partner_name_ci_idx"),
+            models.Index(fields=["display_name"], name="partner_disp_idx"),
+            models.Index(fields=["company_type"], name="partner_ctype_idx"),
+            models.Index(fields=["type"], name="partner_type_idx"),
+            models.Index(fields=["active"], name="partner_active_idx"),
+            models.Index(fields=["parent"], name="partner_parent_idx"),
+            models.Index(fields=["company"], name="partner_company_idx"),
+            models.Index(fields=["parent_company", "company_type", "type"], name="partner_flat_parent_mix_idx"),
         ]
-        # قيد DB حقيقي بدون أي JOIN: يعتمد على الحقل المسطّح parent_company
+
+        # قيود سلامة/تفرد (بدون JOIN قدر الإمكان)
         constraints = [
+            # تطابق شركة السجل مع شركة الأب (باستخدام المرآة المسطّحة)
             models.CheckConstraint(
                 name="partner_parent_company_match",
                 check=models.Q(parent__isnull=True) | models.Q(company=models.F("parent_company")),
                 violation_error_message="Parent and child must belong to the same company.",
             ),
-        models.UniqueConstraint(
-            fields=["company", "vat"],
-            name="partner_unique_vat_per_company",
-            condition=models.Q(vat__gt=""),
-            violation_error_message="VAT must be unique per company when set.",
-        ),
-        models.UniqueConstraint(
-            fields=["company", "company_registry"],
-            name="partner_unique_registry_per_company",
-            condition=models.Q(company_registry__gt=""),
-            violation_error_message="Company Registry must be unique per company when set.",
-        )
 
+            # منع ذات-الأب على مستوى DB كذلك (حماية مزدوجة مع clean())
+            models.CheckConstraint(
+                name="partner_no_self_parent",
+                check=~models.Q(parent=models.F("id")),
+            ),
+
+            # VAT فريد داخل نفس الشركة عند تحديده
+            models.UniqueConstraint(
+                fields=["company", "vat"],
+                name="partner_unique_vat_per_company",
+                condition=models.Q(vat__gt=""),
+                violation_error_message="VAT must be unique per company when set.",
+            ),
+
+            # Company Registry فريد داخل نفس الشركة عند تحديده
+            models.UniqueConstraint(
+                fields=["company", "company_registry"],
+                name="partner_unique_registry_per_company",
+                condition=models.Q(company_registry__gt=""),
+                violation_error_message="Company Registry must be unique per company when set.",
+            ),
         ]
 
     # -------- Validation & Persistence --------
+
     def clean(self):
-        # صيانة الحقل المسطّح ليستعمله قيد DB والفلاتر بدون JOIN
+        """
+        اتساق البيانات ونطاق الشركات (Odoo-like):
+
+        1) حفظ مرآة 'parent_company' لاستخدامها في الفلاتر/الفهارس بدون JOIN.
+        2) توحيد company_type تلقائيًا من is_company.
+        3) منع الحالة الشاذة: السجل لا يمكن أن يكون أبًا لنفسه.
+        4) تفويض تحققات الميكسنز (ومنها توافق الشركة لعلاقة 'parent' لأنّها company-dependent).
+        """
+
+        # 1) مرآة شركة الأب لتسريع الاستعلامات/القيود
         self.parent_company = (
             self.parent.company if (self.parent_id and self.parent and self.parent.company_id) else None
         )
-        # نفّذ تحققات CompanyOwnedMixin (تشمل تطابق الشركة لعلاقات company_dependent_relations)
+
+        # 2) توحيد نوع الشريك
+        self.company_type = "company" if self.is_company else "person"
+
+        # 3) منع ذات-الأب
+        if self.parent_id and self.pk and self.parent_id == self.pk:
+            raise ValidationError({"parent": "Parent cannot be self."})
+
+        # 4) تحققات الميكسنز
         super().clean()
 
     def compute_display_name(self) -> str:

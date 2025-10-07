@@ -1,6 +1,6 @@
 from django.db import models
 from .mixins import TimeStampedMixin, ActivableMixin, AddressMixin
-
+from django.core.exceptions import ValidationError
 
 class Currency(models.Model):
     """Very light currency model so Company can point to one (Odoo-like)."""
@@ -55,6 +55,46 @@ class Company(TimeStampedMixin, ActivableMixin, AddressMixin):
     accepted_users = models.ManyToManyField(
         "base.User", related_name="companies_allowed", blank=True
     )
+
+    def clean(self):
+        """
+        سلامة البيانات للشجرة ومطابقة بطاقة الشريك (Odoo-like):
+
+        1) منع كون الشركة أبًا لنفسها.
+        2) منع الحلقات (الدورات) في الشجرة (parent ⟶ ... ⟶ self).
+        3) إن كانت بطاقة الشريك محددة، يجب أن تكون partner.is_company = True.
+        4) مواءمة الشجرة: إن كان لكلٍ من self.parent و self.partner و parent.partner قيم،
+           فيُفترض أن يكون partner.parent = parent.partner (تناسق شجرة الشركات وجهات اتصالها).
+           (لا نُعدِّل هنا، نتحقق فقط ونُبلغ بخطأ إدخال إن كان هناك عدم اتساق واضح.)
+        """
+
+        # 1) منع ذات-الأب
+        if self.pk and self.parent_id and self.parent_id == self.pk:
+            raise ValidationError({"parent": "Parent company cannot be self."})
+
+        # 2) منع الحلقات
+        node = self.parent
+        seen = set()
+        while node:
+            if self.pk and node.pk == self.pk:
+                raise ValidationError({"parent": "Cyclic hierarchy is not allowed."})
+            if node.pk in seen:
+                # حماية إضافية إن حدث تكرار غير متوقع
+                raise ValidationError({"parent": "Cyclic hierarchy is not allowed."})
+            seen.add(node.pk)
+            node = node.parent
+
+        # 3) بطاقة الشريك يجب أن تمثل شركة
+        if self.partner_id and getattr(self.partner, "is_company", None) is not True:
+            raise ValidationError({"partner": "Linked partner must be of type 'company'."})
+
+        # 4) مواءمة الشجرة بين Company و Partner (تحقق منطقي فقط)
+        if self.parent_id and self.partner_id:
+            parent_partner = getattr(self.parent, "partner", None)
+            if parent_partner and self.partner.parent_id and self.partner.parent_id != parent_partner.id:
+                raise ValidationError({
+                    "partner": "Partner's parent must match parent company's partner."
+                })
 
     def save(self, *args, **kwargs):
         is_new = self.pk is None

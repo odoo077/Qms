@@ -26,16 +26,17 @@
     </div>
   {% endif %}
 
-  <form method="post" class="grid gap-4 md:grid-cols-2">
+  <form method="post" enctype="multipart/form-data" class="grid gap-4 md:grid-cols-2">
     {% csrf_token %}
 
     <div class="md:col-span-2 card bg-base-100 border border-base-300">
       <div class="card-body p-5 grid gap-4 md:grid-cols-2">
         <div class="form-control">
-          <label class="label"><span class="label-text">Display name</span></label>
-          {{ form.display_name|add_class:"input input-bordered w-full" }}
-          {% if form.display_name.errors %}<p class="text-error text-sm">{{ form.display_name.errors.0 }}</p>{% endif %}
+          <label class="label"><span class="label-text">Name</span></label>
+          {{ form.name|add_class:"input input-bordered w-full" }}
+          {% if form.name.errors %}<p class="text-error text-sm">{{ form.name.errors.0 }}</p>{% endif %}
         </div>
+
 
         <div class="form-control">
           <label class="label"><span class="label-text">Company</span></label>
