@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Skill Level · {{ level.name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto space-y-4">
+  <!-- Breadcrumbs -->
+  <div class="breadcrumbs text-sm">
+    <ul>
+      <li><a href="/">Home</a></li>
+      <li><a href="{% url 'skills:skill_level_list' %}">Skill Levels</a></li>
+      <li>{{ level.name }}</li>
+    </ul>
+  </div>
+
+  <!-- Header -->
+  <div class="flex items-center justify-between">
+    <h1 class="text-2xl font-bold">
+      {{ level.name }}
+    </h1>
+    <div class="join">
+      <a href="{% url 'skills:skill_level_update' level.id %}" class="btn join-item">Edit</a>
+      <a href="{% url 'skills:skill_level_list' %}" class="btn btn-outline join-item">Back</a>
+    </div>
+  </div>
+
+  <!-- Card -->
+  <div class="card bg-base-100 shadow-md">
+    <div class="card-body space-y-4">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <div class="text-sm opacity-70">Level</div>
+          <div class="font-medium">{{ level.name }}</div>
+        </div>
+
+        <div>
+          <div class="text-sm opacity-70">Skill Type</div>
+          <div class="flex items-center gap-2">
+            <div class="w-4 h-4 rounded ring-1 ring-base-200"
+                 style="background-color:hsl({{ level.skill_type.color|default:200 }},60%,50%);"></div>
+            <div class="font-medium">
+              {{ level.skill_type.name }}
+              {% if level.skill_type.is_certification %}<span class="badge badge-outline badge-xs ml-1">🏅</span>{% endif %}
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="text-sm opacity-70">Progress</div>
+          <div class="flex items-center gap-2">
+            <span class="badge badge-sm">{{ level.level_progress }}%</span>
+          </div>
+        </div>
+
+        <div>
+          <div class="text-sm opacity-70">Default</div>
+          {% if level.default_level %}
+            <span class="badge badge-outline">Default for this type</span>
+          {% else %}
+            <span class="badge badge-ghost">—</span>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="divider my-2"></div>
+
+      <div class="flex items-center justify-between">
+        <div class="opacity-70 text-sm">ID: #{{ level.id }}</div>
+        <a href="{% url 'skills:skill_level_delete' level.id %}" class="btn btn-error btn-sm">Delete</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

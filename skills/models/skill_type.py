@@ -1,31 +1,36 @@
+# skills/models/skill_type.py
 from django.db import models
-from .mixins import TimeStamped
-import random
+from django.core.exceptions import ValidationError
+from base.models.mixins import TimeStamped, UserStamped, ActivableMixin
 
-def default_color():
-    return random.randint(1, 11)
 
-class HrSkillType(TimeStamped):
-    active = models.BooleanField(default=True)
+class HrSkillType(ActivableMixin, TimeStamped, UserStamped, models.Model):
+    """
+    Odoo-like hr.skill.type
+    - يمسك مجموعة المهارات ومستوياتها.
+    - يدعم وسم 'is_certification' لتمييز الشهادات.
+    - levels_count: يُحدّث عبر إشارة (signal) بعد حفظ/حذف HrSkillLevel.
+    """
+    name = models.CharField(max_length=255, unique=True, db_index=True)
     sequence = models.IntegerField(default=10)
-    name = models.CharField(max_length=255)
-    color = models.IntegerField(default=default_color)
+    color = models.IntegerField(default=1)  # 1..11 عادةً في Odoo
     is_certification = models.BooleanField(default=False)
 
-    # علاقات عكسية قياسية (Odoo: one2many)
-    # ستتعبأ تلقائيًا من HrSkill.skill_type و HrSkillLevel.skill_type
-    # (لا نحتاج تعريف OneToMany صريح في Django)
-    # levels_count (computed/store) سنحتسبه عند الحفظ
-    levels_count = models.IntegerField(default=0)  # بديل store=True
+    # يُحدَّث عبر signal (skills/signals/skill_signals.py)
+    levels_count = models.PositiveIntegerField(default=0, editable=False)
 
     class Meta:
         db_table = "hr_skill_type"
-        ordering = ["sequence", "name"]
+        ordering = ("sequence", "name")
+        indexes = [
+            models.Index(fields=["active"]),
+            models.Index(fields=["sequence", "name"]),
+        ]
 
-    def save(self, *args, **kwargs):
-        super().save(*args, **kwargs)
-        # تحديث levels_count = عدد HrSkillLevel المرتبطة
-        from .skill_level import HrSkillLevel
-        cnt = HrSkillLevel.objects.filter(skill_type=self).count()
-        if cnt != self.levels_count:
-            HrSkillType.objects.filter(pk=self.pk).update(levels_count=cnt)
+    def clean(self):
+        super().clean()
+        # ملاحظة: في Odoo يُرفض نوع بلا مهارات/مستويات عند عمليات معينة.
+        # هنا نترك التحقق للواجهة/المنطق التطبيقي (أو تضيفه لاحقًا بعد توفّر بيانات كافية).
+
+    def __str__(self):
+        return f"{self.name}{' 🏅' if self.is_certification else ''}"

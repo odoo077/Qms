@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Transfer Asset · 360 Manager{% endblock %}
+{% block content %}
+<div class="max-w-xl mx-auto">
+  <div class="mb-4">
+    <h1 class="text-2xl font-bold">Transfer Asset</h1>
+    <p class="text-sm text-base-content/70 mt-1">
+      Item: {{ view.item.asset_tag }} — {{ view.item.model.name }}
+      {% if view.item.current_employee %} • Current: {{ view.item.current_employee.name }}{% endif %}
+    </p>
+  </div>
+  <form method="post" class="rounded-2xl bg-base-100 ring-1 ring-base-300 shadow p-6">
+    {% csrf_token %}
+    {{ form.non_field_errors }}
+    <div class="grid gap-4">
+      <div>{{ form.to_employee.label_tag }}{{ form.to_employee }}</div>
+      <div>{{ form.date_assigned.label_tag }}{{ form.date_assigned }}</div>
+      <div>{{ form.due_back.label_tag }}{{ form.due_back }}</div>
+      <div>{{ form.note.label_tag }}{{ form.note }}</div>
+    </div>
+    <div class="mt-6 flex gap-2">
+      <button class="btn btn-primary">Transfer</button>
+      <a href="{% url 'assets:asset_item_detail' view.item.pk %}" class="btn btn-ghost">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}Resume Line · {{ line.name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-4">
+  <!-- Breadcrumbs -->
+  <div class="breadcrumbs text-sm">
+    <ul>
+      <li><a href="/">Home</a></li>
+      <li><a href="{% url 'skills:resume_line_list' %}">Resume Lines</a></li>
+      <li>{{ line.name }}</li>
+    </ul>
+  </div>
+
+  <!-- Header -->
+  <div class="flex items-center justify-between">
+    <h1 class="text-2xl font-bold">
+      {{ line.name }}
+      {% if line.line_type.is_course %}<span class="badge badge-outline badge-sm ml-2">Course</span>{% endif %}
+    </h1>
+    <div class="join">
+      <a href="{% url 'skills:resume_line_update' line.id %}" class="btn join-item">Edit</a>
+      <a href="{% url 'skills:resume_line_list' %}" class="btn btn-outline join-item">Back</a>
+    </div>
+  </div>
+
+  <!-- Card -->
+  <div class="card bg-base-100 shadow-md">
+    <div class="card-body space-y-5">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <div class="text-sm opacity-70">Employee</div>
+          <div class="font-medium">{{ line.employee.name }}</div>
+        </div>
+
+        <div>
+          <div class="text-sm opacity-70">Type</div>
+          <div class="font-medium">{{ line.line_type.name }}</div>
+        </div>
+
+        <div>
+          <div class="text-sm opacity-70">Company</div>
+          <div class="font-medium">{{ line.company.name|default:"—" }}</div>
+        </div>
+
+        <div>
+          <div class="text-sm opacity-70">Department</div>
+          <div class="font-medium">{{ line.department.complete_name|default:"—" }}</div>
+        </div>
+
+        <div>
+          <div class="text-sm opacity-70">Period</div>
+          <div class="flex items-center gap-2">
+            <span class="badge badge-ghost">{{ line.date_start|default:"—" }}</span>
+            <span class="opacity-50">→</span>
+            <span class="badge badge-ghost">{{ line.date_end|default:"—" }}</span>
+          </div>
+        </div>
+
+        {% if line.external_url %}
+        <div>
+          <div class="text-sm opacity-70">External URL</div>
+          <a href="{{ line.external_url }}" target="_blank" rel="noopener" class="link">{{ line.external_url }}</a>
+        </div>
+        {% endif %}
+
+        {% if line.certificate_file %}
+        <div class="md:col-span-2">
+          <div class="text-sm opacity-70">Certificate</div>
+          <a href="{{ line.certificate_file.url }}" class="btn btn-sm" target="_blank" rel="noopener">
+            Download {{ line.certificate_filename|default:line.certificate_file.name }}
+          </a>
+        </div>
+        {% endif %}
+      </div>
+
+      {% if line.description %}
+      <div class="divider"></div>
+      <div>
+        <div class="text-sm opacity-70 mb-1">Description</div>
+        <div class="prose max-w-none dark:prose-invert">{{ line.description|linebreaksbr }}</div>
+      </div>
+      {% endif %}
+
+      <div class="divider my-2"></div>
+
+      <div class="flex items-center justify-between">
+        <div class="opacity-70 text-sm">ID: #{{ line.id }}</div>
+        <a href="{% url 'skills:resume_line_delete' line.id %}" class="btn btn-error btn-sm">Delete</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

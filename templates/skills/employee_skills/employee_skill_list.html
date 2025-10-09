@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+{% block title %}Employee Skills{% endblock %}
+
+{% block content %}
+<div class="space-y-5">
+  <!-- Header -->
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-bold">Employee Skills</h1>
+      <p class="opacity-70 text-sm">Track employees’ skills & certifications with versioned history.</p>
+    </div>
+    <a href="{% url 'skills:employee_skill_create' %}" class="btn btn-primary">+ Add skill</a>
+  </div>
+
+  <!-- Filters -->
+  <form method="get" class="card bg-base-100 shadow-sm">
+    <div class="card-body">
+      <div class="grid grid-cols-1 md:grid-cols-5 gap-3">
+        <label class="form-control">
+          <span class="label-text">Search</span>
+          <input name="q" value="{{ request.GET.q }}" placeholder="Employee, Skill, Level..."
+                 class="input input-bordered w-full" />
+        </label>
+
+        <label class="form-control">
+          <span class="label-text">Employee</span>
+          <select name="employee" class="select select-bordered w-full">
+            <option value="">All</option>
+            {% for e in employees %}
+              <option value="{{ e.id }}" {% if request.GET.employee|default:'' == e.id|stringformat:'s' %}selected{% endif %}>
+                {{ e.name }}
+              </option>
+            {% endfor %}
+          </select>
+        </label>
+
+        <label class="form-control">
+          <span class="label-text">Skill Type</span>
+          <select name="skill_type" class="select select-bordered w-full">
+            <option value="">All</option>
+            {% for st in skill_types %}
+              <option value="{{ st.id }}" {% if request.GET.skill_type|default:'' == st.id|stringformat:'s' %}selected{% endif %}>
+                {{ st.name }}{% if st.is_certification %} · 🏅{% endif %}
+              </option>
+            {% endfor %}
+          </select>
+        </label>
+
+        <label class="form-control">
+          <span class="label-text">Skill</span>
+          <select name="skill" class="select select-bordered w-full">
+            <option value="">All</option>
+            {% for s in skills %}
+              <option value="{{ s.id }}" {% if request.GET.skill|default:'' == s.id|stringformat:'s' %}selected{% endif %}>
+                {{ s.name }} ({{ s.skill_type.name }})
+              </option>
+            {% endfor %}
+          </select>
+        </label>
+
+        <label class="form-control">
+          <span class="label-text">On date</span>
+          <input type="date" name="on_date" value="{{ request.GET.on_date|default:'' }}" class="input input-bordered w-full" />
+        </label>
+      </div>
+
+      <div class="card-actions justify-end">
+        <div class="join">
+          <button class="btn btn-outline btn-sm join-item">Apply</button>
+          <a href="{% url 'skills:employee_skill_list' %}" class="btn btn-ghost btn-sm join-item">Reset</a>
+        </div>
+      </div>
+    </div>
+  </form>
+
+  <!-- Table -->
+  <div class="overflow-x-auto bg-base-100 rounded-box shadow">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Employee</th>
+          <th>Skill</th>
+          <th>Level</th>
+          <th class="w-64">Period</th>
+          <th class="w-24 text-right">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in records %}
+        <tr>
+          <td>
+            <a class="link link-hover font-semibold" href="{% url 'skills:employee_skill_detail' r.id %}">
+              {{ r.employee.name }}
+            </a>
+          </td>
+          <td>
+            <div class="flex items-center gap-2">
+              <div class="w-3 h-3 rounded ring-1 ring-base-200" style="background-color:hsl({{ r.color|default:200 }},60%,50%);"></div>
+              <span>
+                {{ r.skill.name }}
+                <span class="opacity-60 text-xs">({{ r.skill_type.name }})</span>
+                {% if r.is_certification %}<span class="badge badge-outline badge-sm ml-1">Certification</span>{% endif %}
+              </span>
+            </div>
+          </td>
+          <td>
+            <div class="flex items-center gap-2">
+              <span class="font-medium">{{ r.skill_level.name }}</span>
+              <span class="badge badge-sm">{{ r.level_progress }}%</span>
+            </div>
+          </td>
+          <td>
+            <div class="flex items-center gap-2 text-sm">
+              <span class="badge badge-ghost">{{ r.valid_from }}</span>
+              <span class="opacity-50">→</span>
+              <span class="badge badge-ghost">{{ r.valid_to|default:"Open-ended" }}</span>
+            </div>
+          </td>
+          <td class="text-right">
+            <div class="join">
+              <a href="{% url 'skills:employee_skill_update' r.id %}" class="btn btn-sm join-item">Edit</a>
+              <a href="{% url 'skills:employee_skill_detail' r.id %}" class="btn btn-sm btn-outline join-item">View</a>
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="5">
+            <div class="p-8 text-center opacity-70">
+              No employee skills found. <a class="link" href="{% url 'skills:employee_skill_create' %}">Add the first record</a>.
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% include "partials/paginator.html" with page_obj=page_obj %}
+</div>
+{% endblock %}

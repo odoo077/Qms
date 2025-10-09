@@ -1,11 +1,15 @@
 from django.db import models
-from base.models.mixins import CompanyOwnedMixin, TimeStamped, UserStamped
+from base.models.mixins import (
+    CompanyOwnedMixin,
+    TimeStamped,
+    UserStamped,
+    ActivableMixin,  # يوفر الحقل active افتراضيًا
+)
 
-class WorkLocation(CompanyOwnedMixin, TimeStamped, UserStamped, models.Model):
+class WorkLocation(CompanyOwnedMixin, ActivableMixin, TimeStamped, UserStamped, models.Model):
     """
     Odoo hr.work.location: active, name, company, type, address ref, location number.
     """
-    active = models.BooleanField(default=True)
     name = models.CharField(max_length=255)
     company = models.ForeignKey("base.Company", on_delete=models.PROTECT)
     LOCATION_TYPE = [("home", "Home"), ("office", "Office"), ("other", "Other")]

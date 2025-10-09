@@ -2,11 +2,11 @@
 from django.dispatch import receiver
 from django.db import transaction
 from django.apps import apps
-from django.db.models.signals import pre_save, post_save, post_delete
-from django.db.models import Q
+from django.db.models.signals import post_save
 
 Employee = apps.get_model("hr", "Employee")
 Partner = apps.get_model("base", "Partner")
+
 
 @receiver(post_save, sender=Employee)
 def ensure_employee_work_contact(sender, instance: Employee, created, **kwargs):
@@ -61,68 +61,3 @@ def ensure_employee_work_contact(sender, instance: Employee, created, **kwargs):
         transaction.on_commit(_do)
     except Exception:
         _do()
-
-@receiver(pre_save, sender=Employee)
-def _capture_old_department_and_active(sender, instance: Employee, **kwargs):
-    """
-    قبل الحفظ: التقط القسم/الحالة القديمة لتحديث العد لاحقاً.
-    نخزنها مؤقتاً على instance (لن تُحفظ DB).
-    """
-    if not instance.pk:
-        instance.__old_department_id = None
-        instance.__old_active = None
-        return
-    try:
-        old = Employee.objects.all_companies().only("department_id", "active").get(pk=instance.pk)
-        instance.__old_department_id = old.department_id
-        instance.__old_active = old.active
-    except Employee.DoesNotExist:
-        instance.__old_department_id = None
-        instance.__old_active = None
-
-def _recompute_dept_counts(*dept_ids):
-    from django.apps import apps
-    Department = apps.get_model("hr", "Department")
-    for did in filter(None, set(dept_ids)):
-        try:
-            dept = Department.all_objects.get(pk=did)  # بلا سكوب
-            total = dept.members.filter(active=True).count()
-            if total != dept.total_employee:
-                dept.total_employee = total
-                dept.save(update_fields=["total_employee"])
-        except Department.DoesNotExist:
-            pass
-
-@receiver(post_save, sender=Employee)
-def _update_counts_on_employee_save(sender, instance: Employee, created, **kwargs):
-    """
-    بعد الحفظ: حدّث العدّ عند الحالات:
-    - إنشاء موظف Active ومربوط بقسم
-    - تغيير department
-    - تغيير active
-    """
-    old_dep = getattr(instance, "__old_department_id", None)
-    old_active = getattr(instance, "__old_active", None)
-    new_dep = instance.department_id
-    new_active = instance.active
-
-    # حالات تستوجب تحديث
-    touched = False
-    if created and new_active and new_dep:
-        _recompute_dept_counts(new_dep)
-        touched = True
-    if (old_dep != new_dep) or (old_active != new_active):
-        _recompute_dept_counts(old_dep, new_dep)
-        touched = True
-
-    # نظّف المتغيرات المؤقتة
-    if touched:
-        for attr in ("__old_department_id", "__old_active"):
-            if hasattr(instance, attr):
-                delattr(instance, attr)
-
-@receiver(post_delete, sender=Employee)
-def _update_counts_on_employee_delete(sender, instance: Employee, **kwargs):
-    """عند حذف الموظف، حدّث عدّ قسمه إن وُجد."""
-    if instance.department_id:
-        _recompute_dept_counts(instance.department_id)

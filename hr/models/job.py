@@ -1,8 +1,13 @@
 from django.db import models
-from base.models.mixins import CompanyOwnedMixin, TimeStamped, UserStamped
+from base.models.mixins import (
+    CompanyOwnedMixin,
+    TimeStamped,
+    UserStamped,
+    ActivableMixin,  # يوفر الحقل active افتراضيًا
+)
 
-class Job(CompanyOwnedMixin, TimeStamped, UserStamped, models.Model):
-    active = models.BooleanField(default=True)
+
+class Job(CompanyOwnedMixin,ActivableMixin, TimeStamped, UserStamped, models.Model):
     name = models.CharField(max_length=255, db_index=True)
     sequence = models.IntegerField(default=10)
     description = models.TextField(blank=True)   # HTML in Odoo

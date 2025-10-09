@@ -1,18 +1,24 @@
+# hr/models/employee.py
 from django.core.exceptions import ValidationError
 from django.db import models
+from base.models.mixins import (
+    CompanyOwnedMixin,
+    TimeStamped,
+    UserStamped,
+    ActivableMixin,  # يوفر الحقل active افتراضيًا
+)
 
-from base.models.mixins import CompanyOwnedMixin, TimeStamped, UserStamped
-
-
-class Employee(CompanyOwnedMixin, TimeStamped, UserStamped, models.Model):
-    active = models.BooleanField(default=True)
+class Employee(CompanyOwnedMixin,ActivableMixin, TimeStamped, UserStamped, models.Model):
+    """Odoo-like hr.employee"""
 
     company = models.ForeignKey(
         "base.Company",
         on_delete=models.PROTECT,
         related_name="employees",
     )
+
     name = models.CharField(max_length=255, db_index=True)
+
     user = models.ForeignKey(
         "base.User",
         null=True,
@@ -28,6 +34,7 @@ class Employee(CompanyOwnedMixin, TimeStamped, UserStamped, models.Model):
         on_delete=models.SET_NULL,
         related_name="members",
     )
+
     job = models.ForeignKey(
         "hr.Job",
         null=True,
@@ -35,13 +42,15 @@ class Employee(CompanyOwnedMixin, TimeStamped, UserStamped, models.Model):
         on_delete=models.SET_NULL,
         related_name="employee_set",
     )
+
     manager = models.ForeignKey(
         "self",
         null=True,
         blank=True,
         on_delete=models.SET_NULL,
-        related_name="children",
+        related_name="managed_employees"
     )
+
     coach = models.ForeignKey(
         "self",
         null=True,
@@ -58,7 +67,17 @@ class Employee(CompanyOwnedMixin, TimeStamped, UserStamped, models.Model):
         related_name="employee_work_contact",
     )
 
-    # جميع العلاقات يجب أن تطابق شركة الموظف
+    # العنوان الشخصي (المنزل) - لا يتبع شركة محددة
+    address_home = models.ForeignKey(
+        "base.Partner",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="employee_home_address",
+        help_text="العنوان الشخصي للموظف (Partner شخصي لا يتبع الشركة).",
+    )
+
+    # العلاقات التي يجب أن تطابق شركة الموظف
     company_dependent_relations = (
         "department",
         "job",
@@ -68,44 +87,73 @@ class Employee(CompanyOwnedMixin, TimeStamped, UserStamped, models.Model):
         "work_contact",
     )
 
-    # store=True in Odoo (related fields)
+    # store=True في Odoo (حقول مشتقة)
     work_email = models.EmailField(blank=True)
     work_phone = models.CharField(max_length=64, blank=True)
     mobile_phone = models.CharField(max_length=64, blank=True)
 
-    # --- Private / Personal ---
-    private_phone = models.CharField(max_length=64, blank=True)  # Odoo: private_phone
-    private_email = models.EmailField(blank=True)  # Odoo: private_email
-    birthday = models.DateField(null=True, blank=True)  # Odoo: birthday
+    # --- بيانات خاصة / شخصية ---
+    private_phone = models.CharField(max_length=64, blank=True)
+    private_email = models.EmailField(blank=True)
+    birthday = models.DateField(null=True, blank=True)
     place_of_birth = models.CharField(max_length=255, blank=True)
-    # store=True in Odoo
     birthday_public_display_string = models.CharField(max_length=64, blank=True)
-    coach_id_cache = models.CharField(
-        max_length=255,
-        blank=True,
-    )  # simulate Odoo store=True on coach_id compute
+    coach_id_cache = models.CharField(max_length=255, blank=True)
 
-    # --- Emergency ---
+    # --- بيانات الطوارئ ---
     emergency_contact = models.CharField(max_length=255, blank=True)
     emergency_phone = models.CharField(max_length=64, blank=True)
 
-    # --- Education / Visa / Permit ---
-    certificate = models.CharField(max_length=64, blank=True)  # Bachelor/Master/...
+    # --- بيانات التعليم / الإقامة ---
+    certificate = models.CharField(max_length=64, blank=True)
     study_field = models.CharField(max_length=128, blank=True)
     study_school = models.CharField(max_length=128, blank=True)
 
-    # transient presence fields (store=False in Odoo)
-    @property
-    def hr_presence_state(self):
-        return "archive" if not self.active else "present"
+    # --- الحقول الإضافية (اختيارية لتوسيع Employee مثل Odoo) ---
+    marital_status = models.CharField(
+        max_length=32,
+        blank=True,
+        choices=[
+            ("single", "Single"),
+            ("married", "Married"),
+            ("divorced", "Divorced"),
+            ("widow", "Widow"),
+        ],
+    )
+    gender = models.CharField(
+        max_length=16,
+        blank=True,
+        choices=[("male", "Male"), ("female", "Female")],
+    )
+    children = models.PositiveIntegerField(
+        default=0,
+        help_text="Number of children",
+    )
 
-    @property
-    def hr_icon_display(self):
-        return "fa-user"
+    identification_id = models.CharField(
+        max_length=64,
+        blank=True,
+        help_text="National ID / Identification",
+    )
 
-    @property
-    def show_hr_icon_display(self):
-        return self.active
+    passport_id = models.CharField(
+        max_length=64,
+        blank=True,
+        help_text="Passport number",
+    )
+
+    bank_account = models.CharField(
+        max_length=128,
+        blank=True,
+        help_text="Bank account details",
+    )
+
+    car = models.CharField(
+        max_length=128,
+        blank=True,
+        help_text="Vehicle information (if applicable)",
+    )
+    # --- نهاية الحقول الإضافية ---
 
     work_location = models.ForeignKey(
         "hr.WorkLocation",
@@ -124,7 +172,6 @@ class Employee(CompanyOwnedMixin, TimeStamped, UserStamped, models.Model):
     barcode = models.CharField(max_length=64, blank=True, null=True)
     pin = models.CharField(max_length=32, blank=True)
 
-    # ==== داخل hr/models/employee.py ضمن class Employee ====
     class Meta:
         db_table = "hr_employee"
         indexes = [
@@ -134,23 +181,19 @@ class Employee(CompanyOwnedMixin, TimeStamped, UserStamped, models.Model):
             models.Index(fields=["department"]),
         ]
         constraints = [
-            # barcode فريد لكل شركة عند تعبئته (يسمح بتعدد NULL)
             models.UniqueConstraint(
                 fields=["company", "barcode"],
                 name="uniq_employee_barcode_per_company",
                 condition=models.Q(barcode__isnull=False),
             ),
-            # منع أن يكون الموظف مدير نفسه
             models.CheckConstraint(
                 name="employee_manager_not_self",
                 check=~models.Q(pk=models.F("manager")),
             ),
-            # منع أن يكون الموظف مُرشِد نفسه
             models.CheckConstraint(
                 name="employee_coach_not_self",
                 check=~models.Q(pk=models.F("coach")),
             ),
-            # (اختياري) pin فريد لكل شركة عند تعبئته
             models.UniqueConstraint(
                 fields=["company", "pin"],
                 name="uniq_employee_pin_per_company",
@@ -158,10 +201,24 @@ class Employee(CompanyOwnedMixin, TimeStamped, UserStamped, models.Model):
             ),
         ]
 
+    # ======= الحقول المحسوبة / الخاصة ==========
+    @property
+    def hr_presence_state(self):
+        return "archive" if not self.active else "present"
+
+    @property
+    def hr_icon_display(self):
+        return "fa-user"
+
+    @property
+    def show_hr_icon_display(self):
+        return self.active
+
+    # ========= التحقق =========
     def clean(self):
         super().clean()
 
-        # 1) العلاقات التي يجب أن تطابق شركة الموظف
+        # العلاقات التي يجب أن تتبع نفس الشركة
         checks = (
             ("department", getattr(self, "department", None)),
             ("job", getattr(self, "job", None)),
@@ -177,32 +234,44 @@ class Employee(CompanyOwnedMixin, TimeStamped, UserStamped, models.Model):
         if self.coach and getattr(self.coach, "company_id", None) != self.company_id:
             raise ValidationError({"coach": "Coach must match employee company."})
 
-        # 2) منع self-reference منطقياً (بالإضافة لقيد DB)
+        # منع self-reference منطقياً
         if self.pk:
             if self.manager_id and self.manager_id == self.pk:
                 raise ValidationError({"manager": "Employee cannot be their own manager."})
             if self.coach_id and self.coach_id == self.pk:
                 raise ValidationError({"coach": "Employee cannot be their own coach."})
 
-        # 3) تحقّق صيغة الـ Barcode عند تعبئته (مثل Odoo: حروف/أرقام وبحد أقصى 18)
+        # تحقق من صيغة الـ Barcode
         if self.barcode:
             import re
-
             if not (re.match(r"^[A-Za-z0-9]+$", self.barcode) and len(self.barcode) <= 18):
                 raise ValidationError({"barcode": "Badge ID must be alphanumeric and ≤ 18 chars."})
 
+    # ========= الحفظ =========
     def save(self, *args, **kwargs):
-        # recompute birthday display string
-        if self.birthday_public_display_string == "" and hasattr(self, "birthday") and self.birthday:
+        # تحديث عرض تاريخ الميلاد
+        if self.birthday:
             self.birthday_public_display_string = self.birthday.strftime("%d %B")
 
-        # recompute coach cache
+        # تحديث كاش المدرب
         self.coach_id_cache = str(self.coach_id) if self.coach_id else ""
 
         if self.barcode == "":
             self.barcode = None
 
+        # في حال وجود address_home → اشتق البريد والهاتف الخاص
+        if self.address_home:
+            if not self.private_email and getattr(self.address_home, "email", None):
+                self.private_email = self.address_home.email
+            if not self.private_phone and getattr(self.address_home, "phone", None):
+                self.private_phone = self.address_home.phone
+
         super().save(*args, **kwargs)
+
+    @property
+    def current_skills(self):
+        from skills.models import HrEmployeeSkill
+        return HrEmployeeSkill.current_for_employee(self.id)
 
     def __str__(self):
         return self.name

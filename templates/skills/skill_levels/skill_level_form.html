@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}{% if object %}Edit Skill Level{% else %}New Skill Level{% endif %}{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto space-y-4">
+  <!-- Breadcrumbs -->
+  <div class="breadcrumbs text-sm">
+    <ul>
+      <li><a href="/">Home</a></li>
+      <li><a href="{% url 'skills:skill_level_list' %}">Skill Levels</a></li>
+      <li>{% if object %}Edit{% else %}New{% endif %}</li>
+    </ul>
+  </div>
+
+  <!-- Header -->
+  <div class="flex items-center justify-between">
+    <h1 class="text-2xl font-bold">{% if object %}Edit{% else %}New{% endif %} Skill Level</h1>
+    <a href="{% url 'skills:skill_level_list' %}" class="btn btn-ghost">Back</a>
+  </div>
+
+  <!-- Form Card -->
+  <form method="post" class="card bg-base-100 shadow-md">
+    {% csrf_token %}
+    <div class="card-body space-y-5">
+      {% if form.non_field_errors %}
+        <div class="alert alert-error">
+          <ul class="list-disc list-inside">
+            {% for err in form.non_field_errors %}<li>{{ err }}</li>{% endfor %}
+          </ul>
+        </div>
+      {% endif %}
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <label class="form-control md:col-span-2">
+          <span class="label-text">Skill Type</span>
+          {{ form.skill_type }}
+          {% for e in form.skill_type.errors %}<span class="text-error text-sm">{{ e }}</span>{% endfor %}
+        </label>
+
+        <label class="form-control md:col-span-2">
+          <span class="label-text">Level Name</span>
+          {{ form.name }}
+          {% for e in form.name.errors %}<span class="text-error text-sm">{{ e }}</span>{% endfor %}
+        </label>
+
+        <label class="form-control">
+          <span class="label-text">Progress (0–100%)</span>
+          {{ form.level_progress }}
+          <span class="label-text-alt opacity-70">Used for ordering and progress display.</span>
+          {% for e in form.level_progress.errors %}<span class="text-error text-sm">{{ e }}</span>{% endfor %}
+        </label>
+
+        <label class="form-control">
+          <span class="label-text">Default for this type</span>
+          {{ form.default_level }}
+          <span class="label-text-alt opacity-70">Only one default is enforced per type.</span>
+          {% for e in form.default_level.errors %}<span class="text-error text-sm">{{ e }}</span>{% endfor %}
+        </label>
+      </div>
+
+      <div class="card-actions justify-end pt-2">
+        <a href="{% url 'skills:skill_level_list' %}" class="btn btn-ghost">Cancel</a>
+        <button class="btn btn-primary">{% if object %}Update{% else %}Save{% endif %}</button>
+      </div>
+    </div>
+  </form>
+</div>
+{% endblock %}

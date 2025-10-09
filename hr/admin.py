@@ -54,13 +54,13 @@ class _ActiveActionsMixin:
 class DepartmentAdmin(_StampedAdmin, _ActiveActionsMixin):
     list_display = (
         "link_complete_name", "company", "parent", "manager",
-        "total_employee", "active",
+         "active",
     )
     list_display_links = ("link_complete_name",)
     list_filter = ("company", "active")
     search_fields = ("name", "complete_name")
     autocomplete_fields = ("manager", "parent")
-    readonly_fields = _StampedAdmin.readonly_fields + ("complete_name", "parent_path", "total_employee")
+    readonly_fields = _StampedAdmin.readonly_fields + ("complete_name", "parent_path")
     ordering = ("company", "complete_name")
     list_per_page = 50
     list_select_related = ("company", "parent", "manager")
@@ -72,7 +72,7 @@ class DepartmentAdmin(_StampedAdmin, _ActiveActionsMixin):
         }),
         (_("Computed"), {
             "classes": ("collapse",),
-            "fields": ("complete_name", "parent_path", "total_employee"),
+            "fields": ("complete_name", "parent_path"),
         }),
         (_("Audit"), {
             "classes": ("collapse",),

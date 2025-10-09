@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}Resume Line Type · {{ rtype.name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-4">
+  <!-- Breadcrumbs -->
+  <div class="breadcrumbs text-sm">
+    <ul>
+      <li><a href="/">Home</a></li>
+      <li><a href="{% url 'skills:resume_line_type_list' %}">Resume Line Types</a></li>
+      <li>{{ rtype.name }}</li>
+    </ul>
+  </div>
+
+  <!-- Header -->
+  <div class="flex items-center justify-between">
+    <h1 class="text-2xl font-bold">
+      {{ rtype.name }}
+      {% if not rtype.active %}<span class="badge badge-outline badge-sm ml-2">Archived</span>{% endif %}
+    </h1>
+    <div class="join">
+      <a href="{% url 'skills:resume_line_type_update' rtype.id %}" class="btn join-item">Edit</a>
+      <a href="{% url 'skills:resume_line_type_list' %}" class="btn btn-outline join-item">Back</a>
+    </div>
+  </div>
+
+  <!-- Card -->
+  <div class="card bg-base-100 shadow-md">
+    <div class="card-body space-y-4">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <div class="text-sm opacity-70">Name</div>
+          <div class="font-medium">{{ rtype.name }}</div>
+        </div>
+        <div>
+          <div class="text-sm opacity-70">Sequence</div>
+          <div class="font-medium">{{ rtype.sequence }}</div>
+        </div>
+        <div>
+          <div class="text-sm opacity-70">Is course?</div>
+          {% if rtype.is_course %}
+            <span class="badge badge-outline">Yes</span>
+          {% else %}
+            <span class="badge badge-ghost">No</span>
+          {% endif %}
+        </div>
+        <div class="md:col-span-2">
+          <div class="text-sm opacity-70">Properties definition (JSON)</div>
+          {% if rtype.properties_definition %}
+            <pre class="mockup-code whitespace-pre-wrap text-sm">{{ rtype.properties_definition|json_script:"rtype_props" }}</pre>
+            <script>
+              // عرض JSON بشكل جميل (اختياري)
+              try {
+                const obj = JSON.parse(document.getElementById("rtype_props").textContent);
+                const pretty = JSON.stringify(obj, null, 2);
+                document.currentScript.previousElementSibling.textContent = pretty;
+              } catch(e) {}
+            </script>
+          {% else %}
+            <div class="opacity-60">—</div>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="divider my-2"></div>
+
+      <div class="flex items-center justify-between">
+        <div class="opacity-70 text-sm">ID: #{{ rtype.id }}</div>
+        <a href="{% url 'skills:resume_line_type_delete' rtype.id %}" class="btn btn-error btn-sm">Delete</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

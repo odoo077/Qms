@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}{% if object %}Edit Employee Skill{% else %}Add Employee Skill{% endif %}{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto space-y-4">
+  <!-- Breadcrumbs -->
+  <div class="breadcrumbs text-sm">
+    <ul>
+      <li><a href="/">Home</a></li>
+      <li><a href="{% url 'skills:employee_skill_list' %}">Employee Skills</a></li>
+      <li>{% if object %}Edit{% else %}New{% endif %}</li>
+    </ul>
+  </div>
+
+  <!-- Header -->
+  <div class="flex items-center justify-between">
+    <h1 class="text-2xl font-bold">{% if object %}Edit{% else %}Add{% endif %} Employee Skill</h1>
+    <a href="{% url 'skills:employee_skill_list' %}" class="btn btn-ghost">Back</a>
+  </div>
+
+  <!-- Info note -->
+  <div class="alert alert-info">
+    <span>Versioned write is enabled: editing will archive previous record and create a new version (Odoo-like behavior).</span>
+  </div>
+
+  <!-- Form Card -->
+  <form method="post" enctype="multipart/form-data" class="card bg-base-100 shadow-md">
+    {% csrf_token %}
+    <div class="card-body space-y-5">
+      {% if form.non_field_errors %}
+        <div class="alert alert-error">
+          <ul class="list-disc list-inside">
+            {% for err in form.non_field_errors %}<li>{{ err }}</li>{% endfor %}
+          </ul>
+        </div>
+      {% endif %}
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <label class="form-control">
+          <span class="label-text">Employee</span>
+          {{ form.employee }}
+          {% for e in form.employee.errors %}<span class="text-error text-sm">{{ e }}</span>{% endfor %}
+        </label>
+
+        <label class="form-control">
+          <span class="label-text">Skill Type</span>
+          {{ form.skill_type }}
+          <span class="label-text-alt opacity-70">Levels & Skills are filtered by selected type.</span>
+          {% for e in form.skill_type.errors %}<span class="text-error text-sm">{{ e }}</span>{% endfor %}
+        </label>
+
+        <label class="form-control">
+          <span class="label-text">Skill</span>
+          {{ form.skill }}
+          {% for e in form.skill.errors %}<span class="text-error text-sm">{{ e }}</span>{% endfor %}
+        </label>
+
+        <label class="form-control">
+          <span class="label-text">Level</span>
+          {{ form.skill_level }}
+          {% for e in form.skill_level.errors %}<span class="text-error text-sm">{{ e }}</span>{% endfor %}
+        </label>
+
+        <label class="form-control">
+          <span class="label-text">Valid from</span>
+          {{ form.valid_from }}
+          {% for e in form.valid_from.errors %}<span class="text-error text-sm">{{ e }}</span>{% endfor %}
+        </label>
+
+        <label class="form-control">
+          <span class="label-text">Valid to</span>
+          {{ form.valid_to }}
+          <span class="label-text-alt opacity-70">Leave empty for open-ended validity.</span>
+          {% for e in form.valid_to.errors %}<span class="text-error text-sm">{{ e }}</span>{% endfor %}
+        </label>
+      </div>
+
+      <div class="card-actions justify-end pt-2">
+        <a href="{% url 'skills:employee_skill_list' %}" class="btn btn-ghost">Cancel</a>
+        <button class="btn btn-primary">{% if object %}Update{% else %}Save{% endif %}</button>
+      </div>
+    </div>
+  </form>
+</div>
+{% endblock %}

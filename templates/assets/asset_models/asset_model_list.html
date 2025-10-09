@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Asset Models · 360 Manager{% endblock %}
+{% block content %}
+<div class="flex items-center justify-between mb-4">
+  <h1 class="text-2xl font-bold">Asset Models</h1>
+  <a href="{% url 'assets:asset_model_create' %}" class="btn btn-primary">+ New model</a>
+</div>
+
+<form method="get" class="mb-4 flex flex-wrap items-center gap-2">
+  <label class="label cursor-pointer gap-2">
+    <span class="label-text">Active only</span>
+    <input type="checkbox" name="active" value="1" class="toggle" {% if request.GET.active %}checked{% endif %}/>
+  </label>
+  <input type="number" name="type" value="{{ request.GET.type }}" class="input input-bordered w-40" placeholder="Type ID"/>
+  <button class="btn btn-outline btn-sm">Filter</button>
+  <a href="{% url 'assets:asset_model_list' %}" class="btn btn-ghost btn-sm">Reset</a>
+</form>
+
+<div class="rounded-2xl bg-base-100 ring-1 ring-base-300 shadow">
+  <div class="overflow-x-auto">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Model</th>
+          <th>Manufacturer</th>
+          <th>SKU</th>
+          <th>Active</th>
+          <th class="w-40"></th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for m in models %}
+        <tr>
+          <td>{{ m.type.name }}</td>
+          <td class="font-medium">{{ m.name }}</td>
+          <td>{{ m.manufacturer|default:"—" }}</td>
+          <td class="text-xs text-base-content/70">{{ m.sku|default:"—" }}</td>
+          <td>{% if m.active %}<span class="badge badge-success badge-outline">Active</span>{% else %}<span class="badge">Inactive</span>{% endif %}</td>
+          <td class="text-right">
+            <a href="{% url 'assets:asset_model_edit' m.pk %}" class="btn btn-xs btn-outline">Edit</a>
+            <a href="{% url 'assets:asset_model_delete' m.pk %}" class="btn btn-xs btn-error btn-outline">Delete</a>
+          </td>
+        </tr>
+      {% empty %}
+        <tr><td colspan="6" class="text-center text-base-content/70">No models yet.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

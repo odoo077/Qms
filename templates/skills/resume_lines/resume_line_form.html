@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}{% if object %}Edit Resume Line{% else %}New Resume Line{% endif %}{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-4">
+  <!-- Breadcrumbs -->
+  <div class="breadcrumbs text-sm">
+    <ul>
+      <li><a href="/">Home</a></li>
+      <li><a href="{% url 'skills:resume_line_list' %}">Resume Lines</a></li>
+      <li>{% if object %}Edit{% else %}New{% endif %}</li>
+    </ul>
+  </div>
+
+  <!-- Header -->
+  <div class="flex items-center justify-between">
+    <h1 class="text-2xl font-bold">{% if object %}Edit{% else %}New{% endif %} Resume Line</h1>
+    <a href="{% url 'skills:resume_line_list' %}" class="btn btn-ghost">Back</a>
+  </div>
+
+  <!-- Form Card -->
+  <form method="post" enctype="multipart/form-data" class="card bg-base-100 shadow-md">
+    {% csrf_token %}
+    <div class="card-body space-y-5">
+
+      {% if form.non_field_errors %}
+        <div class="alert alert-error">
+          <ul class="list-disc list-inside">
+            {% for err in form.non_field_errors %}<li>{{ err }}</li>{% endfor %}
+          </ul>
+        </div>
+      {% endif %}
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <label class="form-control">
+          <span class="label-text">Employee</span>
+          {{ form.employee }}
+          {% for e in form.employee.errors %}<span class="text-error text-sm">{{ e }}</span>{% endfor %}
+        </label>
+
+        <label class="form-control">
+          <span class="label-text">Line Type</span>
+          {{ form.line_type }}
+          <span class="label-text-alt opacity-70">Course-specific UI may show when is_course = true.</span>
+          {% for e in form.line_type.errors %}<span class="text-error text-sm">{{ e }}</span>{% endfor %}
+        </label>
+
+        <label class="form-control md:col-span-2">
+          <span class="label-text">Title</span>
+          {{ form.name }}
+          {% for e in form.name.errors %}<span class="text-error text-sm">{{ e }}</span>{% endfor %}
+        </label>
+
+        <label class="form-control">
+          <span class="label-text">Start date</span>
+          {{ form.date_start }}
+          {% for e in form.date_start.errors %}<span class="text-error text-sm">{{ e }}</span>{% endfor %}
+        </label>
+
+        <label class="form-control">
+          <span class="label-text">End date</span>
+          {{ form.date_end }}
+          <span class="label-text-alt opacity-70">Leave empty if ongoing.</span>
+          {% for e in form.date_end.errors %}<span class="text-error text-sm">{{ e }}</span>{% endfor %}
+        </label>
+
+        <label class="form-control md:col-span-2">
+          <span class="label-text">Description</span>
+          {{ form.description }}
+          {% for e in form.description.errors %}<span class="text-error text-sm">{{ e }}</span>{% endfor %}
+        </label>
+
+        <!-- Course-specific -->
+        <label class="form-control">
+          <span class="label-text">Course type</span>
+          {{ form.course_type }}
+          {% for e in form.course_type.errors %}<span class="text-error text-sm">{{ e }}</span>{% endfor %}
+        </label>
+
+        <label class="form-control">
+          <span class="label-text">External URL</span>
+          {{ form.external_url }}
+          <span class="label-text-alt opacity-70">Used when course type is External.</span>
+          {% for e in form.external_url.errors %}<span class="text-error text-sm">{{ e }}</span>{% endfor %}
+        </label>
+
+        <label class="form-control md:col-span-2">
+          <span class="label-text">Certificate (optional)</span>
+          {{ form.certificate_file }}
+          {% if object.certificate_file %}
+            <span class="label-text-alt">
+              Current: <a href="{{ object.certificate_file.url }}" class="link" target="_blank" rel="noopener">{{ object.certificate_filename|default:object.certificate_file.name }}</a>
+            </span>
+          {% endif %}
+          {% for e in form.certificate_file.errors %}<span class="text-error text-sm">{{ e }}</span>{% endfor %}
+        </label>
+      </div>
+
+      <div class="card-actions justify-end pt-2">
+        <a href="{% url 'skills:resume_line_list' %}" class="btn btn-ghost">Cancel</a>
+        <button class="btn btn-primary">{% if object %}Update{% else %}Save{% endif %}</button>
+      </div>
+    </div>
+  </form>
+</div>
+{% endblock %}

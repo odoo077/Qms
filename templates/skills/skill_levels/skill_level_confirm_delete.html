@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Delete Skill Level{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto space-y-4">
+  <!-- Breadcrumbs -->
+  <div class="breadcrumbs text-sm">
+    <ul>
+      <li><a href="/">Home</a></li>
+      <li><a href="{% url 'skills:skill_level_list' %}">Skill Levels</a></li>
+      <li>Delete</li>
+    </ul>
+  </div>
+
+  <div class="card bg-base-100 shadow-md">
+    <div class="card-body">
+      <div class="flex items-start gap-4">
+        <div class="avatar placeholder">
+          <div class="bg-error/15 text-error rounded-full w-12">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 m-3" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M12 9v3m0 4h.01M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+            </svg>
+          </div>
+        </div>
+
+        <div class="grow">
+          <h1 class="card-title">Delete Skill Level</h1>
+          <p class="opacity-80">
+            Are you sure you want to delete <b>{{ object.name }}</b> ({{ object.skill_type.name }})?
+            <span class="block text-xs mt-1 opacity-60">This action cannot be undone.</span>
+          </p>
+
+          <form method="post" class="card-actions justify-end mt-6">
+            {% csrf_token %}
+            <a href="{% url 'skills:skill_level_detail' object.id %}" class="btn btn-ghost">Cancel</a>
+            <button class="btn btn-error">Delete</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

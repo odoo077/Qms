@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}{{ record.employee.name }} · {{ record.skill.name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-4">
+  <!-- Breadcrumbs -->
+  <div class="breadcrumbs text-sm">
+    <ul>
+      <li><a href="/">Home</a></li>
+      <li><a href="{% url 'skills:employee_skill_list' %}">Employee Skills</a></li>
+      <li>{{ record.employee.name }}</li>
+    </ul>
+  </div>
+
+  <!-- Header -->
+  <div class="flex items-center justify-between">
+    <h1 class="text-2xl font-bold">
+      {{ record.employee.name }} · {{ record.skill.name }}
+      <span class="opacity-60 text-sm">({{ record.skill_type.name }})</span>
+    </h1>
+    <div class="join">
+      <a href="{% url 'skills:employee_skill_update' record.id %}" class="btn join-item">Edit</a>
+      <a href="{% url 'skills:employee_skill_list' %}" class="btn btn-outline join-item">Back</a>
+    </div>
+  </div>
+
+  <!-- Card -->
+  <div class="card bg-base-100 shadow-md">
+    <div class="card-body space-y-4">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <div class="text-sm opacity-70">Employee</div>
+          <div class="font-medium">{{ record.employee.name }}</div>
+        </div>
+        <div>
+          <div class="text-sm opacity-70">Skill</div>
+          <div class="flex items-center gap-2">
+            <div class="w-4 h-4 rounded ring-1 ring-base-200" style="background-color:hsl({{ record.color|default:200 }},60%,50%);"></div>
+            <div class="font-medium">{{ record.skill.name }}</div>
+            {% if record.is_certification %}<span class="badge badge-outline badge-sm">Certification</span>{% endif %}
+          </div>
+        </div>
+        <div>
+          <div class="text-sm opacity-70">Level</div>
+          <div class="flex items-center gap-2">
+            <span class="font-medium">{{ record.skill_level.name }}</span>
+            <span class="badge badge-sm">{{ record.level_progress }}%</span>
+          </div>
+        </div>
+        <div>
+          <div class="text-sm opacity-70">Period</div>
+          <div class="flex items-center gap-2">
+            <span class="badge badge-ghost">{{ record.valid_from }}</span>
+            <span class="opacity-50">→</span>
+            <span class="badge badge-ghost">{{ record.valid_to|default:"Open-ended" }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="divider my-2"></div>
+
+      <div class="flex items-center justify-between">
+        <div class="opacity-70 text-sm">Record ID: #{{ record.id }}</div>
+        <a href="{% url 'skills:employee_skill_delete' record.id %}" class="btn btn-error btn-sm">Delete</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

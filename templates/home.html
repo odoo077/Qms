@@ -88,6 +88,60 @@
     </article>
   </section>
 
+
+    <!-- Assets quick actions -->
+  <section class="rounded-2xl bg-base-100/60 backdrop-blur supports-[backdrop-filter]:backdrop-blur-md ring-1 ring-base-300/60 shadow-xl overflow-hidden">
+    <header class="px-5 py-4 border-b border-base-300/70 flex items-center justify-between">
+      <h2 class="text-lg font-semibold">Assets{% if current_company %} — {{ current_company.name }}{% endif %}</h2>
+      <div class="flex gap-2">
+        <a href="{% url 'assets:asset_item_list' %}" class="btn btn-sm btn-outline">Asset items</a>
+        <a href="{% url 'assets:employee_asset_list' %}" class="btn btn-sm btn-outline">Employee assets</a>
+        <a href="{% url 'assets:employee_asset_assign' %}" class="btn btn-sm btn-primary">+ Assign</a>
+      </div>
+    </header>
+    <div class="p-5 grid grid-cols-1 md:grid-cols-3 gap-4">
+      <a href="{% url 'assets:asset_type_list' %}" class="rounded-xl border border-base-300/60 p-4 hover:shadow">
+        <div class="text-sm text-base-content/70 mb-1">Configuration</div>
+        <div class="font-medium">Asset types</div>
+      </a>
+      <a href="{% url 'assets:asset_model_list' %}" class="rounded-xl border border-base-300/60 p-4 hover:shadow">
+        <div class="text-sm text-base-content/70 mb-1">Configuration</div>
+        <div class="font-medium">Asset models</div>
+      </a>
+      <a href="{% url 'assets:asset_item_list' %}?status=assigned" class="rounded-xl border border-base-300/60 p-4 hover:shadow">
+        <div class="text-sm text-base-content/70 mb-1">Monitoring</div>
+        <div class="font-medium">Assigned items</div>
+      </a>
+    </div>
+  </section>
+
+    <!-- Assets KPIs -->
+  <section class="mt-6 grid grid-cols-1 md:grid-cols-4 gap-4">
+    <!-- Total -->
+    <a href="{% url 'assets:asset_item_list' %}" class="rounded-2xl bg-base-100 ring-1 ring-base-300 shadow p-5 hover:shadow-md">
+      <div class="text-sm text-base-content/60">Assets (Total)</div>
+      <div class="text-3xl font-bold">{{ kpi_assets_total }}</div>
+    </a>
+
+    <!-- Assigned -->
+    <a href="{% url 'assets:asset_item_list' %}?status=assigned" class="rounded-2xl bg-base-100 ring-1 ring-base-300 shadow p-5 hover:shadow-md">
+      <div class="text-sm text-base-content/60">Assigned now</div>
+      <div class="text-3xl font-bold">{{ kpi_assets_assigned }}</div>
+    </a>
+
+    <!-- Overdue returns -->
+    <a href="{% url 'assets:employee_asset_list' %}?active=1" class="rounded-2xl bg-base-100 ring-1 ring-base-300 shadow p-5 hover:shadow-md">
+      <div class="text-sm text-base-content/60">Overdue returns</div>
+      <div class="text-3xl font-bold">{{ kpi_assets_overdue }}</div>
+    </a>
+
+    <!-- Warranty soon (30d) -->
+    <a href="{% url 'assets:asset_item_list' %}" class="rounded-2xl bg-base-100 ring-1 ring-base-300 shadow p-5 hover:shadow-md">
+      <div class="text-sm text-base-content/60">Warranty ≤ 30d</div>
+      <div class="text-3xl font-bold">{{ kpi_assets_warranty_soon_30 }}</div>
+    </a>
+  </section>
+
   <!-- Two columns -->
   <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
     <!-- Recent partners -->

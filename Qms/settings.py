@@ -120,6 +120,8 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "base.context_processors.company",
+                'assets.context_processors.assets_kpis',
+
             ],
         },
     },

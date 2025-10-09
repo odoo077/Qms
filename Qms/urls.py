@@ -35,7 +35,10 @@ urlpatterns = [
     # لوحة الإدارة
     path("admin/", admin.site.urls),
 
-    path("hr/", include("hr.urls"))
+    path("hr/", include("hr.urls")),
+
+    path("assets/", include("assets.urls", namespace="assets")),
+
 
 ]
 

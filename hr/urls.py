@@ -1,6 +1,41 @@
 # hr/urls.py
 from django.urls import path
-from .views import *
+
+# Employees
+from .views.employees import (
+    EmployeeListView, EmployeeCreateView, EmployeeDetailView,
+    EmployeeUpdateView, EmployeeDeleteView,
+)
+
+# Departments
+from .views.departments import (
+    DepartmentListView, DepartmentCreateView, DepartmentDetailView,
+    DepartmentUpdateView, DepartmentDeleteView,
+)
+
+# Jobs
+from .views.jobs import (
+    JobListView, JobCreateView, JobDetailView,
+    JobUpdateView, JobDeleteView,
+)
+
+# Work Locations
+from .views.work_locations import (
+    WorkLocationListView, WorkLocationCreateView, WorkLocationDetailView,
+    WorkLocationUpdateView, WorkLocationDeleteView,
+)
+
+# Employee Categories
+from .views.categories import (
+    CategoryListView, CategoryCreateView, CategoryDetailView,
+    CategoryUpdateView, CategoryDeleteView,
+)
+
+# Contract Types
+from .views.contract_types import (
+    ContractTypeListView, ContractTypeCreateView, ContractTypeDetailView,
+    ContractTypeUpdateView, ContractTypeDeleteView,
+)
 
 app_name = "hr"
 
