@@ -1,278 +1,319 @@
 {% load static %}
-
-<html lang="en" class="no-transitions" data-theme="{{ request.COOKIES.theme|default:'corporate' }}">
+<!doctype html>
+<html lang="en" dir="ltr" class="no-transitions" data-theme="{{ request.COOKIES.theme|default:'corporate' }}">
 <head>
   <meta charset="utf-8" />
   <title>{% block title %}360 Manager{% endblock %}</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="color-scheme" content="light dark" />
 
-  <!-- Prevent flash before CSS loads -->
+  {# Early theme hydrate: set on <html> AND <body> before CSS loads #}
+  <script>
+    (function () {
+      var html = document.documentElement;
+      function getCookie(name){
+        var m = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]+)'));
+        return m ? decodeURIComponent(m[1]) : null;
+      }
+      var t = getCookie("theme") || localStorage.getItem("theme") || html.getAttribute("data-theme") || "corporate";
+      html.setAttribute("data-theme", t);
+      // we’ll also mirror it to <body> as soon as it exists
+      document.addEventListener("DOMContentLoaded", function(){
+        document.body && document.body.setAttribute("data-theme", t);
+      });
+    })();
+  </script>
+
+  <link href="{% static 'css/dist/styles.css' %}" rel="stylesheet" />
+  <link rel="icon" href="{% static 'images/favicon.ico' %}" />
+
   <style>
-    .no-transitions *, .no-transitions *::before, .no-transitions *::after {
-      transition: none !important; animation: none !important;
-    }
-    html[data-theme="corporate"] { background:#f3f4f6; color:#111827; }
-    html[data-theme="business"]  { background:#0b1220; color:#e5e7eb; }
-    body { min-height:100vh; }
+    .no-transitions *, .no-transitions *::before, .no-transitions *::after { transition: none !important; animation: none !important; }
+    html[data-theme="corporate"], body[data-theme="corporate"] { background:#f6f7fb; }
+    html[data-theme="business"],  body[data-theme="business"]  { background:#0b1220; }
+    body { min-height: 100vh; }
   </style>
 
-  <!-- Tailwind / DaisyUI build -->
-  <link href="{% static 'css/dist/styles.css' %}" rel="stylesheet">
-  <link rel="icon" href="{% static 'images/favicon.ico' %}">
+  {% block head_extra %}{% endblock %}
 </head>
-<body class="bg-base-200 text-base-content flex flex-col">
+<body class="bg-base-200 text-base-content min-h-screen selection:bg-primary/20 selection:text-primary" data-theme="{{ request.COOKIES.theme|default:'corporate' }}">
 
-<!-- Top Navbar -->
-<nav class="navbar bg-base-100 shadow-md sticky top-0 z-40">
-  <div class="container mx-auto px-4 md:px-6 flex items-center justify-between">
+<!-- ================= Drawer Layout ================= -->
+<div class="drawer">
+  <input id="app-drawer" type="checkbox" class="drawer-toggle" />
+  <div class="drawer-content flex min-h-screen flex-col">
 
-    <!-- Brand + primary nav -->
-    <div class="flex items-center gap-6">
-      <a href="{% url 'base:home' %}" class="flex items-center gap-2 font-bold text-xl">
-        <svg width="28" height="28" viewBox="0 0 32 32" fill="none">
-          <circle cx="16" cy="16" r="12" stroke="#2563eb" stroke-width="2.5"></circle>
-          <circle cx="8"  cy="16" r="2"  fill="#ef4444"></circle>
-          <circle cx="24" cy="16" r="2"  fill="#facc15"></circle>
-          <circle cx="16" cy="8"  r="2"  fill="#2563eb"></circle>
-        </svg>
-        <span><span class="text-primary">360</span><span class="text-error">Manager</span></span>
-      </a>
-
-      {% if user.is_authenticated %}
-      <!-- Primary links (desktop) -->
-      <div class="flex items-center gap-4">
-        <a href="{% url 'base:partner_list' %}" class="px-2 py-1 font-semibold text-base-content/70 hover:text-primary">
-          Partners
-        </a>
-        <a href="{% url 'base:company_switch' %}" class="px-2 py-1 font-semibold text-base-content/70 hover:text-primary">
-          Switch Company
-        </a>
-
-        <!-- HR dropdown -->
-        <div class="dropdown">
-          <div tabindex="0" role="button" class="px-2 py-1 font-semibold text-base-content/70 hover:text-primary flex items-center gap-1">
-            HR
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 opacity-70" viewBox="0 0 20 20" fill="currentColor">
-              <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clip-rule="evenodd" />
-            </svg>
+    <!-- Navbar -->
+    <header class="navbar bg-base-100/80 backdrop-blur border-b border-base-200 sticky top-0 z-50">
+      <div class="w-full max-w-7xl mx-auto px-4 sm:px-6">
+        <div class="flex items-center justify-between gap-2">
+          <div class="flex items-center gap-2">
+            <label for="app-drawer" class="btn btn-ghost btn-square" aria-label="Open menu">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M3 6h18v2H3zM3 11h18v2H3zM3 16h18v2H3z"/>
+              </svg>
+            </label>
+            <a href="{% url 'base:home' %}" class="btn btn-ghost px-0 text-xl font-extrabold tracking-tight">
+              <span class="text-primary">360</span><span class="text-error">Manager</span>
+            </a>
           </div>
-          <ul tabindex="0" class="menu dropdown-content bg-base-100 rounded-box z-[1] w-64 p-2 shadow">
-            <li class="{% if request.path|slice:':4' == '/hr' and 'employees' in request.path %}bg-base-200{% endif %}">
-              <a href="{% url 'hr:employee_list' %}">Employees</a>
-            </li>
-            <li class="{% if request.path|slice:':4' == '/hr' and 'departments' in request.path %}bg-base-200{% endif %}">
-              <a href="{% url 'hr:department_list' %}">Departments</a>
-            </li>
-            <li class="{% if request.path|slice:':4' == '/hr' and 'jobs' in request.path %}bg-base-200{% endif %}">
-              <a href="{% url 'hr:job_list' %}">Jobs</a>
-            </li>
-            <li class="{% if request.path|slice:':4' == '/hr' and 'work-locations' in request.path %}bg-base-200{% endif %}">
-              <a href="{% url 'hr:work_location_list' %}">Work locations</a>
-            </li>
-            <li class="menu-title"><span>Config</span></li>
-            <li class="{% if request.path|slice:':4' == '/hr' and 'categories' in request.path %}bg-base-200{% endif %}">
-              <a href="{% url 'hr:category_list' %}">Employee categories</a>
-            </li>
-            <li class="{% if request.path|slice:':4' == '/hr' and 'contract-types' in request.path %}bg-base-200{% endif %}">
-              <a href="{% url 'hr:contract_type_list' %}">Contract types</a>
-            </li>
-          </ul>
-        </div>
-        <!-- /HR dropdown -->
 
-        <!-- Skills dropdown -->
-        <div class="dropdown">
-          <div tabindex="0" role="button" class="px-2 py-1 font-semibold text-base-content/70 hover:text-primary flex items-center gap-1">
-            Skills
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 opacity-70" viewBox="0 0 20 20" fill="currentColor">
-              <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clip-rule="evenodd" />
-            </svg>
+          <div class="flex items-center gap-2">
+            {% if current_company %}
+              <a href="{% url 'base:company_switch' %}" class="btn btn-outline btn-xs sm:btn-sm gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 sm:w-5 sm:h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M3 7h18v2H3zm0 4h12v2H3zm0 4h18v2H3z"/></svg>
+                {{ current_company.name }}
+              </a>
+            {% endif %}
+
+            <!-- EXACT same IDs as auth_base.html -->
+            <button id="theme-toggle" class="btn btn-ghost btn-sm" type="button" aria-label="Toggle theme">
+              <svg id="icon-sun" xmlns="http://www.w3.org/2000/svg" class="size-5 hidden" viewBox="0 0 24 24" fill="currentColor"><path d="M6.76 4.84 5.34 3.42 3.92 4.84l1.42 1.42 1.42-1.42Zm10.48 14.32 1.42 1.42 1.42-1.42-1.42-1.42-1.42 1.42ZM12 5a1 1 0 0 0 1-1V2h-2v2a1 1 0 0 0 1 1Zm0 14a1 1 0 0 0-1 1v2h2v-2a1 1 0 0 0-1-1ZM5 12a1 1 0 0 0-1-1H2v2h2a1 1 0 0 0 1-1Zm17-1h-2a1 1 0 1 0 0 2h2v-2Zm-3.34-6.58L17.24 4.84l1.42 1.42 1.42-1.42-1.42-1.42ZM4.84 17.24 3.42 18.66l1.42 1.42 1.42-1.42-1.42-1.42ZM12 7a5 5 0 1 1 0 10 5 5 0 0 1 0-10Z"/></svg>
+              <svg id="icon-moon" xmlns="http://www.w3.org/2000/svg" class="size-5" viewBox="0 0 24 24" fill="currentColor"><path d="M11.38 2.02a1 1 0 0 0-1.23 1.2A9 9 0 1 0 20.78 5.7a1 1 0 0 0-1.21-1.22A7 7 0 0 1 11.38 2.02Z"/></svg>
+            </button>
+
+            {% if user.is_authenticated %}
+              <div class="hidden md:block text-sm text-base-content/70 mr-1">
+                Hi, {{ user.name|default:user.email }}
+              </div>
+              <div class="dropdown dropdown-end">
+                <label tabindex="0" class="btn btn-ghost btn-circle avatar">
+                  <div class="w-9 rounded-full">
+                    <img src="https://api.dicebear.com/8.x/initials/svg?seed={{ user.name|default:user.email }}" alt="avatar"/>
+                  </div>
+                </label>
+                <ul tabindex="0" class="menu menu-sm dropdown-content mt-3 z-[1] p-2 shadow bg-base-100 rounded-box w-48">
+                  <li><a href="{% url 'base:profile' %}">Profile</a></li>
+                  <li><a href="{% url 'base:edit_profile' %}">Edit profile</a></li>
+                  <li><a href="{% url 'base:password_change' %}">Change password</a></li>
+                  <li><a href="{% url 'base:logout' %}" class="text-error">Logout</a></li>
+                </ul>
+              </div>
+            {% else %}
+              <a href="{% url 'base:login' %}?next={{ request.path|urlencode }}" class="btn btn-primary btn-sm">Login</a>
+            {% endif %}
           </div>
-          <ul tabindex="0" class="menu dropdown-content bg-base-100 rounded-box z-[1] w-72 p-2 shadow">
-            <!-- Skill Types -->
-            <li class="{% if request.path|slice:':20' == '/skills/skill-types/' %}bg-base-200{% endif %}">
-              <a href="{% url 'skills:skill_type_list' %}">Skill types</a>
-            </li>
-
-            <!-- Skill Levels -->
-            <li class="{% if request.path|slice:':21' == '/skills/skill-levels/' %}bg-base-200{% endif %}">
-              <a href="{% url 'skills:skill_level_list' %}">Skill levels</a>
-            </li>
-
-            <!-- Skills (الكيان نفسه) -->
-            <li class="{% if request.path|slice:':15' == '/skills/skills/' %}bg-base-200{% endif %}">
-              <a href="{% url 'skills:skill_list' %}">Skills</a>
-            </li>
-
-            <li class="menu-title"><span>Employees</span></li>
-
-            <!-- Employee Skills -->
-            <li class="{% if request.path|slice:':24' == '/skills/employee-skills/' %}bg-base-200{% endif %}">
-              <a href="{% url 'skills:employee_skill_list' %}">Employee skills</a>
-            </li>
-
-            <li class="menu-title"><span>Resume</span></li>
-
-            <!-- Resume Lines -->
-            <li class="{% if request.path|slice:':21' == '/skills/resume-lines/' %}bg-base-200{% endif %}">
-              <a href="{% url 'skills:resume_line_list' %}">Resume lines</a>
-            </li>
-
-            <!-- Resume Line Types -->
-            <li class="{% if request.path|slice:':26' == '/skills/resume-line-types/' %}bg-base-200{% endif %}">
-              <a href="{% url 'skills:resume_line_type_list' %}">Resume line types</a>
-            </li>
-          </ul>
         </div>
-        <!-- /Skills dropdown -->
-
-        <!-- Assets dropdown -->
-        <div class="dropdown">
-          <div tabindex="0" role="button" class="px-2 py-1 font-semibold text-base-content/70 hover:text-primary flex items-center gap-1">
-            Assets
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 opacity-70" viewBox="0 0 20 20" fill="currentColor">
-              <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clip-rule="evenodd" />
-            </svg>
-          </div>
-          <ul tabindex="0" class="menu dropdown-content bg-base-100 rounded-box z-[1] w-72 p-2 shadow">
-            <li class="{% if request.path|slice:':14' == '/assets/asset-' and 'types' in request.path %}bg-base-200{% endif %}">
-              <a href="{% url 'assets:asset_type_list' %}">Asset types</a>
-            </li>
-            <li class="{% if request.path|slice:':14' == '/assets/asset-' and 'models' in request.path %}bg-base-200{% endif %}">
-              <a href="{% url 'assets:asset_model_list' %}">Asset models</a>
-            </li>
-            <li class="{% if request.path|slice:':14' == '/assets/asset-' and 'items' in request.path %}bg-base-200{% endif %}">
-              <a href="{% url 'assets:asset_item_list' %}">Asset items</a>
-            </li>
-
-            <li class="menu-title"><span>Assignments</span></li>
-            <li class="{% if request.path|slice:':18' == '/assets/employee-' and 'assets' in request.path %}bg-base-200{% endif %}">
-              <a href="{% url 'assets:employee_asset_list' %}">Employee assets</a>
-            </li>
-            <li>
-              <a href="{% url 'assets:employee_asset_assign' %}">Assign asset</a>
-            </li>
-          </ul>
-        </div>
-        <!-- /Assets dropdown -->
-
       </div>
-      {% endif %}
+    </header>
+
+    <!-- Page header -->
+    <div class="w-full max-w-7xl mx-auto px-4 sm:px-6 py-6">
+      {% block breadcrumbs %}
+      <div class="breadcrumbs text-sm">
+        <ul>
+          <li><a href="{% url 'base:home' %}">Home</a></li>
+          <li>{% block page_title %}{% endblock %}</li>
+        </ul>
+      </div>
+      {% endblock %}
+
+      <div class="mt-2 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+        <div>
+          <h1 class="text-2xl sm:text-3xl font-bold leading-tight">
+            {% block header_title %}{% block page_title_fallback %}{% endblock %}{% endblock %}
+          </h1>
+          <p class="mt-1 text-sm text-base-content/70">{% block header_subtitle %}{% endblock %}</p>
+        </div>
+        <div class="flex gap-2">{% block page_actions %}{% endblock %}</div>
+      </div>
     </div>
 
-    <!-- Right side: company badge + theme + user -->
-    <div class="flex items-center gap-3">
-      {% if current_company %}
-        <a href="{% url 'base:company_switch' %}" class="btn btn-xs md:btn-sm btn-outline gap-2">
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 md:w-5 md:h-5" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M3 7h18v2H3zm0 4h12v2H3zm0 4h18v2H3z"/>
-          </svg>
-          {{ current_company.name }}
-        </a>
-      {% else %}
-        <a href="{% url 'base:company_switch' %}" class="btn btn-xs md:btn-sm btn-outline">Select company</a>
-      {% endif %}
-
-      <!-- Theme toggle -->
-      <button id="theme-toggle" class="btn btn-circle btn-ghost btn-sm" title="Toggle Theme">
-        <svg id="theme-sun" class="hidden w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24">
-          <path d="M12 18a6 6 0 100-12 6 6 0 000 12z"/>
-          <path d="M12 2v2m0 16v2m10-10h-2M4 12H2m16.95 6.95l-1.41-1.41M6.46 6.46L5.05 5.05m13.9 0l-1.41 1.41M6.46 17.54l-1.41 1.41"/>
-        </svg>
-        <svg id="theme-moon" class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24">
-          <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
-        </svg>
-      </button>
-
-      {% if user.is_authenticated %}
-        <span class="hidden md:inline text-sm text-base-content/70">
-          Hi, {{ user.name|default:user.email }}
-        </span>
-
-        <!-- User dropdown -->
-        <div class="dropdown dropdown-end">
-          <label tabindex="0" class="btn btn-ghost btn-circle avatar">
-            <div class="w-9 rounded-full">
-              <img src="https://api.dicebear.com/8.x/initials/svg?seed={{ user.name|default:user.email }}" alt="avatar" />
+    {% if messages %}
+      <div class="w-full max-w-7xl mx-auto px-4 sm:px-6">
+        <div class="space-y-2">
+          {% for message in messages %}
+            <div class="alert {% if 'error' in message.tags %}alert-error{% elif 'success' in message.tags %}alert-success{% elif 'warning' in message.tags %}alert-warning{% else %}alert-info{% endif %}">
+              <span>{{ message }}</span>
             </div>
-          </label>
-          <ul tabindex="0" class="menu menu-sm dropdown-content mt-3 z-[1] p-2 shadow bg-base-100 rounded-box w-48">
-            <li><a href="{% url 'base:profile' %}">Profile</a></li>
-            <li><a href="{% url 'base:edit_profile' %}">Edit profile</a></li>
-            <li><a href="{% url 'base:password_change' %}">Change password</a></li>
-            <li><a href="{% url 'base:logout' %}" class="text-error">Logout</a></li>
-          </ul>
+          {% endfor %}
         </div>
-      {% else %}
-        <a href="{% url 'base:login' %}?next={{ request.path|urlencode }}" class="btn btn-primary btn-sm">Login</a>
-      {% endif %}
-    </div>
-    <!-- /Right side -->
-  </div>
-</nav>
-
-
-<!-- أي نجاح/تحذير/خطأ يظهر أعلى الصفحة بعد أي عملية (حفظ/تحويل شركة…). -->
-{% if messages %}
-  <div class="container mx-auto px-4 md:px-6 mt-4 space-y-2">
-    {% for message in messages %}
-      <div class="alert {{ message.tags|default:'alert-info' }}">
-        <span>{{ message }}</span>
       </div>
-    {% endfor %}
+    {% endif %}
+
+    <!-- Main -->
+    <main class="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 py-6">
+      {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-base-100 border-t mt-10">
+      <div class="w-full max-w-7xl mx-auto px-4 sm:px-6 py-6 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between text-sm text-base-content/70">
+        <div>© {% now "Y" %} 360 Manager — All rights reserved.</div>
+        <div class="flex flex-wrap items-center gap-3">
+          <a class="link link-hover">Privacy</a>
+          <span class="opacity-40">•</span>
+          <a class="link link-hover">Terms</a>
+          <span class="opacity-40">•</span>
+          <span class="opacity-70">v{{ APP_VERSION|default:"1.0" }}</span>
+        </div>
+      </div>
+    </footer>
   </div>
-{% endif %}
+
+  <!-- Drawer side (30% width) -->
+  <aside class="drawer-side z-40">
+    <label for="app-drawer" aria-label="close sidebar" class="drawer-overlay"></label>
+    <div class="bg-base-100 border-r h-full w-[30vw] min-w-72 max-w-xl">
+      <div class="px-4 py-4 border-b flex items-center justify-between">
+        <a href="{% url 'base:home' %}" class="font-extrabold text-lg">
+          <span class="text-primary">360</span> <span class="text-error">Manager</span>
+        </a>
+        <label for="app-drawer" class="btn btn-ghost btn-square" aria-label="Close menu">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18L18 6M6 6l12 12"/></svg>
+        </label>
+      </div>
+
+      <div class="px-3 py-3 space-y-2 overflow-y-auto h-[calc(100vh-4rem)]">
+        <div class="collapse collapse-arrow bg-base-200">
+          <input type="checkbox" />
+          <div class="collapse-title font-semibold">General</div>
+          <div class="collapse-content">
+            <ul class="menu p-0">
+              <li><a href="{% url 'base:partner_list' %}">Partners</a></li>
+              <li><a href="{% url 'base:company_switch' %}">Switch company</a></li>
+              {% if not user.is_authenticated %}
+                <li><a href="{% url 'base:login' %}?next={{ request.path|urlencode }}">Login</a></li>
+                <li><a href="{% url 'base:register' %}">Create account</a></li>
+              {% endif %}
+            </ul>
+          </div>
+        </div>
+
+        {% if user.is_authenticated %}
+        <div class="collapse collapse-arrow bg-base-200">
+          <input type="checkbox" />
+          <div class="collapse-title font-semibold">HR</div>
+          <div class="collapse-content">
+            <ul class="menu p-0">
+              <li><a href="{% url 'hr:employee_list' %}">Employees</a></li>
+              <li><a href="{% url 'hr:department_list' %}">Departments</a></li>
+              <li><a href="{% url 'hr:job_list' %}">Jobs</a></li>
+              <li><a href="{% url 'hr:work_location_list' %}">Work locations</a></li>
+              <li class="menu-title"><span>Config</span></li>
+              <li><a href="{% url 'hr:category_list' %}">Employee categories</a></li>
+              <li><a href="{% url 'hr:contract_type_list' %}">Contract types</a></li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="collapse collapse-arrow bg-base-200">
+          <input type="checkbox" />
+          <div class="collapse-title font-semibold">Skills</div>
+          <div class="collapse-content">
+            <ul class="menu p-0">
+              <li><a href="{% url 'skills:skill_type_list' %}">Skill types</a></li>
+              <li><a href="{% url 'skills:skill_level_list' %}">Skill levels</a></li>
+              <li><a href="{% url 'skills:skill_list' %}">Skills</a></li>
+              <li class="menu-title"><span>Employees</span></li>
+              <li><a href="{% url 'skills:employee_skill_list' %}">Employee skills</a></li>
+              <li class="menu-title"><span>Resume</span></li>
+              <li><a href="{% url 'skills:resume_line_list' %}">Resume lines</a></li>
+              <li><a href="{% url 'skills:resume_line_type_list' %}">Resume line types</a></li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="collapse collapse-arrow bg-base-200">
+          <input type="checkbox" />
+          <div class="collapse-title font-semibold">Assets</div>
+          <div class="collapse-content">
+            <ul class="menu p-0">
+              <li><a href="{% url 'assets:asset_type_list' %}">Asset types</a></li>
+              <li><a href="{% url 'assets:asset_model_list' %}">Asset models</a></li>
+              <li><a href="{% url 'assets:asset_item_list' %}">Asset items</a></li>
+              <li class="menu-title"><span>Assignments</span></li>
+              <li><a href="{% url 'assets:employee_asset_list' %}">Employee assets</a></li>
+              <li><a href="{% url 'assets:employee_asset_assign' %}">Assign asset</a></li>
+            </ul>
+          </div>
+        </div>
+
+  <!-- Performance -->
+<div class="collapse collapse-arrow bg-base-200">
+  <input type="checkbox" />
+  <div class="collapse-title font-semibold">Performance</div>
+  <div class="collapse-content">
+    <ul class="menu p-0">
+      <!-- أهداف -->
+      <li><a href="{% url 'performance:objective_list' %}">Objectives</a></li>
+
+      <!-- مؤشرات KPI -->
+      <li><a href="{% url 'performance:kpi_list' %}">KPIs</a></li>
+
+      <!-- مهام مرتبطة بالأهداف/KPI -->
+      <li><a href="{% url 'performance:task_list' %}">Tasks</a></li>
+
+      <!-- التقييمات -->
+      <li class="menu-title"><span>Evaluations</span></li>
+      <li><a href="{% url 'performance:evaluation_list' %}">Evaluations</a></li>
+      <li><a href="{% url 'performance:evaluation_template_list' %}">Templates</a></li>
+      <li><a href="{% url 'performance:evaluation_parameter_list' %}">Parameters</a></li>
+    </ul>
+  </div>
+</div>
 
 
-<!-- Main -->
-<main class="flex-grow container mx-auto px-4 md:px-6 py-6">
-  {% block content %}{% endblock %}
-</main>
+        <div class="collapse collapse-arrow bg-base-200">
+          <input type="checkbox" />
+          <div class="collapse-title font-semibold">Account</div>
+          <div class="collapse-content">
+            <ul class="menu p-0">
+              <li><a href="{% url 'base:profile' %}">Profile</a></li>
+              <li><a href="{% url 'base:edit_profile' %}">Edit profile</a></li>
+              <li><a href="{% url 'base:password_change' %}">Change password</a></li>
+              <li><a href="{% url 'base:logout' %}" class="text-error">Logout</a></li>
+            </ul>
+          </div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </aside>
+</div>
 
-<!-- Footer -->
-<footer class="bg-base-100 border-t mt-12 py-6 text-center text-sm text-base-content/70">
-  &copy; {% now "Y" %} 360 Manager · All rights reserved.
-</footer>
-
-<!-- Theme toggle logic -->
+<!-- Theme switcher: update <html> + <body> -->
 <script>
-  (function() {
+  (function () {
     const html = document.documentElement;
     const btn  = document.getElementById("theme-toggle");
-    const sun  = document.getElementById("theme-sun");
-    const moon = document.getElementById("theme-moon");
-    const DARK = new Set(["business"]);
-    function setCookie(name, value, days){
-      const maxAge = days ? `; max-age=${days*24*60*60}` : "";
-      document.cookie = `${name}=${encodeURIComponent(value)}; path=/${maxAge}`;
+    const sun  = document.getElementById("icon-sun");
+    const moon = document.getElementById("icon-moon");
+    const DARK = new Set(["business","dark","forest","black"]);
+
+    function getCookie(name){
+      const m = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]+)'));
+      return m ? decodeURIComponent(m[1]) : null;
     }
-    function applyIcons(theme){
-      const isDark = DARK.has(theme);
-      if (isDark) { sun.classList.remove("hidden"); moon.classList.add("hidden"); }
-      else        { sun.classList.add("hidden");  moon.classList.remove("hidden"); }
+    function setCookie(name,value,days){
+      const max = days ? `; max-age=${days*86400}` : "";
+      document.cookie = `${name}=${encodeURIComponent(value)}; path=/${max}`;
     }
-    // initial
-    let theme = html.getAttribute("data-theme") || (document.cookie.match(/(?:^|; )theme=([^;]+)/)||[])[1];
-    theme = theme ? decodeURIComponent(theme) : (localStorage.getItem("theme") || "corporate");
-    html.setAttribute("data-theme", theme);
-    applyIcons(theme);
+    function setTheme(t){
+      html.setAttribute("data-theme", t);
+      if (document.body) document.body.setAttribute("data-theme", t);
+      localStorage.setItem("theme", t);
+      setCookie("theme", t, 365);
+      const isDark = DARK.has(t);
+      if (sun && moon) {
+        sun.classList.toggle("hidden", !isDark);
+        moon.classList.toggle("hidden", isDark);
+      }
+    }
+
+    const initial = getCookie("theme") || localStorage.getItem("theme") || html.getAttribute("data-theme") || "corporate";
+    setTheme(initial);
 
     btn?.addEventListener("click", () => {
       const now  = html.getAttribute("data-theme") || "corporate";
-      const next = (now === "business") ? "corporate" : "business";
-      html.setAttribute("data-theme", next);
-      localStorage.setItem("theme", next);
-      setCookie("theme", next, 365);
-      applyIcons(next);
+      const next = (now === "corporate") ? "business" : "corporate";
+      setTheme(next);
     });
 
-    // remove transition lock after paint
-    window.addEventListener("DOMContentLoaded", () => {
-      document.documentElement.classList.remove("no-transitions");
-    });
+    window.addEventListener("DOMContentLoaded", () => html.classList.remove("no-transitions"));
   })();
 </script>
 
+{% block extra_scripts %}{% endblock %}
 </body>
 </html>

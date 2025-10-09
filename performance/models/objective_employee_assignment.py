@@ -1,7 +1,7 @@
 from django.db import models
+from base.models.mixins import TimeStampedMixin, UserStampedMixin
 
-
-class ObjectiveEmployeeAssignment(models.Model):
+class ObjectiveEmployeeAssignment(TimeStampedMixin, UserStampedMixin):
     """
     Assign an Objective to explicit Employees (in addition to department targeting).
     """
@@ -12,6 +12,9 @@ class ObjectiveEmployeeAssignment(models.Model):
         db_table = "perf_objective_employee_assignment"
         unique_together = [("objective", "employee")]
         indexes = [models.Index(fields=["objective", "employee"])]
+        permissions = [
+            ("manage_employee_assignments", "Can manage employee assignments"),
+        ]
 
     def __str__(self):
         return f"{self.objective.title} → {self.employee.name}"

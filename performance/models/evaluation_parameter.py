@@ -1,7 +1,7 @@
 from django.db import models
-from .mixins import TimeStamped
+from base.models.mixins import TimeStampedMixin, UserStampedMixin
 
-class EvaluationParameter(TimeStamped):
+class EvaluationParameter(TimeStampedMixin, UserStampedMixin):
     """
     A row/parameter inside a template.
     Supports different 'sources' (Objective/KPI/Tasks/External/Manual).
@@ -47,6 +47,9 @@ class EvaluationParameter(TimeStamped):
             models.CheckConstraint(check=models.Q(weight_pct__gte=0, weight_pct__lte=100), name="chk_param_weight_0_100"),
             models.CheckConstraint(check=models.Q(min_score_pct__gte=0, min_score_pct__lte=100), name="chk_param_min_0_100"),
             models.CheckConstraint(check=models.Q(max_score_pct__gte=0, max_score_pct__lte=100), name="chk_param_max_0_100"),
+        ]
+        permissions = [
+            ("reorder_parameters", "Can reorder evaluation parameters"),
         ]
         unique_together = [("template", "code")]
 

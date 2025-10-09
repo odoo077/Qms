@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block content %}
+<!-- قائمة المهام مع بحث وتصفية حالة -->
+
+<div class="max-w-6xl mx-auto p-4">
+  <div class="flex items-center justify-between mb-4 gap-2">
+    <h1 class="text-2xl font-semibold">Tasks</h1>
+    <div class="flex items-center gap-2">
+      <form method="get" class="flex items-center gap-2">
+        <input class="input input-bordered w-64" name="q" placeholder="Search by title/description" value="{{ request.GET.q }}">
+        <select class="select select-bordered" name="status">
+          <option value="">All statuses</option>
+          <option value="todo" {% if request.GET.status == "todo" %}selected{% endif %}>To Do</option>
+          <option value="in_progress" {% if request.GET.status == "in_progress" %}selected{% endif %}>In Progress</option>
+          <option value="done" {% if request.GET.status == "done" %}selected{% endif %}>Done</option>
+        </select>
+        <button class="btn">Filter</button>
+      </form>
+      <a class="btn btn-primary" href="{% url 'performance:task_create' %}">+ New Task</a>
+    </div>
+  </div>
+
+  <div class="overflow-x-auto shadow rounded-lg">
+    <table class="table w-full">
+      <thead>
+        <tr class="bg-base-200">
+          <th>Title</th>
+          <th>Assignee</th>
+          <th>Status</th>
+          <th>%</th>
+          <th>Due</th>
+          <th>Objective</th>
+          <th>KPI</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in object_list %}
+        <tr>
+          <td>{{ t.title }}</td>
+          <td>{{ t.assignee }}</td>
+          <td>{{ t.status }}</td>
+          <td>{{ t.percent_complete }}%</td>
+          <td>{{ t.due_date }}</td>
+          <td>{{ t.objective }}</td>
+          <td>{{ t.kpi }}</td>
+          <td class="text-right"><a class="btn btn-sm" href="{% url 'performance:task_detail' pk=t.pk %}">Open</a></td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="8" class="text-center py-8 opacity-70">No tasks found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if is_paginated %}
+  <div class="flex justify-between items-center mt-4">
+    <div>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</div>
+    <div class="join">
+      {% if page_obj.has_previous %}
+      <a class="join-item btn btn-sm" href="?page={{ page_obj.previous_page_number }}">« Prev</a>
+      {% endif %}
+      {% if page_obj.has_next %}
+      <a class="join-item btn btn-sm" href="?page={{ page_obj.next_page_number }}">Next »</a>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

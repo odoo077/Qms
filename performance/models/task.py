@@ -1,8 +1,8 @@
 from django.db import models
 from django.core.exceptions import ValidationError
-from .mixins import TimeStamped
+from base.models.mixins import TimeStampedMixin, UserStampedMixin, ActivableMixin
 
-class Task(TimeStamped):
+class Task(TimeStampedMixin, UserStampedMixin, ActivableMixin):
     STATUS = [
         ("todo", "To Do"),
         ("in_progress", "In Progress"),
@@ -33,6 +33,10 @@ class Task(TimeStamped):
         constraints = [
             models.CheckConstraint(check=models.Q(percent_complete__gte=0, percent_complete__lte=100),
                                    name="chk_task_percent_0_100"),
+        ]
+        permissions = [
+            ("assign_task", "Can assign task to employee"),
+            ("update_task_progress", "Can update task progress"),
         ]
 
     def __str__(self):

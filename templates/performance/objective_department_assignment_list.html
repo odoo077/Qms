@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% load static %}
+{% block content %}
+<!-- قائمة تعيينات الأقسام لهدف محدد -->
+
+<div class="max-w-5xl mx-auto p-4">
+  <!-- شريط علوي: عنوان + أزرار -->
+  <div class="flex items-center justify-between mb-4">
+    <h1 class="text-2xl font-semibold">
+      <!-- اسم الهدف إن كان متاحاً في السياق -->
+      <!-- عرض عنوان الهدف -->
+      <!-- تعليق: نعرض عنوان الهدف من السياق الذي يمرره الـ view -->
+      Department Assignments for: {{ objective.title }} ({{ objective.code }})
+    </h1>
+    <div class="flex gap-2">
+      <!-- زر إنشاء تعيين قسم جديد -->
+      <a class="btn btn-primary"
+         href="{% url 'performance:objective_department_assignment_create' pk=objective.pk %}">
+        + Assign Department
+      </a>
+      <!-- زر رجوع لصفحة الهدف -->
+      <a class="btn btn-outline" href="{% url 'performance:objective_detail' pk=objective.pk %}">
+        ← Back to Objective
+      </a>
+      <!-- زر (POST) لإعادة بناء المشاركين -->
+      <form method="post" action="{% url 'performance:objective_rebuild_participants' pk=objective.pk %}">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-secondary">Rebuild Participants</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- جدول التعيينات -->
+  <div class="overflow-x-auto shadow rounded-lg">
+    <table class="table w-full">
+      <thead>
+        <tr class="bg-base-200">
+          <th class="text-left">#</th>
+          <th class="text-left">Department</th>
+          <th class="text-left">Include Children</th>
+          <th class="text-left">Created</th>
+          <th class="text-left">Updated</th>
+          <th class="text-left">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for a in object_list %}
+        <tr>
+          <td>{{ a.id }}</td>
+          <td>{{ a.department }}</td>
+          <td>
+            {% if a.include_children %}
+              <span class="badge badge-success">Yes</span>
+            {% else %}
+              <span class="badge">No</span>
+            {% endif %}
+          </td>
+          <td>{{ a.created_at|date:"Y-m-d H:i" }}</td>
+          <td>{{ a.updated_at|date:"Y-m-d H:i" }}</td>
+          <td class="flex gap-2">
+            <a class="btn btn-sm"
+               href="{% url 'performance:objective_department_assignment_update' pk=objective.pk assignment_pk=a.pk %}">
+              Edit
+            </a>
+            <a class="btn btn-sm btn-error"
+               href="{% url 'performance:objective_department_assignment_delete' pk=objective.pk assignment_pk=a.pk %}">
+              Delete
+            </a>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6" class="text-center py-6 opacity-70">No department assignments yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- التصفح بين الصفحات -->
+  {% if is_paginated %}
+  <div class="flex justify-between items-center mt-4">
+    <div>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</div>
+    <div class="join">
+      {% if page_obj.has_previous %}
+      <a class="join-item btn btn-sm" href="?page={{ page_obj.previous_page_number }}">« Prev</a>
+      {% endif %}
+      {% if page_obj.has_next %}
+      <a class="join-item btn btn-sm" href="?page={{ page_obj.next_page_number }}">Next »</a>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

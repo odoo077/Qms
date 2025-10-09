@@ -201,6 +201,11 @@ class Employee(CompanyOwnedMixin,ActivableMixin, TimeStamped, UserStamped, model
             ),
         ]
 
+        permissions = [
+            ("approve_employee", "Can approve employee record"),
+            ("view_private_fields", "Can view employee private fields"),
+        ]
+
     # ======= الحقول المحسوبة / الخاصة ==========
     @property
     def hr_presence_state(self):

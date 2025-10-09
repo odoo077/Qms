@@ -1,6 +1,7 @@
 from django.db import models
+from base.models.mixins import TimeStampedMixin, UserStampedMixin
 
-class ObjectiveDepartmentAssignment(models.Model):
+class ObjectiveDepartmentAssignment(TimeStampedMixin, UserStampedMixin):
     """
     Assign an Objective to a Department. Optionally include all child departments.
     """
@@ -12,6 +13,9 @@ class ObjectiveDepartmentAssignment(models.Model):
         db_table = "perf_objective_dept_assignment"
         unique_together = [("objective", "department")]
         indexes = [models.Index(fields=["objective", "department"])]
+        permissions = [
+            ("manage_department_assignments", "Can manage department assignments"),
+        ]
 
     def __str__(self):
         return f"{self.objective.title} → {self.department.complete_name} ({'with' if self.include_children else 'no'} children)"

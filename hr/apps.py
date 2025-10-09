@@ -7,3 +7,5 @@ class HrConfig(AppConfig):
     def ready(self):
         # تأكد من تحميل الإشارات
         from .signals import employees  # noqa: F401
+        from .signals import roles  # noqa
+        from .signals import ownership  # noqa

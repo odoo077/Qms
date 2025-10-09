@@ -3,103 +3,110 @@
 
 {% block title %}Dashboard · 360 Manager{% endblock %}
 
-{% block content %}
-<div class="px-4 py-8 space-y-8 bg-gradient-to-br from-base-200 via-base-200/70 to-base-100/60 rounded-3xl">
+{# العنوان الذي يظهر في breadcrumb #}
+{% block page_title %}Dashboard{% endblock %}
 
-  <!-- Header -->
-  <header class="rounded-2xl bg-base-100/60 backdrop-blur supports-[backdrop-filter]:backdrop-blur-md ring-1 ring-base-300/60 shadow-lg">
-    <div class="p-6 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-      <div>
-        <h1 class="text-3xl font-bold tracking-tight">Welcome back</h1>
-        <p class="mt-1 text-sm text-base-content/70">
-          {% if current_company %}
-            Working under <span class="font-medium">{{ current_company.name }}</span>
-          {% else %}
-            No active company selected — choose one to scope your workspace.
-          {% endif %}
-        </p>
+{% block header_title %}Welcome back{% endblock %}
+{% block header_subtitle %}
+  {% if current_company %}
+    You’re working under <span class="font-medium">{{ current_company.name }}</span>.
+  {% else %}
+    No active company selected — pick one to scope your workspace.
+  {% endif %}
+{% endblock %}
+
+{% block page_actions %}
+  <a href="{% url 'base:company_switch' %}" class="btn btn-outline btn-sm md:btn-md">Select company</a>
+  <a href="{% url 'base:partner_create' %}" class="btn btn-primary btn-sm md:btn-md">+ New partner</a>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+
+  <!-- Hero / quick overview -->
+  <section class="rounded-2xl bg-base-100/70 ring-1 ring-base-300/60 shadow-xl overflow-hidden">
+    <div class="relative p-6 sm:p-8">
+      <div aria-hidden="true" class="pointer-events-none absolute inset-0">
+        <div class="absolute -top-36 -left-32 w-[28rem] h-[28rem] rounded-full blur-3xl bg-gradient-to-tr from-primary/15 via-secondary/15 to-accent/15"></div>
+        <div class="absolute -bottom-40 -right-40 w-[30rem] h-[30rem] rounded-full blur-3xl bg-gradient-to-tr from-accent/15 via-primary/15 to-secondary/15"></div>
       </div>
 
-      <div class="flex flex-wrap items-center gap-2">
-        <a href="{% url 'base:company_switch' %}" class="btn btn-outline btn-sm md:btn-md">Select company</a>
-        <a href="{% url 'base:partner_create' %}" class="btn btn-primary btn-sm md:btn-md">+ New partner</a>
+      <div class="relative grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Copy -->
+        <div class="lg:col-span-2">
+          <h2 class="text-2xl sm:text-3xl font-bold leading-tight">Your organization at a glance</h2>
+          <p class="mt-2 text-sm text-base-content/70">
+            Clean cards, clear actions and a theme-aware layout. Everything you need to get going quickly.
+          </p>
+          <div class="mt-6 flex flex-wrap gap-2">
+            <a href="{% url 'assets:employee_asset_assign' %}" class="btn btn-primary btn-sm">Assign asset</a>
+            <a href="{% url 'skills:employee_skill_list' %}" class="btn btn-outline btn-sm">Employee skills</a>
+            <a href="{% url 'base:partner_list' %}" class="btn btn-ghost btn-sm">All partners</a>
+          </div>
+        </div>
+
+        <!-- Compact stats -->
+        <div class="grid grid-cols-3 gap-3">
+          <div class="stat bg-base-200 rounded-box">
+            <div class="stat-title">Companies</div>
+            <div class="stat-value text-primary">{{ companies_count }}</div>
+            <div class="stat-desc">allowed</div>
+          </div>
+          <div class="stat bg-base-200 rounded-box">
+            <div class="stat-title">Partners</div>
+            <div class="stat-value text-secondary">{{ partners_count }}</div>
+            <div class="stat-desc">{% if current_company %}{{ current_company.name }}{% else %}all{% endif %}</div>
+          </div>
+          <div class="stat bg-base-200 rounded-box">
+            <div class="stat-title">Users</div>
+            <div class="stat-value text-accent">{{ users_count }}</div>
+            <div class="stat-desc">active</div>
+          </div>
+        </div>
       </div>
     </div>
-  </header>
-
-  <!-- Stats as separate glass cards -->
-  <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-    <!-- Companies (allowed) -->
-    <article class="rounded-2xl bg-base-100/60 backdrop-blur supports-[backdrop-filter]:backdrop-blur-md ring-1 ring-base-300/60 shadow-xl transition hover:shadow-2xl hover:ring-base-300 p-5">
-      <div class="flex items-start gap-4">
-        <div class="text-primary shrink-0">
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-10 h-10" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M3 7h18v10H3z"/><path d="M7 17V7m5 10V7m5 10V7"/>
-          </svg>
-        </div>
-        <div class="min-w-0">
-          <div class="text-sm text-base-content/70">Companies (allowed)</div>
-          <div class="text-3xl font-bold leading-tight">{{ companies_count }}</div>
-          <div class="mt-2">
-            <a href="{% url 'base:company_switch' %}" class="link link-primary text-sm">Manage access</a>
-          </div>
-        </div>
-      </div>
-    </article>
-
-    <!-- Partners -->
-    <article class="rounded-2xl bg-base-100/60 backdrop-blur supports-[backdrop-filter]:backdrop-blur-md ring-1 ring-base-300/60 shadow-xl transition hover:shadow-2xl hover:ring-base-300 p-5">
-      <div class="flex items-start gap-4">
-        <div class="text-secondary shrink-0">
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-10 h-10" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 12a5 5 0 100-10 5 5 0 000 10z"/><path d="M3 22a9 9 0 0118 0H3z"/>
-          </svg>
-        </div>
-        <div class="min-w-0">
-          <div class="text-sm text-base-content/70">
-            Partners{% if current_company %} — {{ current_company.name }}{% endif %}
-          </div>
-          <div class="text-3xl font-bold leading-tight">{{ partners_count }}</div>
-          <div class="mt-2">
-            <a href="{% url 'base:partner_list' %}" class="link link-secondary text-sm">View all partners</a>
-          </div>
-        </div>
-      </div>
-    </article>
-
-    <!-- Users -->
-    <article class="rounded-2xl bg-base-100/60 backdrop-blur supports-[backdrop-filter]:backdrop-blur-md ring-1 ring-base-300/60 shadow-xl transition hover:shadow-2xl hover:ring-base-300 p-5">
-      <div class="flex items-start gap-4">
-        <div class="text-accent shrink-0">
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-10 h-10" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 12a5 5 0 100-10 5 5 0 000 10z"/><path d="M2 22h20v-2a10 10 0 00-20 0v2z"/>
-          </svg>
-        </div>
-        <div class="min-w-0">
-          <div class="text-sm text-base-content/70">
-            Users{% if current_company %} — {{ current_company.name }}{% endif %}
-          </div>
-          <div class="text-3xl font-bold leading-tight">{{ users_count }}</div>
-          <div class="mt-2">
-            <a href="{% url 'base:profile' %}" class="link link-accent text-sm">Your profile</a>
-          </div>
-        </div>
-      </div>
-    </article>
   </section>
 
+  <!-- KPIs -->
+  <section class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+    <a href="{% url 'assets:asset_item_list' %}" class="group rounded-2xl bg-base-100 ring-1 ring-base-300/70 shadow hover:shadow-lg transition p-5">
+      <div class="flex items-center gap-3">
+        <div class="badge badge-ghost">Assets</div>
+      </div>
+      <div class="mt-2 text-3xl font-bold">{{ kpi_assets_total }}</div>
+      <div class="text-xs text-base-content/60">Total items</div>
+    </a>
 
-    <!-- Assets quick actions -->
-  <section class="rounded-2xl bg-base-100/60 backdrop-blur supports-[backdrop-filter]:backdrop-blur-md ring-1 ring-base-300/60 shadow-xl overflow-hidden">
+    <a href="{% url 'assets:asset_item_list' %}?status=assigned" class="group rounded-2xl bg-base-100 ring-1 ring-base-300/70 shadow hover:shadow-lg transition p-5">
+      <div class="badge badge-ghost">Assigned</div>
+      <div class="mt-2 text-3xl font-bold">{{ kpi_assets_assigned }}</div>
+      <div class="text-xs text-base-content/60">Currently in use</div>
+    </a>
+
+    <a href="{% url 'assets:employee_asset_list' %}?active=1" class="group rounded-2xl bg-base-100 ring-1 ring-base-300/70 shadow hover:shadow-lg transition p-5">
+      <div class="badge badge-ghost">Overdue</div>
+      <div class="mt-2 text-3xl font-bold">{{ kpi_assets_overdue }}</div>
+      <div class="text-xs text-base-content/60">Returns overdue</div>
+    </a>
+
+    <a href="{% url 'assets:asset_item_list' %}" class="group rounded-2xl bg-base-100 ring-1 ring-base-300/70 shadow hover:shadow-lg transition p-5">
+      <div class="badge badge-ghost">Warranty</div>
+      <div class="mt-2 text-3xl font-bold">{{ kpi_assets_warranty_soon_30 }}</div>
+      <div class="text-xs text-base-content/60">Expiring ≤ 30 days</div>
+    </a>
+  </section>
+
+  <!-- Assets quick actions -->
+  <section class="rounded-2xl bg-base-100/70 ring-1 ring-base-300/70 shadow-xl overflow-hidden">
     <header class="px-5 py-4 border-b border-base-300/70 flex items-center justify-between">
-      <h2 class="text-lg font-semibold">Assets{% if current_company %} — {{ current_company.name }}{% endif %}</h2>
+      <h3 class="text-lg font-semibold">Assets{% if current_company %} — {{ current_company.name }}{% endif %}</h3>
       <div class="flex gap-2">
         <a href="{% url 'assets:asset_item_list' %}" class="btn btn-sm btn-outline">Asset items</a>
         <a href="{% url 'assets:employee_asset_list' %}" class="btn btn-sm btn-outline">Employee assets</a>
         <a href="{% url 'assets:employee_asset_assign' %}" class="btn btn-sm btn-primary">+ Assign</a>
       </div>
     </header>
-    <div class="p-5 grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div class="p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
       <a href="{% url 'assets:asset_type_list' %}" class="rounded-xl border border-base-300/60 p-4 hover:shadow">
         <div class="text-sm text-base-content/70 mb-1">Configuration</div>
         <div class="font-medium">Asset types</div>
@@ -115,39 +122,11 @@
     </div>
   </section>
 
-    <!-- Assets KPIs -->
-  <section class="mt-6 grid grid-cols-1 md:grid-cols-4 gap-4">
-    <!-- Total -->
-    <a href="{% url 'assets:asset_item_list' %}" class="rounded-2xl bg-base-100 ring-1 ring-base-300 shadow p-5 hover:shadow-md">
-      <div class="text-sm text-base-content/60">Assets (Total)</div>
-      <div class="text-3xl font-bold">{{ kpi_assets_total }}</div>
-    </a>
-
-    <!-- Assigned -->
-    <a href="{% url 'assets:asset_item_list' %}?status=assigned" class="rounded-2xl bg-base-100 ring-1 ring-base-300 shadow p-5 hover:shadow-md">
-      <div class="text-sm text-base-content/60">Assigned now</div>
-      <div class="text-3xl font-bold">{{ kpi_assets_assigned }}</div>
-    </a>
-
-    <!-- Overdue returns -->
-    <a href="{% url 'assets:employee_asset_list' %}?active=1" class="rounded-2xl bg-base-100 ring-1 ring-base-300 shadow p-5 hover:shadow-md">
-      <div class="text-sm text-base-content/60">Overdue returns</div>
-      <div class="text-3xl font-bold">{{ kpi_assets_overdue }}</div>
-    </a>
-
-    <!-- Warranty soon (30d) -->
-    <a href="{% url 'assets:asset_item_list' %}" class="rounded-2xl bg-base-100 ring-1 ring-base-300 shadow p-5 hover:shadow-md">
-      <div class="text-sm text-base-content/60">Warranty ≤ 30d</div>
-      <div class="text-3xl font-bold">{{ kpi_assets_warranty_soon_30 }}</div>
-    </a>
-  </section>
-
-  <!-- Two columns -->
+  <!-- Two columns: recent partners / users -->
   <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-    <!-- Recent partners -->
-    <div class="rounded-2xl bg-base-100/60 backdrop-blur supports-[backdrop-filter]:backdrop-blur-md ring-1 ring-base-300/60 shadow-xl overflow-hidden">
+    <div class="rounded-2xl bg-base-100/70 ring-1 ring-base-300/70 shadow-xl overflow-hidden">
       <header class="px-5 py-4 border-b border-base-300/70 flex items-center justify-between">
-        <h2 class="text-lg font-semibold">Recent partners{% if current_company %} — {{ current_company.name }}{% endif %}</h2>
+        <h3 class="text-lg font-semibold">Recent partners{% if current_company %} — {{ current_company.name }}{% endif %}</h3>
         <a href="{% url 'base:partner_list' %}" class="btn btn-xs btn-outline">View all</a>
       </header>
       <div class="p-5">
@@ -178,10 +157,9 @@
       </div>
     </div>
 
-    <!-- Recent users -->
-    <div class="rounded-2xl bg-base-100/60 backdrop-blur supports-[backdrop-filter]:backdrop-blur-md ring-1 ring-base-300/60 shadow-xl overflow-hidden">
-      <header class="px-5 py-4 border-b border-base-300/70 flex items-center justify-between">
-        <h2 class="text-lg font-semibold">Recent users</h2>
+    <div class="rounded-2xl bg-base-100/70 ring-1 ring-base-300/70 shadow-xl overflow-hidden">
+      <header class="px-5 py-4 border-b border-base-300/70">
+        <h3 class="text-lg font-semibold">Recent users</h3>
       </header>
       <div class="p-5">
         {% if recent_users %}
@@ -212,16 +190,16 @@
   </section>
 
   <!-- Allowed companies -->
-  <section class="rounded-2xl bg-base-100/60 backdrop-blur supports-[backdrop-filter]:backdrop-blur-md ring-1 ring-base-300/60 shadow-xl overflow-hidden">
+  <section class="rounded-2xl bg-base-100/70 ring-1 ring-base-300/70 shadow-xl overflow-hidden">
     <header class="px-5 py-4 border-b border-base-300/70 flex items-center justify-between">
-      <h2 class="text-lg font-semibold">Allowed companies</h2>
+      <h3 class="text-lg font-semibold">Allowed companies</h3>
       <a href="{% url 'base:company_switch' %}" class="btn btn-sm btn-outline">Manage</a>
     </header>
     <div class="p-5">
       {% if recent_companies %}
         <ul class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
           {% for c in recent_companies %}
-            <li class="rounded-2xl bg-base-100/70 backdrop-blur supports-[backdrop-filter]:backdrop-blur-md border border-base-300/60 p-4 flex items-center justify-between transition hover:shadow-xl hover:border-base-300">
+            <li class="rounded-2xl bg-base-100/80 border border-base-300/70 p-4 flex items-center justify-between transition hover:shadow-xl hover:border-base-300">
               <div class="min-w-0">
                 <div class="font-medium truncate">{{ c.name }}</div>
                 <div class="text-xs text-base-content/60">{{ c.currency.code|default:"—" }}</div>

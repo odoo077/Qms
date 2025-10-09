@@ -1,7 +1,7 @@
 from django.db import models
-from .mixins import TimeStamped
+from base.models.mixins import TimeStampedMixin, UserStampedMixin, ActivableMixin
 
-class EvaluationTemplate(TimeStamped):
+class EvaluationTemplate(TimeStampedMixin, UserStampedMixin, ActivableMixin):
     """
     A formal evaluation form (e.g., 'Call Center Q1 Form').
     Applied to specific employees for a given period.
@@ -20,6 +20,10 @@ class EvaluationTemplate(TimeStamped):
         db_table = "perf_evaluation_template"
         unique_together = [("company", "name")]
         ordering = ["company", "name"]
+        permissions = [
+            ("use_evaluation_template", "Can use evaluation template"),
+            ("manage_template_parameters", "Can manage template parameters"),
+        ]
 
     def __str__(self):
         return self.name

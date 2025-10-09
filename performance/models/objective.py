@@ -1,9 +1,9 @@
 from django.db import models, transaction
 from django.core.exceptions import ValidationError
-from .mixins import TimeStamped
+from base.models.mixins import CompanyOwnedMixin, TimeStampedMixin, UserStampedMixin, ActivableMixin
 
 
-class Objective(TimeStamped):
+class Objective(CompanyOwnedMixin, TimeStampedMixin, UserStampedMixin, ActivableMixin):
     STATUS = [
         ("draft", "Draft"),
         ("active", "Active"),
@@ -44,6 +44,13 @@ class Objective(TimeStamped):
             models.UniqueConstraint(fields=["company", "code", "date_start", "date_end"],
                                     name="uniq_objective_code_company_period",
                                     condition=~models.Q(code="")),
+        ]
+
+        permissions = [
+            ("close_objective", "Can close/archive objective"),
+            ("manage_objective_participants", "Can manage objective participants"),
+            ("manage_objective_kpis", "Can manage objective KPIs"),
+            ("manage_objective_tasks", "Can manage objective tasks"),
         ]
 
     def __str__(self):

@@ -38,7 +38,7 @@ urlpatterns = [
     path("hr/", include("hr.urls")),
 
     path("assets/", include("assets.urls", namespace="assets")),
-
+    path("performance/", include("performance.urls", namespace="performance"))
 
 ]
 

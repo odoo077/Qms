@@ -1,11 +1,11 @@
 from django.db import models, transaction
 from django.core.exceptions import ValidationError
-from .mixins import TimeStamped
+from base.models.mixins import CompanyOwnedMixin, TimeStampedMixin, UserStampedMixin, ActivableMixin
 from performance.services.scoring import clamp_to_pct, objective_applies, avg_task_progress_for
 from performance.services.metrics import get_adapter
+from django.utils import timezone
 
-
-class Evaluation(TimeStamped):
+class Evaluation(CompanyOwnedMixin, TimeStampedMixin, UserStampedMixin, ActivableMixin):
     """
     End-of-period evaluation for an employee.
     Now links to a Template and materializes parameter results.
@@ -25,14 +25,48 @@ class Evaluation(TimeStamped):
 
     final_score_pct = models.PositiveIntegerField(default=0, db_index=True)
 
+    # ======= Workflow / Lifecycle =======
+    STATE = [
+        ("draft", "Draft"),
+        ("submitted", "Submitted"),
+        ("calibrated", "Calibrated"),
+        ("approved", "Approved"),
+        ("locked", "Locked"),
+    ]
+    state = models.CharField(max_length=12, choices=STATE, default="draft", db_index=True)
+
+    submitted_at = models.DateTimeField(null=True, blank=True)
+    submitted_by = models.ForeignKey("hr.Employee", null=True, blank=True, on_delete=models.SET_NULL, related_name="submitted_evaluations")
+
+    calibrated_at = models.DateTimeField(null=True, blank=True)
+    calibrated_by = models.ForeignKey("hr.Employee", null=True, blank=True, on_delete=models.SET_NULL, related_name="calibrated_evaluations")
+
+    approved_at = models.DateTimeField(null=True, blank=True)
+    approved_by = models.ForeignKey("hr.Employee", null=True, blank=True, on_delete=models.SET_NULL, related_name="approved_evaluations")
+
+    locked_at = models.DateTimeField(null=True, blank=True)
+
+    @property
+    def is_locked(self) -> bool:
+        return self.state in ("approved", "locked") or bool(self.locked_at)
+
+
     class Meta:
         db_table = "perf_evaluation"
         indexes = [
             models.Index(fields=["company", "employee", "date_start", "date_end"]),
+            models.Index(fields=["state", "date_end"], name="perf_eval_state_idx"),
         ]
         constraints = [
             models.CheckConstraint(check=models.Q(date_start__lte=models.F("date_end")), name="chk_eval_dates"),
             models.UniqueConstraint(fields=["employee", "date_start", "date_end"], name="uniq_eval_employee_period"),
+        ]
+        permissions = [
+            ("submit_evaluation", "Can submit evaluation"),
+            ("calibrate_evaluation", "Can calibrate evaluation"),
+            ("approve_evaluation", "Can approve evaluation"),
+            ("lock_evaluation", "Can lock evaluation"),
+            ("view_confidential_notes", "Can view confidential evaluation notes"),
         ]
 
     def __str__(self):
@@ -181,6 +215,11 @@ class Evaluation(TimeStamped):
         """
         Compute per-parameter results and the final weighted score.
         """
+
+        # لا تُعيد الحساب إذا كان التقييم مقفولًا أو معتمدًا
+        if self.is_locked:
+            return
+
         from .evaluation_parameter_result import EvaluationParameterResult
         from .evaluation_parameter import EvaluationParameter as EP
 
@@ -249,6 +288,60 @@ class Evaluation(TimeStamped):
         self.final_score_pct = max(0, min(100, final))
 
     def save(self, *args, **kwargs):
+        """
+        - في الحالات المفتوحة (draft/submitted/calibrated): احسب وحدث الدرجة النهائية.
+        - بعد الموافقة/القفل: لا نعيد الحساب تلقائيًا (سلامة تاريخية).
+        - إن أردت إجبار حساب قبل القفل، استدعِ recompute() يدويًا ثم احفظ.
+        """
+        # حفظ أولي لضمان وجود PK
         super().save(*args, **kwargs)
+
+        # لا نعيد الحساب إذا كان مقفولًا/معتمدًا
+        if self.is_locked:
+            return
+
+        # إعادة الحساب في الحالات المفتوحة
         self.recompute()
         super().save(update_fields=["final_score_pct"])
+
+
+    # ======= State Transitions =======
+    def submit(self, by:None):
+        if self.state != "draft":
+            return
+        self.state = "submitted"
+        self.submitted_at = timezone.now()
+        if by:
+            self.submitted_by = by
+        # مسموح إعادة حساب قبل الاعتماد
+        self.recompute()
+        super().save(update_fields=["state", "submitted_at", "submitted_by", "final_score_pct"])
+
+    def calibrate(self, by:None):
+        if self.state not in ("submitted", "calibrated"):
+            return
+        self.state = "calibrated"
+        self.calibrated_at = timezone.now()
+        if by:
+            self.calibrated_by = by
+        # قد تُعدّل الملاحظات/الأوزان اليدوية ثم يُعاد الحساب
+        self.recompute()
+        super().save(update_fields=["state", "calibrated_at", "calibrated_by", "final_score_pct"])
+
+    def approve(self, by:None):
+        if self.state not in ("submitted", "calibrated"):
+            return
+        # آخر إعادة حساب قبل القفل
+        self.recompute()
+        self.state = "approved"
+        self.approved_at = timezone.now()
+        if by:
+            self.approved_by = by
+        super().save(update_fields=["state", "approved_at", "approved_by", "final_score_pct"])
+
+    def lock(self):
+        # قفل إداري (بعد الموافقة عادةً)
+        if self.state in ("approved", "locked"):
+            self.state = "locked"
+            self.locked_at = timezone.now()
+            super().save(update_fields=["state", "locked_at"])

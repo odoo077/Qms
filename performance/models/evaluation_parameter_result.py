@@ -1,8 +1,7 @@
 from django.db import models
-from .mixins import TimeStamped
+from base.models.mixins import TimeStampedMixin, UserStampedMixin
 
-
-class EvaluationParameterResult(TimeStamped):
+class EvaluationParameterResult(TimeStampedMixin, UserStampedMixin):
     """
     Stores the computed outcome for a single parameter of a given Evaluation.
     - raw_value: whatever the source produced (number or JSON)
@@ -19,6 +18,9 @@ class EvaluationParameterResult(TimeStamped):
         db_table = "perf_evaluation_parameter_result"
         unique_together = [("evaluation", "parameter")]
         indexes = [models.Index(fields=["evaluation", "parameter"])]
+        permissions = [
+            ("rate_parameter_result", "Can rate parameter result"),
+        ]
 
     def __str__(self):
         return f"{self.evaluation} · {self.parameter.name}: {self.score_pct}%"

@@ -1,8 +1,8 @@
 from django.db import models
 from django.core.exceptions import ValidationError
-from .mixins import TimeStamped
+from base.models.mixins import TimeStampedMixin, UserStampedMixin, ActivableMixin
 
-class KPI(TimeStamped):
+class KPI(TimeStampedMixin, UserStampedMixin, ActivableMixin):
     UNIT_CHOICES = [
         ("#", "Count"),
         ("%", "Percent"),
@@ -39,6 +39,10 @@ class KPI(TimeStamped):
         ]
         constraints = [
             models.CheckConstraint(check=models.Q(weight_pct__gte=0, weight_pct__lte=100), name="chk_kpi_weight_0_100"),
+        ]
+        permissions = [
+            ("recompute_kpi", "Can recompute KPI"),
+            ("set_kpi_manual_value", "Can set manual KPI value"),
         ]
 
     def __str__(self):

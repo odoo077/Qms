@@ -25,6 +25,9 @@ class HrEmployeeSkill(HrIndividualSkillMixin, TimeStamped, UserStamped, models.M
             models.Index(fields=["skill_level"]),
         ]
         # لا نضع unique_together صارمًا لأن الشهادات قد تتكرر بفترات مختلفة.
+        permissions = [
+            ("rate_skill", "Can rate employee skill"),
+        ]
 
     def __str__(self):
         return f"{self.employee.name} · {self.skill.name} ({self.skill_level.name})"

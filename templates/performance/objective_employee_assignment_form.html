@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% load static %}
+{% block content %}
+<!-- نموذج إنشاء/تعديل تعيين موظف -->
+
+<div class="max-w-2xl mx-auto p-4">
+  <h1 class="text-2xl font-semibold mb-4">Employee Assignment</h1>
+
+  <form method="post" class="space-y-4">
+    {% csrf_token %}
+
+    {% if form.non_field_errors %}
+      <div class="alert alert-error">
+        {{ form.non_field_errors }}
+      </div>
+    {% endif %}
+
+    <div class="form-control">
+      <label class="label"><span class="label-text">Objective</span></label>
+      {{ form.objective }}
+      {{ form.objective.errors }}
+    </div>
+
+    <div class="form-control">
+      <label class="label"><span class="label-text">Employee</span></label>
+      {{ form.employee }}
+      {{ form.employee.errors }}
+    </div>
+
+    <div class="flex gap-2">
+      <button type="submit" class="btn btn-primary">Save</button>
+      {% if object and object.objective_id %}
+        <a class="btn" href="{% url 'performance:objective_employee_assignment_list' pk=object.objective_id %}">Cancel</a>
+      {% else %}
+        <a class="btn" href="{% url 'performance:objective_detail' pk=view.kwargs.pk %}">Cancel</a>
+      {% endif %}
+    </div>
+  </form>
+</div>
+{% endblock %}
