@@ -1,5 +1,4 @@
 {% load static %}
-<!doctype html>
 <html lang="en" dir="ltr" class="no-transitions" data-theme="{{ request.COOKIES.theme|default:'corporate' }}">
 <head>
   <meta charset="utf-8" />
@@ -35,7 +34,7 @@
   </style>
 
   {% block head_extra %}{% endblock %}
-</head>
+ </head>
 <body class="bg-base-200 text-base-content min-h-screen selection:bg-primary/20 selection:text-primary" data-theme="{{ request.COOKIES.theme|default:'corporate' }}">
 
 <!-- ================= Drawer Layout ================= -->
@@ -151,125 +150,8 @@
     </footer>
   </div>
 
-  <!-- Drawer side (30% width) -->
-  <aside class="drawer-side z-40">
-    <label for="app-drawer" aria-label="close sidebar" class="drawer-overlay"></label>
-    <div class="bg-base-100 border-r h-full w-[30vw] min-w-72 max-w-xl">
-      <div class="px-4 py-4 border-b flex items-center justify-between">
-        <a href="{% url 'base:home' %}" class="font-extrabold text-lg">
-          <span class="text-primary">360</span> <span class="text-error">Manager</span>
-        </a>
-        <label for="app-drawer" class="btn btn-ghost btn-square" aria-label="Close menu">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18L18 6M6 6l12 12"/></svg>
-        </label>
-      </div>
-
-      <div class="px-3 py-3 space-y-2 overflow-y-auto h-[calc(100vh-4rem)]">
-        <div class="collapse collapse-arrow bg-base-200">
-          <input type="checkbox" />
-          <div class="collapse-title font-semibold">General</div>
-          <div class="collapse-content">
-            <ul class="menu p-0">
-              <li><a href="{% url 'base:partner_list' %}">Partners</a></li>
-              <li><a href="{% url 'base:company_switch' %}">Switch company</a></li>
-              {% if not user.is_authenticated %}
-                <li><a href="{% url 'base:login' %}?next={{ request.path|urlencode }}">Login</a></li>
-                <li><a href="{% url 'base:register' %}">Create account</a></li>
-              {% endif %}
-            </ul>
-          </div>
-        </div>
-
-        {% if user.is_authenticated %}
-        <div class="collapse collapse-arrow bg-base-200">
-          <input type="checkbox" />
-          <div class="collapse-title font-semibold">HR</div>
-          <div class="collapse-content">
-            <ul class="menu p-0">
-              <li><a href="{% url 'hr:employee_list' %}">Employees</a></li>
-              <li><a href="{% url 'hr:department_list' %}">Departments</a></li>
-              <li><a href="{% url 'hr:job_list' %}">Jobs</a></li>
-              <li><a href="{% url 'hr:work_location_list' %}">Work locations</a></li>
-              <li class="menu-title"><span>Config</span></li>
-              <li><a href="{% url 'hr:category_list' %}">Employee categories</a></li>
-              <li><a href="{% url 'hr:contract_type_list' %}">Contract types</a></li>
-            </ul>
-          </div>
-        </div>
-
-        <div class="collapse collapse-arrow bg-base-200">
-          <input type="checkbox" />
-          <div class="collapse-title font-semibold">Skills</div>
-          <div class="collapse-content">
-            <ul class="menu p-0">
-              <li><a href="{% url 'skills:skill_type_list' %}">Skill types</a></li>
-              <li><a href="{% url 'skills:skill_level_list' %}">Skill levels</a></li>
-              <li><a href="{% url 'skills:skill_list' %}">Skills</a></li>
-              <li class="menu-title"><span>Employees</span></li>
-              <li><a href="{% url 'skills:employee_skill_list' %}">Employee skills</a></li>
-              <li class="menu-title"><span>Resume</span></li>
-              <li><a href="{% url 'skills:resume_line_list' %}">Resume lines</a></li>
-              <li><a href="{% url 'skills:resume_line_type_list' %}">Resume line types</a></li>
-            </ul>
-          </div>
-        </div>
-
-        <div class="collapse collapse-arrow bg-base-200">
-          <input type="checkbox" />
-          <div class="collapse-title font-semibold">Assets</div>
-          <div class="collapse-content">
-            <ul class="menu p-0">
-              <li><a href="{% url 'assets:asset_type_list' %}">Asset types</a></li>
-              <li><a href="{% url 'assets:asset_model_list' %}">Asset models</a></li>
-              <li><a href="{% url 'assets:asset_item_list' %}">Asset items</a></li>
-              <li class="menu-title"><span>Assignments</span></li>
-              <li><a href="{% url 'assets:employee_asset_list' %}">Employee assets</a></li>
-              <li><a href="{% url 'assets:employee_asset_assign' %}">Assign asset</a></li>
-            </ul>
-          </div>
-        </div>
-
-  <!-- Performance -->
-<div class="collapse collapse-arrow bg-base-200">
-  <input type="checkbox" />
-  <div class="collapse-title font-semibold">Performance</div>
-  <div class="collapse-content">
-    <ul class="menu p-0">
-      <!-- أهداف -->
-      <li><a href="{% url 'performance:objective_list' %}">Objectives</a></li>
-
-      <!-- مؤشرات KPI -->
-      <li><a href="{% url 'performance:kpi_list' %}">KPIs</a></li>
-
-      <!-- مهام مرتبطة بالأهداف/KPI -->
-      <li><a href="{% url 'performance:task_list' %}">Tasks</a></li>
-
-      <!-- التقييمات -->
-      <li class="menu-title"><span>Evaluations</span></li>
-      <li><a href="{% url 'performance:evaluation_list' %}">Evaluations</a></li>
-      <li><a href="{% url 'performance:evaluation_template_list' %}">Templates</a></li>
-      <li><a href="{% url 'performance:evaluation_parameter_list' %}">Parameters</a></li>
-    </ul>
-  </div>
-</div>
 
 
-        <div class="collapse collapse-arrow bg-base-200">
-          <input type="checkbox" />
-          <div class="collapse-title font-semibold">Account</div>
-          <div class="collapse-content">
-            <ul class="menu p-0">
-              <li><a href="{% url 'base:profile' %}">Profile</a></li>
-              <li><a href="{% url 'base:edit_profile' %}">Edit profile</a></li>
-              <li><a href="{% url 'base:password_change' %}">Change password</a></li>
-              <li><a href="{% url 'base:logout' %}" class="text-error">Logout</a></li>
-            </ul>
-          </div>
-        </div>
-        {% endif %}
-      </div>
-    </div>
-  </aside>
 </div>
 
 <!-- Theme switcher: update <html> + <body> -->

@@ -2,16 +2,8 @@
 from django.contrib import admin, messages
 from django.db import transaction
 
-from .models.objective import Objective
-from .models.objective_department_assignment import ObjectiveDepartmentAssignment
-from .models.objective_employee_assignment import ObjectiveEmployeeAssignment
-from .models.objective_participant import ObjectiveParticipant
-from .models.kpi import KPI
-from .models.task import Task
-from .models.evaluation_template import EvaluationTemplate
-from .models.evaluation_parameter import EvaluationParameter
-from .models.evaluation import Evaluation
-from .models.evaluation_parameter_result import EvaluationParameterResult
+from performance.models import ObjectiveDepartmentAssignment, Task, ObjectiveEmployeeAssignment, ObjectiveParticipant, KPI, \
+    Objective, EvaluationTemplate, EvaluationParameter, Evaluation, EvaluationParameterResult
 
 # -----------------------------------------------------------------------------
 # Global toggle: prefer autocomplete widgets, fall back to raw_id if needed

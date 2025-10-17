@@ -39,8 +39,6 @@
             Clean cards, clear actions and a theme-aware layout. Everything you need to get going quickly.
           </p>
           <div class="mt-6 flex flex-wrap gap-2">
-            <a href="{% url 'assets:employee_asset_assign' %}" class="btn btn-primary btn-sm">Assign asset</a>
-            <a href="{% url 'skills:employee_skill_list' %}" class="btn btn-outline btn-sm">Employee skills</a>
             <a href="{% url 'base:partner_list' %}" class="btn btn-ghost btn-sm">All partners</a>
           </div>
         </div>
@@ -67,60 +65,6 @@
     </div>
   </section>
 
-  <!-- KPIs -->
-  <section class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-    <a href="{% url 'assets:asset_item_list' %}" class="group rounded-2xl bg-base-100 ring-1 ring-base-300/70 shadow hover:shadow-lg transition p-5">
-      <div class="flex items-center gap-3">
-        <div class="badge badge-ghost">Assets</div>
-      </div>
-      <div class="mt-2 text-3xl font-bold">{{ kpi_assets_total }}</div>
-      <div class="text-xs text-base-content/60">Total items</div>
-    </a>
-
-    <a href="{% url 'assets:asset_item_list' %}?status=assigned" class="group rounded-2xl bg-base-100 ring-1 ring-base-300/70 shadow hover:shadow-lg transition p-5">
-      <div class="badge badge-ghost">Assigned</div>
-      <div class="mt-2 text-3xl font-bold">{{ kpi_assets_assigned }}</div>
-      <div class="text-xs text-base-content/60">Currently in use</div>
-    </a>
-
-    <a href="{% url 'assets:employee_asset_list' %}?active=1" class="group rounded-2xl bg-base-100 ring-1 ring-base-300/70 shadow hover:shadow-lg transition p-5">
-      <div class="badge badge-ghost">Overdue</div>
-      <div class="mt-2 text-3xl font-bold">{{ kpi_assets_overdue }}</div>
-      <div class="text-xs text-base-content/60">Returns overdue</div>
-    </a>
-
-    <a href="{% url 'assets:asset_item_list' %}" class="group rounded-2xl bg-base-100 ring-1 ring-base-300/70 shadow hover:shadow-lg transition p-5">
-      <div class="badge badge-ghost">Warranty</div>
-      <div class="mt-2 text-3xl font-bold">{{ kpi_assets_warranty_soon_30 }}</div>
-      <div class="text-xs text-base-content/60">Expiring ≤ 30 days</div>
-    </a>
-  </section>
-
-  <!-- Assets quick actions -->
-  <section class="rounded-2xl bg-base-100/70 ring-1 ring-base-300/70 shadow-xl overflow-hidden">
-    <header class="px-5 py-4 border-b border-base-300/70 flex items-center justify-between">
-      <h3 class="text-lg font-semibold">Assets{% if current_company %} — {{ current_company.name }}{% endif %}</h3>
-      <div class="flex gap-2">
-        <a href="{% url 'assets:asset_item_list' %}" class="btn btn-sm btn-outline">Asset items</a>
-        <a href="{% url 'assets:employee_asset_list' %}" class="btn btn-sm btn-outline">Employee assets</a>
-        <a href="{% url 'assets:employee_asset_assign' %}" class="btn btn-sm btn-primary">+ Assign</a>
-      </div>
-    </header>
-    <div class="p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-      <a href="{% url 'assets:asset_type_list' %}" class="rounded-xl border border-base-300/60 p-4 hover:shadow">
-        <div class="text-sm text-base-content/70 mb-1">Configuration</div>
-        <div class="font-medium">Asset types</div>
-      </a>
-      <a href="{% url 'assets:asset_model_list' %}" class="rounded-xl border border-base-300/60 p-4 hover:shadow">
-        <div class="text-sm text-base-content/70 mb-1">Configuration</div>
-        <div class="font-medium">Asset models</div>
-      </a>
-      <a href="{% url 'assets:asset_item_list' %}?status=assigned" class="rounded-xl border border-base-300/60 p-4 hover:shadow">
-        <div class="text-sm text-base-content/70 mb-1">Monitoring</div>
-        <div class="font-medium">Assigned items</div>
-      </a>
-    </div>
-  </section>
 
   <!-- Two columns: recent partners / users -->
   <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">

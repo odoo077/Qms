@@ -1,5 +1,5 @@
+# base/apps.py
 from django.apps import AppConfig
-
 
 class BaseConfig(AppConfig):
     default_auto_field = "django.db.models.BigAutoField"
@@ -7,5 +7,5 @@ class BaseConfig(AppConfig):
     verbose_name = "Base (Odoo-like Core)"
 
     def ready(self):
-        # ربط الإشارات
+        # استيراد مباشر لملف signals كي تُسجَّل الديكورات @receiver
         from . import signals  # noqa: F401

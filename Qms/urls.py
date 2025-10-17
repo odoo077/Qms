@@ -27,19 +27,10 @@ urlpatterns = [
     path("", include(("base.urls", "base"), namespace="base")),
 
     path("base/", RedirectView.as_view(pattern_name="base:home", permanent=False)),
-
     # باقي التطبيقات
     path("employees/", include(("employees.urls", "employees"), namespace="employees")),
-    path("skills/", include(("skills.urls", "skills"), namespace="skills")),
-
     # لوحة الإدارة
     path("admin/", admin.site.urls),
-
-    path("hr/", include("hr.urls")),
-
-    path("assets/", include("assets.urls", namespace="assets")),
-    path("performance/", include("performance.urls", namespace="performance"))
-
 ]
 
 # Helpers أثناء التطوير

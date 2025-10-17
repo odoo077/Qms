@@ -1,4 +1,6 @@
+# performance/apps.py
 from django.apps import AppConfig
+
 
 class PerformanceConfig(AppConfig):
     default_auto_field = "django.db.models.BigAutoField"
@@ -6,9 +8,8 @@ class PerformanceConfig(AppConfig):
     verbose_name = "Performance"
 
     def ready(self):
-        # إشارات داخلية موجودة لديك (إعادة بناء المشاركين/إعادة احتساب المؤشرات)
-        from .signals import signals  # noqa: F401
-        # إشارات صلاحيات المجموعات
-        from .signals import roles     # noqa: F401
-        # إشارات منح الملكية
-        from .signals import ownership # noqa: F401
+        # تفعيل إشارات التطبيق بتحميل ملف signals مرة واحدة
+        # ملاحظة: لا تنقل هذا الاستيراد لأعلى الملف كي لا يحدث
+        # تحميل مبكر قبل تهيئة سجل التطبيقات.
+        from . import signals  # noqa: F401
+        # أو يمكنك استخدام: import performance.signals

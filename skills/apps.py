@@ -8,16 +8,5 @@ class SkillsConfig(AppConfig):
     verbose_name = "Skills"
 
     def ready(self):
-        """
-        عند تشغيل المشروع يقوم باستيراد وحدات الإشارات (signals)
-        لكي تُسجَّل جميع الـ receivers:
-        - skill_signals: إشارات مستويات المهارة.
-        - employee_skill_signals: تحقق قبل حفظ مهارة موظف.
-        - ownership: منح صلاحيات المالك على السجل الجديد.
-        - roles: إنشاء/تأكيد مجموعات وصلاحيات التطبيق بعد الترحيل.
-        """
-        # مجرد الاستيراد يكفي لتوصيل الإشارات
-        from .signals import skill_signals  # noqa: F401
-        from .signals import employee_skill_signals  # noqa: F401
-        from .signals import ownership  # noqa: F401
-        from .signals import roles  # noqa: F401
+        # مجرّد الاستيراد يفعّل جميع @receiver الموجودة في skills/signals.py
+        from . import signals  # noqa: F401

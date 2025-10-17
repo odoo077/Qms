@@ -78,7 +78,7 @@ INSTALLED_APPS = [
     # "django_browser_reload"  # سيُضاف تلقائياً بالأسفل عندما DEBUG=True
 
     # Project apps (Odoo-like)
-    "base",         # ← يحتوي User/Company/Partner… (يجب أن يأتي أولاً)
+    'base.apps.BaseConfig',         # ← يحتوي User/Company/Partner… (يجب أن يأتي أولاً)
     "employees",
     "hr.apps.HrConfig",
     "skills",

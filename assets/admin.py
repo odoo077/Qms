@@ -10,7 +10,7 @@ from .models import (
     AssetItem,
     EmployeeAsset,
 )
-from .services.assignment_service import AssignmentService
+from .services import AssignmentService
 
 
 # ---------------------------
