@@ -85,7 +85,7 @@ INSTALLED_APPS = [
     "assets",
     "performance",
     "payroll",
-
+    'xfields',
     "widget_tweaks",
 ]
 

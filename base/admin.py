@@ -8,50 +8,21 @@
 
 from __future__ import annotations
 
-from typing import Any
 from django.contrib import admin
 from django.contrib.auth import get_user_model
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 from django.urls import reverse
 from django.utils.html import format_html
-
+from base.admin_mixins import AppAdmin, HideAuditFieldsMixin , UnscopedAdminMixin
 from . import models
 
-
-# ------------------------------------------------------------
-# Helper — pick an unscoped manager for a given model
-# ------------------------------------------------------------
-def _unscoped_manager(model: type) -> Any:
-    # محاولة استخدام all_objects إن توفّر، وإلّا _base_manager (غير مقيّد)
-    return getattr(model, "all_objects", model._base_manager)
-
-
-# ------------------------------------------------------------
-# Mixin — un-scope queries only inside the Django Admin
-# ------------------------------------------------------------
-class UnscopedAdminMixin:
-    # اجلب كل السجلات (بدون سكوب الشركة) في قوائم الأدمن
-    def get_queryset(self, request):
-        return _unscoped_manager(self.model).all()
-
-    # اجعل حقول FK تعرض كل الخيارات (بدون سكوب)
-    def formfield_for_foreignkey(self, db_field, request, **kwargs):
-        Remote = db_field.remote_field.model
-        kwargs.setdefault("queryset", _unscoped_manager(Remote).all())
-        return super().formfield_for_foreignkey(db_field, request, **kwargs)
-
-    # اجعل حقول M2M تعرض كل الخيارات (بدون سكوب)
-    def formfield_for_manytomany(self, db_field, request, **kwargs):
-        Remote = db_field.remote_field.model
-        kwargs.setdefault("queryset", _unscoped_manager(Remote).all())
-        return super().formfield_for_manytomany(db_field, request, **kwargs)
 
 
 # ------------------------------------------------------------
 # Currency
 # ------------------------------------------------------------
 @admin.register(models.Currency)
-class CurrencyAdmin(UnscopedAdminMixin, admin.ModelAdmin):
+class CurrencyAdmin(AppAdmin):
     # ✅ المتاح في الموديل فعليًا: code, name
     list_display = ("code", "name")  # الحقول الفعلية فقط (إزالة symbol/active)
     search_fields = ("code", "name")
@@ -62,7 +33,7 @@ class CurrencyAdmin(UnscopedAdminMixin, admin.ModelAdmin):
 # Company
 # ------------------------------------------------------------
 @admin.register(models.Company)
-class CompanyAdmin(UnscopedAdminMixin, admin.ModelAdmin):
+class CompanyAdmin(AppAdmin):
     # عرض سريع + رابط إلى بطاقة الشريك
     list_display = ("name", "sequence", "parent", "currency", "active", "partner_link")
     list_filter = ("active",)
@@ -125,7 +96,7 @@ class CompanyAdmin(UnscopedAdminMixin, admin.ModelAdmin):
 # PartnerCategory  ← NEW: required for Partner.autocomplete_fields["categories"]
 # ------------------------------------------------------------
 @admin.register(models.PartnerCategory)
-class PartnerCategoryAdmin(UnscopedAdminMixin, admin.ModelAdmin):
+class PartnerCategoryAdmin(AppAdmin):
     # لعرض واضح عبر الشجرة + دعم البحث للأوتوكومبليت
     list_display = ("name", "complete_name", "parent")
     search_fields = ("name", "complete_name")
@@ -137,10 +108,10 @@ class PartnerCategoryAdmin(UnscopedAdminMixin, admin.ModelAdmin):
 # Partner
 # ------------------------------------------------------------
 @admin.register(models.Partner)
-class PartnerAdmin(UnscopedAdminMixin, admin.ModelAdmin):
-    list_display = ("display_name", "company", "company_type", "type", "active")
+class PartnerAdmin(AppAdmin):
+    list_display = ("display_name", "company", "company_type", "type","phone", "mobile", "active")
     list_filter = ("company_type", "type", "active")
-    search_fields = ("display_name", "name", "email", "phone", "company_registry", "vat")
+    search_fields = ("display_name", "name", "email", "phone", "mobile", "company_registry", "vat")
     list_select_related = ("company", "parent")
     ordering = ("display_name",)
 
@@ -185,7 +156,7 @@ User = get_user_model()
 
 
 @admin.register(User)
-class UserAdmin(UnscopedAdminMixin, DjangoUserAdmin):
+class UserAdmin(UnscopedAdminMixin, HideAuditFieldsMixin, DjangoUserAdmin):
     """
     User admin with:
       - unscoped queries inside admin

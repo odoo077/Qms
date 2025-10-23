@@ -2,10 +2,10 @@ from django.db import models
 from django.utils import timezone
 from django.db.models import Q
 from django.core.exceptions import ValidationError
-from base.models import ActivableMixin, TimeStamped, UserStamped
+from base.models import ActivableMixin, TimeStampedMixin, UserStampedMixin
 
 
-class HrSkillType(ActivableMixin, TimeStamped, UserStamped, models.Model):
+class HrSkillType(ActivableMixin, TimeStampedMixin, UserStampedMixin, models.Model):
     """
     Odoo-like hr.skill.type
     - يمسك مجموعة المهارات ومستوياتها.
@@ -37,7 +37,7 @@ class HrSkillType(ActivableMixin, TimeStamped, UserStamped, models.Model):
         return f"{self.name}{' 🏅' if self.is_certification else ''}"
 
 
-class HrSkillLevel(TimeStamped, UserStamped, models.Model):
+class HrSkillLevel(TimeStampedMixin, UserStampedMixin, models.Model):
     """
     Odoo-like hr.skill.level
     - مستوى تابع لنوع مهارة واحد.
@@ -76,7 +76,7 @@ class HrSkillLevel(TimeStamped, UserStamped, models.Model):
         return f"{self.skill_type.name}: {self.name} ({self.level_progress}%)"
 
 
-class HrSkill(ActivableMixin, TimeStamped, UserStamped, models.Model):
+class HrSkill(ActivableMixin, TimeStampedMixin, UserStampedMixin, models.Model):
     """
     Odoo-like hr.skill
     - مهارة مرتبطة بنوع.
@@ -103,7 +103,7 @@ class HrSkill(ActivableMixin, TimeStamped, UserStamped, models.Model):
         return f"{self.name} ({self.skill_type.name})"
 
 
-class HrResumeLineType(ActivableMixin, TimeStamped, UserStamped, models.Model):
+class HrResumeLineType(ActivableMixin, TimeStampedMixin, UserStampedMixin, models.Model):
     """
     Odoo-like hr.resume.line.type
     - تعريف أنواع أسطر السيرة (خبرة/تعليم/دورة...).
@@ -125,7 +125,7 @@ class HrResumeLineType(ActivableMixin, TimeStamped, UserStamped, models.Model):
         return self.name
 
 
-class HrResumeLine(TimeStamped, UserStamped, models.Model):
+class HrResumeLine(TimeStampedMixin, UserStampedMixin, models.Model):
     """
     Odoo-like hr.resume.line
     - سطر في CV لموظف (خبرة/تعليم/دورة).
@@ -210,7 +210,7 @@ class HrResumeLine(TimeStamped, UserStamped, models.Model):
         return f"{self.employee.name} · {self.name}"
 
 
-class HrIndividualSkillMixin(TimeStamped, UserStamped, models.Model):
+class HrIndividualSkillMixin(TimeStampedMixin, UserStampedMixin, models.Model):
     """
     Abstract mixin (Odoo-like hr.individual.skill.mixin)
     يحتوي المنطق المشترك:
@@ -256,7 +256,7 @@ class HrIndividualSkillMixin(TimeStamped, UserStamped, models.Model):
         return self.skill_type.color if self.skill_type_id else 1
 
 
-class HrEmployeeSkill(HrIndividualSkillMixin, TimeStamped, UserStamped, models.Model):
+class HrEmployeeSkill(HrIndividualSkillMixin, TimeStampedMixin, UserStampedMixin, models.Model):
     """
     Odoo-like hr.employee.skill
     يربط موظفًا بمهارة/مستوى/فترة.

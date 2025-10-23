@@ -1,7 +1,7 @@
 from __future__ import annotations
 from django.core.validators import RegexValidator
 from django.db import models
-from django.contrib.auth.models import AbstractUser, BaseUserManager
+from django.contrib.auth.models import AbstractUser
 from django.db.models.functions import Lower
 from django.utils import timezone
 from django.db.models import Q
@@ -191,19 +191,6 @@ class UserStampedMixin(models.Model):
 
     class Meta:
         abstract = True
-
-
-# ---------- Aliases للتوافق مع كود HR الحالي ----------
-# (حتى لو كان كودك في hr يستخدم TimeStamped/UserStamped، لن تحتاج لتعديل كبير)
-class TimeStamped(TimeStampedMixin):
-    class Meta:
-        abstract = True
-
-
-class UserStamped(UserStampedMixin):
-    class Meta:
-        abstract = True
-
 
 # ------------ Company models -----------
 
@@ -783,6 +770,7 @@ class Partner(CompanyOwnedMixin, TimeStampedMixin, ActivableMixin, AddressMixin)
     # Contact info
     email = models.EmailField(blank=True)
     phone = models.CharField(max_length=64, blank=True)
+    mobile = models.CharField(max_length=64, blank=True)  # NEW: Odoo-like
     website = models.URLField(blank=True)
 
     # Fiscal identity
@@ -826,18 +814,6 @@ class Partner(CompanyOwnedMixin, TimeStampedMixin, ActivableMixin, AddressMixin)
 
         # قيود سلامة/تفرد (بدون JOIN قدر الإمكان)
         constraints = [
-            # Odoo-like: استثناء بطاقات الشركات من تطابق الشركة مع الأب
-            # - الأشخاص/الكيانات غير الشركة: يجب أن تطابق company = parent_company
-            # - بطاقات الشركات (is_company=True): يُسمح بأن يكون الأب شركة مختلفة (Holding/Subsidiary)
-            models.CheckConstraint(
-                name="partner_parent_company_match",
-                check=(
-                    models.Q(parent__isnull=True)
-                    | models.Q(is_company=True)
-                    | models.Q(company=models.F("parent_company"))
-                ),
-                violation_error_message="Parent and child must belong to the same company (except company-to-company).",
-            ),
 
             # منع ذات-الأب على مستوى DB كذلك (حماية مزدوجة مع clean())
             models.CheckConstraint(

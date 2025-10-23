@@ -1,11 +1,10 @@
 from django.apps import AppConfig
 
-
 class HrConfig(AppConfig):
     default_auto_field = "django.db.models.BigAutoField"
     name = "hr"
+    verbose_name = "HR"
 
     def ready(self):
-        # حمّل جميع الإشارات المسجّلة في hr/signals.py
-        # مجرد الاستيراد يكفي لتفعيل @receiver
-        from . import signals  # noqa: F401
+        # مهم جدًا لتحميل مستقبلات الإشارات بعد جاهزية سجل التطبيقات
+        from . import signals  # noqa
