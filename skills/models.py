@@ -1,297 +1,357 @@
-from django.db import models
-from django.utils import timezone
-from django.db.models import Q
+# skills/models.py
+# ============================================================
+# Skills & Resume — Odoo-like data model
+# - مطابق لمنطق Odoo (hr_skill, hr_employee_skill, hr_resume_line*)
+# - متوافق مع django-guardian (لا حاجة لحقول إضافية)
+# - تعليقات عربية لسهولة الصيانة
+# ============================================================
+
+from __future__ import annotations
+
+from typing import Optional
+
+from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
-from base.models import ActivableMixin, TimeStampedMixin, UserStampedMixin
+from django.db import models
+from django.db.models import Q, UniqueConstraint, CheckConstraint
+from django.utils.translation import gettext_lazy as _
+
+# ------------------------------------------------------------
+# روابط للتطبيقات الأساسية (حسب مشروعك)
+# ------------------------------------------------------------
+# Company و Employee مأخوذان من تطبيقاتك الحالية:
+from base.models import Company  # شركتك
+from hr.models import Employee   # موظفك
 
 
-class HrSkillType(ActivableMixin, TimeStampedMixin, UserStampedMixin, models.Model):
+# ============================================================
+# Helpers / Mixins
+# ============================================================
+
+User = get_user_model()
+
+
+class TimeUserStampedMixin(models.Model):
     """
-    Odoo-like hr.skill.type
-    - يمسك مجموعة المهارات ومستوياتها.
-    - يدعم وسم 'is_certification' لتمييز الشهادات.
-    - levels_count: يُحدّث عبر إشارة (signal) بعد حفظ/حذف HrSkillLevel.
+    مكسن بسيط لإضافة طوابع الإنشاء والتعديل + المستخدم المُنشئ/المُعدّل.
+    - لا يتدخل في صلاحيات Guardian (تُدار عبر signals/admin).
     """
-    name = models.CharField(max_length=255, unique=True, db_index=True)
-    sequence = models.IntegerField(default=10)
-    color = models.IntegerField(default=1)  # 1..11 عادةً في Odoo
-    is_certification = models.BooleanField(default=False)
-
-    # يُحدَّث عبر signal (skills/signals/skill_signals.py)
-    levels_count = models.PositiveIntegerField(default=0, editable=False)
-
-    class Meta:
-        db_table = "hr_skill_type"
-        ordering = ("sequence", "name")
-        indexes = [
-            models.Index(fields=["active"]),
-            models.Index(fields=["sequence", "name"]),
-        ]
-
-    def clean(self):
-        super().clean()
-        # ملاحظة: في Odoo يُرفض نوع بلا مهارات/مستويات عند عمليات معينة.
-        # هنا نترك التحقق للواجهة/المنطق التطبيقي (أو تضيفه لاحقًا بعد توفّر بيانات كافية).
-
-    def __str__(self):
-        return f"{self.name}{' 🏅' if self.is_certification else ''}"
-
-
-class HrSkillLevel(TimeStampedMixin, UserStampedMixin, models.Model):
-    """
-    Odoo-like hr.skill.level
-    - مستوى تابع لنوع مهارة واحد.
-    - default_level: يجب أن يكون واحدًا فقط لكل SkillType (ن enforced في save()).
-    """
-    skill_type = models.ForeignKey(HrSkillType, on_delete=models.CASCADE, related_name="skill_levels")
-    name = models.CharField(max_length=255)
-    level_progress = models.PositiveIntegerField(default=0)  # 0..100
-    default_level = models.BooleanField(default=False)
-
-    class Meta:
-        db_table = "hr_skill_level"
-        ordering = ("level_progress", "id")
-        unique_together = (("skill_type", "name"),)
-        indexes = [
-            models.Index(fields=["skill_type"]),
-            models.Index(fields=["level_progress"]),
-        ]
-        constraints = [
-            models.CheckConstraint(
-                name="skill_level_progress_range",
-                check=models.Q(level_progress__gte=0) & models.Q(level_progress__lte=100),
-            )
-        ]
-
-    def save(self, *args, **kwargs):
-        super().save(*args, **kwargs)
-        # enforce "one default per type"
-        if self.default_level:
-            (type(self).objects
-             .filter(skill_type=self.skill_type)
-             .exclude(pk=self.pk)
-             .update(default_level=False))
-
-    def __str__(self):
-        return f"{self.skill_type.name}: {self.name} ({self.level_progress}%)"
-
-
-class HrSkill(ActivableMixin, TimeStampedMixin, UserStampedMixin, models.Model):
-    """
-    Odoo-like hr.skill
-    - مهارة مرتبطة بنوع.
-    - color يُعرض من النوع (property للعرض كما في related).
-    """
-    name = models.CharField(max_length=255)
-    sequence = models.IntegerField(default=10)
-    skill_type = models.ForeignKey(HrSkillType, on_delete=models.CASCADE, related_name="skills")
-
-    class Meta:
-        db_table = "hr_skill"
-        ordering = ("sequence", "name")
-        unique_together = (("skill_type", "name"),)
-        indexes = [
-            models.Index(fields=["active"]),
-            models.Index(fields=["skill_type"]),
-        ]
-
-    @property
-    def color(self) -> int:
-        return self.skill_type.color if self.skill_type_id else 1
-
-    def __str__(self):
-        return f"{self.name} ({self.skill_type.name})"
-
-
-class HrResumeLineType(ActivableMixin, TimeStampedMixin, UserStampedMixin, models.Model):
-    """
-    Odoo-like hr.resume.line.type
-    - تعريف أنواع أسطر السيرة (خبرة/تعليم/دورة...).
-    - يمكن تعريف خصائص مخصّصة لكل نوع عبر JSON schema بسيط.
-    """
-    name = models.CharField(max_length=255, unique=True, db_index=True)
-    sequence = models.IntegerField(default=10)
-    is_course = models.BooleanField(default=False)
-
-    # مخطط اختياري لخصائص سطر السيرة (قائمة مفاتيح/أنواع/إلزامية...)
-    properties_definition = models.JSONField(default=dict, blank=True)
-
-    class Meta:
-        db_table = "hr_resume_line_type"
-        ordering = ("sequence", "name")
-        indexes = [models.Index(fields=["active"]), ]
-
-    def __str__(self):
-        return self.name
-
-
-class HrResumeLine(TimeStampedMixin, UserStampedMixin, models.Model):
-    """
-    Odoo-like hr.resume.line
-    - سطر في CV لموظف (خبرة/تعليم/دورة).
-    - company/department تُملآن تلقائيًا من employee عند الحفظ (للتوافق مع تقارير الشركة).
-    """
-    employee = models.ForeignKey("hr.Employee", on_delete=models.CASCADE, related_name="resume_lines")
-
-    # denorm خفيف للتصفية/التقارير؛ نُحدّثها من employee في save()
-    company = models.ForeignKey("base.Company", on_delete=models.PROTECT, related_name="resume_lines", null=True,
-                                blank=True)
-    department = models.ForeignKey("hr.Department", on_delete=models.SET_NULL, related_name="resume_lines", null=True,
-                                   blank=True)
-
-    name = models.CharField(max_length=255, help_text="Title of the experience/course/education item.")
-    line_type = models.ForeignKey(HrResumeLineType, on_delete=models.PROTECT, related_name="resume_lines")
-
-    date_start = models.DateField(null=True, blank=True)
-    date_end = models.DateField(null=True, blank=True)
-
-    # ملاحظات/تفاصيل (يمكن جعلها HTML في الواجهة)
-    description = models.TextField(blank=True)
-
-    # خصائص إضافية حسب تعريف النوع (اختياري)
-    properties = models.JSONField(default=dict, blank=True)
-
-    # دورات تدريبية:
-    COURSE_TYPES = (
-        ("external", "External"),
-        ("internal", "Internal"),
+    created_at = models.DateTimeField(auto_now_add=True, editable=False)
+    created_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="%(class)s_created"
     )
-    course_type = models.CharField(max_length=16, choices=COURSE_TYPES, default="external")
-    external_url = models.URLField(blank=True)
-
-    # شهادة/ملف مرفق اختياري
-    certificate_file = models.FileField(upload_to="resume_certificates/", null=True, blank=True)
-    certificate_filename = models.CharField(max_length=255, blank=True)
-
-    class Meta:
-        db_table = "hr_resume_line"
-        ordering = ("-date_start", "-date_end", "id")
-        indexes = [
-            models.Index(fields=["employee"]),
-            models.Index(fields=["line_type"]),
-            models.Index(fields=["date_start", "date_end"]),
-        ]
-
-    @property
-    def is_course(self) -> bool:
-        return bool(self.line_type and self.line_type.is_course)
-
-    def clean(self):
-        super().clean()
-        # تحقق تواريخ
-        if self.date_start and self.date_end and self.date_start > self.date_end:
-            raise ValidationError({"date_end": "End date must be on or after start date."})
-        # إن لم تكن دورة خارجية → امسح رابط external_url
-        if self.course_type != "external" and self.external_url:
-            self.external_url = ""
-
-    def save(self, *args, **kwargs):
-        # توليد اسم من الـ URL إن الاسم فارغ ولدينا external_url
-        if not self.name and self.external_url:
-            try:
-                from urllib.parse import urlparse
-                host = urlparse(self.external_url).netloc
-                self.name = host or "External Course"
-            except Exception:
-                pass
-
-        # company/department من الموظف
-        if self.employee_id:
-            self.company = self.employee.company
-            self.department = self.employee.department
-
-        # حفظ اسم الملف لو تم رفع مرفق
-        if self.certificate_file and not self.certificate_filename:
-            self.certificate_filename = getattr(self.certificate_file, "name", "") or ""
-
-        super().save(*args, **kwargs)
-
-    def __str__(self):
-        return f"{self.employee.name} · {self.name}"
-
-
-class HrIndividualSkillMixin(TimeStampedMixin, UserStampedMixin, models.Model):
-    """
-    Abstract mixin (Odoo-like hr.individual.skill.mixin)
-    يحتوي المنطق المشترك:
-    - skill_type / skill / skill_level
-    - valid_from / valid_to
-    - خصائص related: is_certification, level_progress, color
-    * تحقق أساسي على التواريخ؛
-      منطق منع التداخل لغير الشهادات يُنفَّذ عبر signal/manager خارج هذا الموديل.
-    """
+    updated_at = models.DateTimeField(auto_now=True, editable=False)
+    updated_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="%(class)s_updated"
+    )
 
     class Meta:
         abstract = True
 
-    skill_type = models.ForeignKey(HrSkillType, on_delete=models.PROTECT, related_name="%(class)s_records")
-    skill = models.ForeignKey(HrSkill, on_delete=models.PROTECT, related_name="%(class)s_records")
-    skill_level = models.ForeignKey(HrSkillLevel, on_delete=models.PROTECT, related_name="%(class)s_records")
 
-    valid_from = models.DateField()
-    valid_to = models.DateField(null=True, blank=True)
+# ============================================================
+# Skill Type
+# ============================================================
 
-    def clean(self):
-        super().clean()
-        # المهارة والمستوى يجب أن يتبعا نفس النوع
-        if self.skill_id and self.skill_type_id and self.skill.skill_type_id != self.skill_type_id:
-            raise ValidationError({"skill": "Skill must belong to the selected skill type."})
-        if self.skill_level_id and self.skill_type_id and self.skill_level.skill_type_id != self.skill_type_id:
-            raise ValidationError({"skill_level": "Level must belong to the selected skill type."})
-        # valid_from <= valid_to
-        if self.valid_to and self.valid_from and self.valid_from > self.valid_to:
-            raise ValidationError({"valid_to": "valid_to must be on or after valid_from."})
-
-    # === Related-style properties (عرض فقط) ===
-    @property
-    def is_certification(self) -> bool:
-        return bool(self.skill_type and self.skill_type.is_certification)
-
-    @property
-    def level_progress(self) -> int:
-        return self.skill_level.level_progress if self.skill_level_id else 0
-
-    @property
-    def color(self) -> int:
-        return self.skill_type.color if self.skill_type_id else 1
-
-
-class HrEmployeeSkill(HrIndividualSkillMixin, TimeStampedMixin, UserStampedMixin, models.Model):
+class SkillType(TimeUserStampedMixin):
     """
-    Odoo-like hr.employee.skill
-    يربط موظفًا بمهارة/مستوى/فترة.
-    - منطق منع التداخل لغير الشهادات موجود في signal (employee_skill_signals.py).
-    - وفّرنا مدير مساعد لإرجاع “المهارات الحالية” للموظف.
+    نوع المهارة (Odoo: hr.skill.type)
+    - مثال: "Programming", "Language", "Certification"
     """
-    employee = models.ForeignKey("hr.Employee", on_delete=models.CASCADE, related_name="skills")
+    name = models.CharField(_("Name"), max_length=128, unique=True)
+    sequence = models.PositiveIntegerField(_("Sequence"), default=10, db_index=True)
+    color = models.PositiveSmallIntegerField(_("Color Index"), default=0)  # مثل Odoo (0..11 عادة)
+    is_certification = models.BooleanField(_("Is certification?"), default=False)
+    active = models.BooleanField(_("Active"), default=True)
+
+    # عدد المستويات لهذا النوع (حقل محسوب-مخزّن اختياري في Odoo؛ سنتركه خصيصة property)
+    class Meta:
+        verbose_name = _("Skill Type")
+        verbose_name_plural = _("Skill Types")
+        ordering = ("sequence", "name")
+        indexes = [
+            models.Index(fields=["active", "sequence"], name="skilltype_active_seq_idx"),
+        ]
+
+    def __str__(self) -> str:
+        return self.name
+
+    @property
+    def levels_count(self) -> int:
+        """عدد المستويات المرتبطة بهذا النوع."""
+        return self.levels.filter(active=True).count()
+
+
+# ============================================================
+# Skill Level
+# ============================================================
+
+class SkillLevel(TimeUserStampedMixin):
+    """
+    مستوى المهارة (Odoo: hr.skill.level)
+    - مرتبط بنوع مهارة واحد.
+    - level_progress من 0 إلى 100.
+    - default_level مستوى افتراضي وحيد لكل نوع.
+    """
+    skill_type = models.ForeignKey(
+        SkillType, on_delete=models.CASCADE, related_name="levels", db_index=True
+    )
+    name = models.CharField(_("Name"), max_length=128)
+    level_progress = models.PositiveSmallIntegerField(_("Progress (0..100)"), default=0)
+    default_level = models.BooleanField(_("Default for type"), default=False)
+    active = models.BooleanField(_("Active"), default=True)
 
     class Meta:
-        db_table = "hr_employee_skill"
-        ordering = ("skill_type", "skill", "skill_level", "valid_from", "id")
+        verbose_name = _("Skill Level")
+        verbose_name_plural = _("Skill Levels")
+        ordering = ("skill_type__sequence", "level_progress", "name")
+        constraints = [
+            # تحقق من النطاق 0..100
+            CheckConstraint(
+                check=Q(level_progress__gte=0) & Q(level_progress__lte=100),
+                name="skilllevel_progress_0_100_chk",
+            ),
+            # اسم المستوى فريد داخل نفس النوع
+            UniqueConstraint(
+                fields=["skill_type", "name"],
+                name="skilllevel_unique_name_per_type",
+            ),
+            # تقدّم المستوى فريد داخل نفس النوع (اختياري لكنه شائع)
+            UniqueConstraint(
+                fields=["skill_type", "level_progress"],
+                name="skilllevel_unique_progress_per_type",
+            ),
+            # مستوى افتراضي وحيد لكل نوع (شرطي)
+            UniqueConstraint(
+                fields=["skill_type", "default_level"],
+                condition=Q(default_level=True),
+                name="skilllevel_single_default_per_type",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.skill_type.name} / {self.name} ({self.level_progress}%)"
+
+
+# ============================================================
+# Skill
+# ============================================================
+
+class Skill(TimeUserStampedMixin):
+    """
+    مهارة محددة داخل نوع (Odoo: hr.skill)
+    - مثال: نوع "Programming" ⇒ مهارات: "Python", "Django"
+    """
+    skill_type = models.ForeignKey(
+        SkillType, on_delete=models.CASCADE, related_name="skills", db_index=True
+    )
+    name = models.CharField(_("Name"), max_length=128)
+    sequence = models.PositiveIntegerField(_("Sequence"), default=10, db_index=True)
+    active = models.BooleanField(_("Active"), default=True)
+
+    class Meta:
+        verbose_name = _("Skill")
+        verbose_name_plural = _("Skills")
+        ordering = ("skill_type__sequence", "sequence", "name")
+        constraints = [
+            UniqueConstraint(
+                fields=["skill_type", "name"],
+                name="skill_unique_name_per_type",
+            ),
+        ]
         indexes = [
-            models.Index(fields=["employee"]),
-            models.Index(fields=["skill"]),
-            models.Index(fields=["skill_type"]),
-            models.Index(fields=["skill_level"]),
+            models.Index(fields=["active", "skill_type"], name="skill_active_type_idx"),
         ]
-        # لا نضع unique_together صارمًا لأن الشهادات قد تتكرر بفترات مختلفة.
+
+    def __str__(self) -> str:
+        return f"{self.skill_type.name} / {self.name}"
+
+
+# ============================================================
+# Employee Skill (Odoo: hr.employee.skill)
+# ============================================================
+
+class EmployeeSkill(TimeUserStampedMixin):
+    """
+    مهارة موظف:
+    - employee + (skill_type, skill, skill_level)
+    - company (denorm) لتمكين نطاق الشركة والفلترة السريعة (منطق Odoo).
+    - التحقق: skill & level يجب أن ينتميا لنفس skill_type المختار.
+    """
+    employee = models.ForeignKey(
+        Employee, on_delete=models.CASCADE, related_name="skills", db_index=True
+    )
+    company = models.ForeignKey(  # denorm من employee لتسهيل التقارير و ACLs
+        Company, on_delete=models.PROTECT, null=True, blank=True, db_index=True
+    )
+
+    skill_type = models.ForeignKey(
+        SkillType, on_delete=models.PROTECT, related_name="employee_skills", db_index=True
+    )
+    skill = models.ForeignKey(
+        Skill, on_delete=models.PROTECT, related_name="employee_skills", db_index=True
+    )
+    skill_level = models.ForeignKey(
+        SkillLevel, on_delete=models.PROTECT, related_name="employee_skills", db_index=True
+    )
+
+    valid_from = models.DateField(_("Valid from"), null=True, blank=True)
+    valid_to = models.DateField(_("Valid to"), null=True, blank=True)
+    note = models.TextField(_("Note"), blank=True, default="")
+    active = models.BooleanField(_("Active"), default=True)
+
+    class Meta:
+        verbose_name = _("Employee Skill")
+        verbose_name_plural = _("Employee Skills")
+        ordering = ("employee__company__name", "employee__name", "skill_type__sequence", "skill__name")
+        # صلاحية مخصصة (سيفيدك مع Guardian)
         permissions = [
-            ("rate_skill", "Can rate employee skill"),
+            ("rate_skill", "Can rate/evaluate employee skill"),
+        ]
+        constraints = [
+            UniqueConstraint(
+                fields=["employee", "skill"],
+                name="employeeskill_unique_employee_skill",
+                violation_error_message=_("This employee already has this skill."),
+            ),
+            # ✅ أبقِ فقط قيد التاريخ (لا وجود لأي joined fields هنا)
+            CheckConstraint(
+                check=Q(valid_to__isnull=True) | Q(valid_from__isnull=True) | Q(valid_to__gte=models.F("valid_from")),
+                name="employeeskill_valid_to_gte_from_chk",
+            ),
         ]
 
-    def __str__(self):
-        return f"{self.employee.name} · {self.skill.name} ({self.skill_level.name})"
+        indexes = [
+            # فهرس الشركة + الموظف + الحالة (اسم مختصر)
+            models.Index(fields=["company", "employee", "active"], name="es_comp_emp_act_idx"),
+            # فهرس النوع + المستوى (اسم مختصر)
+            models.Index(fields=["skill_type", "skill_level"], name="es_type_lvl_idx"),
+        ]
 
-    # === Manager helpers (static/class methods) ===
-    @staticmethod
-    def current_for_employee(employee_id, on_date=None):
-        """
-        يعيد QuerySet للمهارات النشطة لموظف في تاريخ معيّن (اليوم افتراضيًا).
-        - لغير الشهادات: سجل واحد نشط لكل Skill (تُغطيه قيود/signals).
-        - للشهادات: يعيد السجلات التي يغطي نطاقها التاريخ.
-        """
-        on_date = on_date or timezone.now().date()
-        qs = (HrEmployeeSkill.objects
-              .filter(employee_id=employee_id)
-              .filter(Q(valid_from__lte=on_date) & (Q(valid_to__isnull=True) | Q(valid_to__gte=on_date))))
-        return qs
+    # ---------- تنظيف/تحقق إضافي ----------
+    def clean(self) -> None:
+        super().clean()
+
+        # (1) skill & level يجب أن يطابقا skill_type
+        if self.skill and self.skill_type and self.skill.skill_type_id != self.skill_type_id:
+            raise ValidationError({"skill": _("Skill must belong to the selected skill type.")})
+        if self.skill_level and self.skill_type and self.skill_level.skill_type_id != self.skill_type_id:
+            raise ValidationError({"skill_level": _("Level must belong to the selected skill type.")})
+
+        # (2) company denorm = employee.company
+        if self.employee and self.employee.company and self.company != self.employee.company:
+            self.company = self.employee.company
+
+        # (3) منع تداخل الفترات الزمنية لنفس (employee, skill_type) إن رغبت (اختياري)
+        # if self.valid_from and self.valid_to:
+        #     overlap = EmployeeSkill.objects.filter(
+        #         employee=self.employee, skill_type=self.skill_type
+        #     ).exclude(pk=self.pk).filter(
+        #         valid_from__lte=self.valid_to, valid_to__gte=self.valid_from
+        #     ).exists()
+        #     if overlap:
+        #         raise ValidationError(_("Overlapping validity period for this skill type."))
+
+    def save(self, *args, **kwargs):
+        # denorm للشركة من الموظف دائمًا (مثل Odoo)
+        if self.employee_id and self.employee.company_id and self.company_id != self.employee.company_id:
+            self.company_id = self.employee.company_id
+        super().save(*args, **kwargs)
+
+    def __str__(self) -> str:
+        return f"{self.employee} / {self.skill} → {self.skill_level}"
+
+
+# ============================================================
+# Resume Line Type (Odoo: hr.resume.line.type)
+# ============================================================
+
+class ResumeLineType(TimeUserStampedMixin):
+    """
+    نوع سطر السيرة الذاتية:
+    - أمثلة: 'Experience', 'Education', 'Certification'
+    - properties_definition: مساحة مرنة لتعريف حقول إضافية لكل نوع (بديل Odoo properties)
+    """
+    name = models.CharField(_("Name"), max_length=128, unique=True)
+    sequence = models.PositiveIntegerField(_("Sequence"), default=10, db_index=True)
+    active = models.BooleanField(_("Active"), default=True)
+
+    # JSON لتعريف خصائص إضافية حسب حاجتك (مكافئ Odoo properties)
+    properties_definition = models.JSONField(_("Properties schema"), default=dict, blank=True)
+
+    class Meta:
+        verbose_name = _("Resume Line Type")
+        verbose_name_plural = _("Resume Line Types")
+        ordering = ("sequence", "name")
+        indexes = [
+            models.Index(fields=["active", "sequence"], name="resumelinetype_active_seq_idx"),
+        ]
+
+    def __str__(self) -> str:
+        return self.name
+
+
+# ============================================================
+# Resume Line (Odoo: hr.resume.line)
+# ============================================================
+
+class ResumeLine(TimeUserStampedMixin):
+    """
+    سطر السيرة الذاتية للموظف:
+    - يَجمع نوع السطر + نص/تفاصيل + فترة من/إلى + مرفقات اختيارية.
+    - company denorm من employee (كما في Odoo عبر السياق).
+    """
+    employee = models.ForeignKey(
+        Employee, on_delete=models.CASCADE, related_name="resume_lines", db_index=True
+    )
+    company = models.ForeignKey(  # denorm لفلترة الشركة بسهولة
+        Company, on_delete=models.PROTECT, null=True, blank=True, db_index=True
+    )
+    line_type = models.ForeignKey(
+        ResumeLineType, on_delete=models.PROTECT, related_name="lines", db_index=True
+    )
+
+    name = models.CharField(_("Title / Summary"), max_length=256)
+    description = models.TextField(_("Description / Details"), blank=True, default="")
+    date_start = models.DateField(_("Date from"), null=True, blank=True)
+    date_end = models.DateField(_("Date to"), null=True, blank=True)
+
+    # إضافات عملية (اختيارية)
+    certificate_file = models.FileField(upload_to="resume/certificates/", blank=True, null=True)
+    certificate_filename = models.CharField(max_length=256, blank=True, default="")
+    external_url = models.URLField(blank=True, default="")
+
+    active = models.BooleanField(_("Active"), default=True)
+
+    class Meta:
+        verbose_name = _("Resume Line")
+        verbose_name_plural = _("Resume Lines")
+        ordering = ("employee__company__name", "employee__name", "line_type__sequence", "date_start")
+        indexes = [
+            # فهرس الشركة + الموظف + الحالة (اسم مختصر)
+            models.Index(fields=["company", "employee", "active"], name="rl_comp_emp_act_idx"),
+            # فهرس نوع السطر + الحالة (اسم مختصر)
+            models.Index(fields=["line_type", "active"], name="rl_type_act_idx"),
+        ]
+
+    def clean(self) -> None:
+        super().clean()
+
+        # denorm للشركة من الموظف
+        if self.employee and self.employee.company and self.company != self.employee.company:
+            self.company = self.employee.company
+
+        # تحقق منطقي من التاريخ
+        if self.date_start and self.date_end and self.date_end < self.date_start:
+            raise ValidationError({"date_end": _("Date to must be after or equal to Date from.")})
+
+    def save(self, *args, **kwargs):
+        if self.employee_id and self.employee.company_id and self.company_id != self.employee.company_id:
+            self.company_id = self.employee.company_id
+        # اسم الملف لأغراض العرض السريع
+        if self.certificate_file and not self.certificate_filename:
+            self.certificate_filename = self.certificate_file.name.rsplit("/", 1)[-1]
+        super().save(*args, **kwargs)
+
+    def __str__(self) -> str:
+        return f"{self.employee} / {self.line_type}: {self.name}"

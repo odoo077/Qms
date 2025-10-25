@@ -1,250 +1,252 @@
-from dateutil.relativedelta import relativedelta
-from django.core.validators import MinValueValidator
-from django.db import models, transaction
-from django.core.exceptions import ValidationError
-from base.models import CompanyOwnedMixin, ActivableMixin, TimeStampedMixin, UserStampedMixin
-from django.utils import timezone
+# -*- coding: utf-8 -*-
+"""
+تطبيق الأصول (assets) – بنية البيانات المتوافقة مع منطق Odoo
+يتضمن دعم تعدد الشركات، التدرج الهرمي للفئات، وتعقب الإسنادات.
+"""
 
-class AssetType(TimeStampedMixin, ActivableMixin, models.Model):
+from django.db import models
+from django.conf import settings
+from django.utils.translation import gettext_lazy as _
+
+COMPANY_MODEL = "base.Company"
+EMPLOYEE_MODEL = "hr.Employee"
+DEPARTMENT_MODEL = "hr.Department"
+
+
+# ============================================================
+# Asset Category
+# ============================================================
+
+class AssetCategory(models.Model):
     """
-    نوع أصل عام (Laptop, Phone, Monitor, Access Card, ...).
-    - كيان عبر الشركات (لا يحمل company) ليسهل إعادة الاستخدام.
-    - يستخدم ActivableMixin لتفعيل/تعطيل النوع دون حذفه.
+    فئات الأصول – مشابهة لفئات Odoo (account.asset.category)
     """
+    name = models.CharField(_("Name"), max_length=255)
+    company = models.ForeignKey(
+        COMPANY_MODEL, on_delete=models.CASCADE,
+        related_name="asset_categories", verbose_name=_("Company"),
+        db_index=True, null=True, blank=True
+    )
+    parent = models.ForeignKey(
+        "self", on_delete=models.CASCADE, related_name="children",
+        verbose_name=_("Parent"), null=True, blank=True
+    )
+    parent_path = models.CharField(_("Parent path"), max_length=255, blank=True, default="", db_index=True)
+    active = models.BooleanField(_("Active"), default=True)
 
-    name = models.CharField(max_length=128, unique=True, db_index=True)
-    code = models.SlugField(
-        max_length=64,
-        unique=True,
-        help_text="Unique code/slug for referencing in integrations (e.g., 'laptop', 'phone').",
-    )
-    default_warranty_months = models.PositiveIntegerField(
-        default=0,
-        help_text="Default warranty for items of this type (months). Can be overridden on the item.",
-    )
-    description = models.TextField(blank=True)
+    # --------- Human-friendly validation ----------
+    def clean(self):
+        """
+        إظهار رسالة واضحة عندما يحاول المستخدم جعل الفئة أبًا لنفسها.
+        """
+        from django.core.exceptions import ValidationError
 
-    icon = models.CharField(
-        max_length=64,
-        blank=True,
-        help_text="Optional icon name (for UI only).",
-    )
+        # عند التعديل فقط يكون self.pk معروفًا؛ تأكد أن الأب ليس هو نفس السجل
+        if self.pk and self.parent_id == self.pk:
+            raise ValidationError({
+                "parent": _("Parent category cannot be the same as the category itself.")
+            })
 
     class Meta:
-        db_table = "emp_asset_type"
-        ordering = ["name"]
+        db_table = "assets_category"
         indexes = [
-            models.Index(fields=["active"], name="asset_type_active_idx"),
-            models.Index(fields=["name"], name="asset_type_name_idx"),
+            models.Index(fields=["company", "active"], name="as_cat_c_act_idx"),
         ]
+        constraints = [
+            models.UniqueConstraint(fields=["company", "name"], name="as_cat_comp_name_uniq"),
+            # نُبقي قيد قاعدة البيانات للحماية الصلبة
+            models.CheckConstraint(
+                name="as_cat_parent_not_self_chk",
+                check=~models.Q(parent=models.F("pk")),
+            ),
+        ]
+        ordering = ("company_id", "name")
 
-    def __str__(self) -> str:
+    def __str__(self):
         return self.name
-class AssetModel(TimeStampedMixin, ActivableMixin, models.Model):
+
+
+# ============================================================
+# Asset
+# ============================================================
+
+class Asset(models.Model):
     """
-    طراز/موديل أصل مرتبط بالـ AssetType (مثلاً: ThinkPad T14 تحت نوع Laptop).
-    - لا يحمل company (عبر-الشركات).
-    - الحقول التقنية/التجارية اختيارية، و specs لتجميع مواصفات مرنة.
+    الأصول – يمثل الأصل الرئيسي كما في Odoo
     """
+    class Status(models.TextChoices):
+        AVAILABLE = "available", _("Available")
+        ASSIGNED = "assigned", _("Assigned")
+        MAINTENANCE = "maintenance", _("Maintenance")
+        RETIRED = "retired", _("Retired")
 
-    type = models.ForeignKey(
-        AssetType, on_delete=models.PROTECT, related_name="models", db_index=True
+    name = models.CharField(_("Name"), max_length=255)
+    code = models.CharField(_("Code"), max_length=64, db_index=True)
+    serial = models.CharField(_("Serial number"), max_length=128, blank=True, null=True)
+    company = models.ForeignKey(
+        COMPANY_MODEL, on_delete=models.CASCADE,
+        related_name="assets", verbose_name=_("Company"), db_index=True
+    )
+    category = models.ForeignKey(
+        AssetCategory, on_delete=models.SET_NULL,
+        related_name="assets", verbose_name=_("Category"),
+        null=True, blank=True
+    )
+    department = models.ForeignKey(
+        DEPARTMENT_MODEL, on_delete=models.SET_NULL,
+        related_name="assets", verbose_name=_("Department"),
+        null=True, blank=True
+    )
+    holder = models.ForeignKey(
+        EMPLOYEE_MODEL, on_delete=models.SET_NULL,
+        related_name="holding_assets", verbose_name=_("Holder (employee)"),
+        null=True, blank=True
+    )
+    status = models.CharField(
+        _("Status"), max_length=16, choices=Status.choices,
+        default=Status.AVAILABLE, db_index=True
+    )
+    purchase_date = models.DateField(_("Purchase date"), null=True, blank=True)
+    purchase_value = models.DecimalField(_("Purchase value"), max_digits=12, decimal_places=2, null=True, blank=True)
+    note = models.TextField(_("Notes"), blank=True, default="")
+    active = models.BooleanField(_("Active"), default=True)
+    parent = models.ForeignKey(
+        "self", on_delete=models.SET_NULL,
+        related_name="children", verbose_name=_("Parent Asset"),
+        null=True, blank=True
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        related_name="created_assets", null=True, blank=True, verbose_name=_("Created by")
+    )
+    created_at = models.DateTimeField(_("Created at"), auto_now_add=True)
+    updated_at = models.DateTimeField(_("Updated at"), auto_now=True)
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        related_name="updated_assets", null=True, blank=True, verbose_name=_("Updated by")
     )
 
-    # تعريف الموديل
-    name = models.CharField(max_length=128, db_index=True)        # مثال: "ThinkPad T14 Gen 3"
-    manufacturer = models.CharField(max_length=128, blank=True)    # مثال: "Lenovo"
-    sku = models.CharField(
-        max_length=128,
-        blank=True,
-        help_text="Manufacturer SKU / Part Number if applicable.",
-    )
 
-    # بيانات إضافية مرنة (JSON)
-    specifications = models.JSONField(
-        default=dict, blank=True,
-        help_text="Arbitrary specs (e.g., {'cpu':'i7','ram':'16GB','ssd':'512GB'})."
-    )
+    # ------------------------------------------------------------
+    # Validations (human-friendly admin errors)
+    # ------------------------------------------------------------
+    def clean(self):
+        """
+        عرض رسالة واضحة للمستخدم الإداري بدل رسالة قاعدة البيانات
+        عندما تكون الحالة 'Assigned' بدون حامل، أو العكس.
+        """
+        from django.core.exceptions import ValidationError
 
-    # تحسينات للواجهات/العرض
-    sequence = models.PositiveIntegerField(default=10, validators=[MinValueValidator(0)])
-    color = models.CharField(max_length=16, blank=True)
-    image = models.ImageField(upload_to="assets/models/", blank=True, null=True)
-    notes = models.TextField(blank=True)
+        # حالة "Assigned" تتطلب وجود حامل
+        if self.status == self.Status.ASSIGNED and not self.holder_id:
+            raise ValidationError({
+                "holder": "You must select a holder when status is ‘Assigned’."
+            })
+
+        # إن كانت الحالة ليست "Assigned" فلا يجوز وجود حامل
+        if self.status != self.Status.ASSIGNED and self.holder_id:
+            raise ValidationError({
+                "holder": "Holder can only be set when status is ‘Assigned’."
+            })
+
+        # شركات الحقول المرتبطة يجب أن تطابق شركة الأصل (رسالة ودية)
+        if self.category_id and getattr(self.category, "company_id", None) and self.category.company_id != self.company_id:
+            raise ValidationError({"category": "Category must belong to the same company as the asset."})
+
+        if self.department_id and getattr(self.department, "company_id", None) and self.department.company_id != self.company_id:
+            raise ValidationError({"department": "Department must belong to the same company as the asset."})
+
+        if self.holder_id and getattr(self.holder, "company_id", None) and self.holder.company_id != self.company_id:
+            raise ValidationError({"holder": "Holder must belong to the same company as the asset."})
+
+
 
     class Meta:
-        db_table = "emp_asset_model"
-        ordering = ["type__name", "sequence", "name"]
-        # قيود تساعد على تفادي التكرار المنطقي:
-        constraints = [
-            # نفس الاسم تحت نفس النوع لا يتكرر (إن لم تعتمد مصنّع/SKU)
-            models.UniqueConstraint(
-                fields=["type", "name"],
-                name="uniq_asset_model_type_name",
-            ),
-            # إن توفّر manufacturer + sku معًا، فاجعلهما فريدين تحت نفس النوع
-            models.UniqueConstraint(
-                fields=["type", "manufacturer", "sku"],
-                name="uniq_asset_model_type_mfr_sku",
-                condition=models.Q(manufacturer__gt="", sku__gt=""),
-            ),
-        ]
+        db_table = "assets_asset"
         indexes = [
-            models.Index(fields=["active"], name="asset_model_active_idx"),
-            models.Index(fields=["type", "name"], name="asset_model_type_name_idx"),
-        ]
-
-    def __str__(self) -> str:
-        base = self.name
-        if self.manufacturer:
-            base = f"{self.manufacturer} {base}"
-        return base
-class AssetItem(CompanyOwnedMixin, TimeStampedMixin, ActivableMixin, UserStampedMixin):
-    STATUS = [
-        ("in_stock", "In Stock"),
-        ("assigned", "Assigned"),
-        ("repair", "Repair"),
-        ("lost", "Lost"),
-        ("scrapped", "Scrapped"),
-    ]
-
-    # CompanyOwnedMixin يضيف company + مدير scoped + فحص cross-company
-    model = models.ForeignKey(AssetModel, on_delete=models.PROTECT, related_name="items")
-    asset_tag = models.CharField(max_length=64)   # سنجعلها فريدة داخل الشركة
-    serial_no = models.CharField(max_length=128, blank=True, db_index=True)
-
-    status = models.CharField(max_length=16, choices=STATUS, default="in_stock", db_index=True)
-
-    purchase_date = models.DateField(null=True, blank=True)
-    purchase_cost = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
-    warranty_months = models.PositiveIntegerField(null=True, blank=True, help_text="Override type default")
-    warranty_expiry = models.DateField(null=True, blank=True)  # stored compute
-
-    location = models.CharField(max_length=128, blank=True)
-    notes = models.TextField(blank=True)
-
-    current_employee = models.ForeignKey("hr.Employee", null=True, blank=True,
-                                         on_delete=models.SET_NULL, related_name="current_assets")
-
-    class Meta:
-        db_table = "emp_asset_item"
-        indexes = [
-            models.Index(fields=["company", "status"]),
-            models.Index(fields=["company", "serial_no"]),
-            models.Index(fields=["company", "warranty_expiry"]),
+            models.Index(fields=["company", "active"], name="as_ast_c_act_idx"),
+            models.Index(fields=["company", "status"], name="as_ast_c_st_idx"),
+            models.Index(fields=["company", "holder"], name="as_ast_c_holder_idx"),
         ]
         constraints = [
-            models.UniqueConstraint(fields=["company", "asset_tag"], name="uniq_asset_tag_per_company"),
-        ]
-        ordering = ["model__type__name", "model__name", "asset_tag"]
+            models.UniqueConstraint(fields=["company", "code"], name="as_ast_comp_code_uniq"),
+            models.UniqueConstraint(
+                fields=["company", "serial"],
+                name="as_ast_comp_serial_uniq",
+                condition=models.Q(serial__isnull=False),
+            ),
+            # ✅ الحالة Assigned يجب أن يكون لها حامل، أو أي حالة أخرى بدون حامل
+            models.CheckConstraint(
+                name="as_ast_status_holder_chk",
+                check=models.Q(status="assigned", holder__isnull=False) | ~models.Q(status="assigned"),
+            ),
 
-        # ⬇️⬇️⬇️ أضِف هذا القسم
-        permissions = [
-            ("assign_item", "Can assign asset item"),
-            ("return_item", "Can return asset item"),
-            ("transfer_item", "Can transfer asset item"),
         ]
+        ordering = ("company_id", "name", "code")
 
     def __str__(self):
-        return f"{self.asset_tag} – {self.model.name}"
+        return f"{self.code} - {self.name}"
 
-    def _compute_warranty_expiry(self):
-        months = self.warranty_months or (self.model.type.default_warranty_months if self.model_id else 0)
-        self.warranty_expiry = (
-            self.purchase_date + relativedelta(months=months)
-        ) if (self.purchase_date and months) else None
+
+# ============================================================
+# Asset Assignment
+# ============================================================
+
+class AssetAssignment(models.Model):
+    """
+    سجل الإسناد (تاريخ تسليم الأصول لموظفين)
+    - يعكس سجل تغيّر المالك كما في Odoo (ir.attachment / asset.log)
+    """
+    asset = models.ForeignKey(Asset, on_delete=models.CASCADE, related_name="assignments", verbose_name=_("Asset"))
+    employee = models.ForeignKey(
+        EMPLOYEE_MODEL, on_delete=models.CASCADE,
+        related_name="asset_assignments", verbose_name=_("Employee")
+    )
+    company = models.ForeignKey(
+        COMPANY_MODEL, on_delete=models.CASCADE,
+        related_name="asset_assignments", verbose_name=_("Company")
+    )
+    date_from = models.DateField(_("From"), null=True, blank=True)
+    date_to = models.DateField(_("To"), null=True, blank=True)
+    note = models.CharField(_("Note"), max_length=255, blank=True, default="")
+    active = models.BooleanField(_("Active"), default=True)
 
     def clean(self):
-        super().clean()
-        # فحص cross-company يأتي من CompanyOwnedMixin (model شركة تابعة؟)
-        if self.model_id and self.model.type_id:  # لا حاجة للتحقق الإضافي الآن
-            pass
+        from django.core.exceptions import ValidationError
+        # تأكد أنه لا توجد عهدة مفتوحة أخرى لهذا الأصل
+        open_exists = type(self).objects.filter(asset=self.asset, date_to__isnull=True, active=True)
+        if self.pk:
+            open_exists = open_exists.exclude(pk=self.pk)
+        if open_exists.exists() and (self.date_to is None):
+            raise ValidationError({"asset": "There is already an open assignment for this asset."})
 
-    def save(self, *args, **kwargs):
-        self._compute_warranty_expiry()
-        return super().save(*args, **kwargs)
-class EmployeeAsset(CompanyOwnedMixin, TimeStampedMixin, UserStampedMixin):
-    """
-    Assignment record (history). Exactly one active assignment per item.
-    Denormalized company = item.company (يحسّن الفلترة/الفهارس).
-    """
-    employee = models.ForeignKey("hr.Employee", on_delete=models.CASCADE,
-                                 related_name="asset_assignments", db_index=True)
-    item = models.ForeignKey(AssetItem, on_delete=models.CASCADE,
-                             related_name="assignments", db_index=True)
+        # تحقق ودّي للتواريخ
+        if self.date_from and self.date_to and self.date_to < self.date_from:
+            raise ValidationError({"date_to": "End date must be greater than or equal to start date."})
 
-    date_assigned = models.DateField()
-    due_back = models.DateField(null=True, blank=True)
-    date_returned = models.DateField(null=True, blank=True)
-
-    # stored compute flags
-    is_active = models.BooleanField(default=True, db_index=True)   # active = not returned yet
-    is_overdue = models.BooleanField(default=False, db_index=True) # due_back passed and not returned
-
-    handover_note = models.TextField(blank=True)
-    return_note = models.TextField(blank=True)
-
-    # CompanyOwnedMixin يضيف company؛ سنملؤه تلقائيًا من item.company في clean/save
-    company_dependent_relations = ("employee", "item")
 
     class Meta:
-        db_table = "emp_asset_assignment"
-        ordering = ["-date_assigned"]
+        db_table = "assets_assignment"
+        indexes = [
+            models.Index(fields=["company", "active"], name="as_asg_c_act_idx"),
+            models.Index(fields=["asset", "employee"], name="as_asg_ast_emp_idx"),
+        ]
         constraints = [
+            # ✅ تاريخ الانتهاء إن وُجد يجب أن يكون ≥ تاريخ البدء (لا يوجد join هنا)
+            models.CheckConstraint(
+                name="as_asg_dates_chk",
+                check=models.Q(date_to__isnull=True) |
+                      models.Q(date_from__isnull=True) |
+                      models.Q(date_to__gte=models.F("date_from")),
+            ),
+            # ✅ يسمح بإسنادات متعددة عبر الزمن، لكن يمنع أكثر من إسناد مفتوح لنفس الأصل
             models.UniqueConstraint(
-                fields=["item"],
-                condition=models.Q(is_active=True),
-                name="uniq_active_assignment_per_item",
+                fields=["asset"],
+                name="as_asg_one_open_per_asset",
+                condition=models.Q(date_to__isnull=True),
             ),
         ]
-        indexes = [
-            models.Index(fields=["company", "is_active"]),
-            models.Index(fields=["company", "employee", "is_active"]),
-        ]
+        ordering = ("-id",)
 
     def __str__(self):
-        return f"{self.item.asset_tag} → {getattr(self.employee, 'name', self.employee_id)}"
-
-    def _compute_flags(self):
-        self.is_active = self.date_returned is None
-        today = timezone.now().date()
-        self.is_overdue = bool(self.is_active and self.due_back and self.due_back < today)
-
-    def clean(self):
-        super().clean()
-        # الشركة = شركة العنصر (denorm)
-        if self.item_id and self.item.company_id:
-            self.company_id = self.item.company_id
-        # تحقق اتساق الشركة بين الموظف والعنصر
-        if self.item and self.employee and self.item.company_id != self.employee.company_id:
-            raise ValidationError({"item": "Item company must match employee company."})
-
-    @transaction.atomic
-    def save(self, *args, **kwargs):
-        self._compute_flags()
-        # denorm الشركة قبل الحفظ
-        if self.item_id and self.item.company_id:
-            self.company_id = self.item.company_id
-        super().save(*args, **kwargs)
-
-        # تحديث حالة وكاش الحامل على الـ Item
-        item = self.item.__class__.objects.select_for_update().get(pk=self.item_id)
-        if self.is_active:
-            item.current_employee_id = self.employee_id
-            item.status = "assigned"
-        else:
-            # ابحث عن آخر تسليم نشط (غير هذا السجل) إن وجد
-            other_active = self.__class__.objects.filter(item=item, is_active=True).exclude(pk=self.pk)\
-                               .order_by("-date_assigned").values_list("employee_id", flat=True).first()
-            item.current_employee_id = other_active or None
-            if not other_active:
-                # لا سجلات نشطة: ارجعه للمخزون إن لم يكن مفقود/معطوب
-                if item.status == "assigned":
-                    item.status = "in_stock"
-        item.save(update_fields=["current_employee", "status"])
-
-    def mark_returned(self, date_returned=None, return_note=""):
-        self.date_returned = date_returned or timezone.now().date()
-        if return_note:
-            self.return_note = return_note
-        self.save()
+        return f"{self.asset} -> {self.employee}"

@@ -1,6 +1,5 @@
-# performance/apps.py
+# -*- coding: utf-8 -*-
 from django.apps import AppConfig
-
 
 class PerformanceConfig(AppConfig):
     default_auto_field = "django.db.models.BigAutoField"
@@ -8,8 +7,5 @@ class PerformanceConfig(AppConfig):
     verbose_name = "Performance"
 
     def ready(self):
-        # تفعيل إشارات التطبيق بتحميل ملف signals مرة واحدة
-        # ملاحظة: لا تنقل هذا الاستيراد لأعلى الملف كي لا يحدث
-        # تحميل مبكر قبل تهيئة سجل التطبيقات.
+        # تفعيل الإشارات بتحميل ملف signals مرة واحدة
         from . import signals  # noqa: F401
-        # أو يمكنك استخدام: import performance.signals

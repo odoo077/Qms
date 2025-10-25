@@ -1,127 +1,177 @@
-from datetime import date
-from django.db.models.signals import pre_save
-from django.core.exceptions import ValidationError
-from django.db.models import Q
-from guardian.shortcuts import assign_perm
-from django.db.models.signals import post_migrate
-from django.contrib.auth.models import Group, Permission
-from django.contrib.contenttypes.models import ContentType
-from skills.models import HrEmployeeSkill  # عدّل الاسم حسب ملفك
-from django.db.models.signals import post_save, post_delete
+# skills/signals.py
+# ============================================================
+# Signals for Skills app (Guardian-ready)
+# - منح صلاحيات على مستوى الكائن عبر django-guardian
+# - المحافظة على صلاحيات الموظف/المالك عند الإنشاء أو تغيير الارتباط
+# ============================================================
+
+from __future__ import annotations
+
+from typing import Optional
+
+from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
-from django.db import transaction
-from django.apps import apps
+
+from guardian.shortcuts import assign_perm, remove_perm
+
+from . import models
 
 
+# ============================================================
+# Helpers (Arabic comments)
+# ============================================================
 
-
-HrEmployeeSkill = apps.get_model("skills", "HrEmployeeSkill")
-DATE_MAX = date(9999, 12, 31)
-
-
-@receiver(pre_save, sender=HrEmployeeSkill)
-def employee_skill_pre_save(sender, instance: HrEmployeeSkill, **kwargs):
+def _grant_if_user(user, codename: str, obj) -> None:
     """
-    قبل الحفظ: تحقق أساسي + منع التداخل للمهارات غير الشهادات.
-    (النسخ/الإغلاق يتم في الـ Service، لكن هذا يحمي من الكتابة غير المنضبطة بالـ ORM)
+    امنح صلاحية واحدة لمستخدم معيّن على كائن معيّن (Idempotent).
+    - إن كان user=None نتجاهل بهدوء.
     """
-    # استدعاء clean() (يضمن تناسق النوع/المهارة/المستوى وصحة التواريخ)
-    instance.clean()
-
-    # السماح بتعدد سجلات الشهادات بفترات مختلفة (منع تطابق 100% يتم في الخدمة)
-    if instance.is_certification:
+    if user is None:
         return
-
-    # منع التداخل للمهارات العادية
-    v_from = instance.valid_from
-    v_to = instance.valid_to or DATE_MAX
-
-    overlapping = (HrEmployeeSkill.objects
-                   .filter(employee_id=instance.employee_id, skill_id=instance.skill_id)
-                   .exclude(pk=instance.pk)
-                   .filter(Q(valid_from__lte=v_to) & (Q(valid_to__isnull=True) | Q(valid_to__gte=v_from))))
-    if overlapping.exists():
-        raise ValidationError({
-            "valid_from": "Overlapping skill period for the same employee and skill is not allowed (non-certification).",
-            "valid_to": "Please close the previous record or adjust dates.",
-        })
-
-# ------ skills signals ---------
-
-def _recompute_levels_count(skill_type_id: int):
-    HrSkillType = apps.get_model("skills", "HrSkillType")
-    HrSkillLevel = apps.get_model("skills", "HrSkillLevel")
-
     try:
-        st = HrSkillType.objects.get(pk=skill_type_id)
-    except HrSkillType.DoesNotExist:
-        return
-
-    total = HrSkillLevel.objects.filter(skill_type_id=skill_type_id).count()
-    if st.levels_count != total:
-        st.levels_count = total
-        st.save(update_fields=["levels_count"])
-
-
-@receiver(post_save, sender=apps.get_model("skills", "HrSkillLevel"))
-def skill_level_post_save(sender, instance, created, **kwargs):
-    """
-    بعد حفظ مستوى مهارة:
-    - أعِد حساب levels_count على نوع المهارة المعني.
-    """
-    skill_type_id = instance.skill_type_id
-
-    def _do():
-        _recompute_levels_count(skill_type_id)
-
-    try:
-        transaction.on_commit(_do)
+        assign_perm(codename, user, obj)
     except Exception:
-        _do()
+        # لا نكسر عملية الحفظ بسبب الأذونات
+        pass
 
 
-@receiver(post_delete, sender=apps.get_model("skills", "HrSkillLevel"))
-def skill_level_post_delete(sender, instance, **kwargs):
+def _grant_many(user, perms: list[str], obj) -> None:
     """
-    بعد حذف مستوى مهارة:
-    - أعِد حساب levels_count على نوع المهارة المعني.
+    امنح مجموعة صلاحيات دفعة واحدة.
     """
-    skill_type_id = instance.skill_type_id
-    _recompute_levels_count(skill_type_id)
-
-# ------- ownership & roles signals --------
-
-@receiver(post_save, sender=HrEmployeeSkill)
-def grant_owner_perms_skill(sender, instance, created, **kwargs):
-    if created and getattr(instance, "created_by", None):
-        user = instance.created_by
-        assign_perm("skills.view_employeeskill", user, instance)
-        assign_perm("skills.change_employeeskill", user, instance)
-        assign_perm("skills.rate_skill", user, instance)
+    if user is None:
+        return
+    for p in perms:
+        _grant_if_user(user, p, obj)
 
 
-@receiver(post_migrate)
-def ensure_skills_roles(sender, **kwargs):
-    if getattr(sender, "name", None) != "skills":
+def _remove_many(user, perms: list[str], obj) -> None:
+    """
+    أزل مجموعة صلاحيات من مستخدم على كائن.
+    """
+    if user is None:
+        return
+    for p in perms:
+        try:
+            remove_perm(p, user, obj)
+        except Exception:
+            pass
+
+
+def _employee_user_of(instance) -> Optional[models.User]:
+    """
+    جلب مستخدم الموظف المرتبط بالسجل (إن وُجد).
+    - للـ EmployeeSkill و ResumeLine: instance.employee.user
+    """
+    try:
+        emp = getattr(instance, "employee", None)
+        return getattr(emp, "user", None)
+    except Exception:
+        return None
+
+
+# ============================================================
+# EmployeeSkill — منح/تحديث صلاحيات الكائن
+# ============================================================
+
+# قبل الحفظ: نلتقط قيمة الموظف القديمة كي نعرف لاحقًا إن تغيّر الموظف
+@receiver(pre_save, sender=models.EmployeeSkill)
+def _employeeskill_capture_old_employee(sender, instance: models.EmployeeSkill, **kwargs):
+    if not instance.pk:
+        instance._old_employee_id = None
+        return
+    try:
+        old = sender.objects.only("employee_id").get(pk=instance.pk)
+        instance._old_employee_id = old.employee_id
+    except sender.DoesNotExist:
+        instance._old_employee_id = None
+
+
+@receiver(post_save, sender=models.EmployeeSkill)
+def _employeeskill_assign_object_perms(sender, instance: models.EmployeeSkill, created: bool, **kwargs):
+    """
+    منطق الصلاحيات (Object-Level) للـ EmployeeSkill:
+      1) عند الإنشاء:
+         - created_by: view + change (+ rate_skill إن رغبت)
+         - employee.user: view فقط (ليتمكن الموظف من رؤية مهاراته)
+      2) عند التعديل:
+         - إن تغيّر الموظف: انقل view من مستخدم الموظف القديم إلى مستخدم الموظف الجديد
+    """
+    # أسماء صلاحيات Guardian (codenames) كما ولّدها Django:
+    VIEW = "skills.view_employeeskill"
+    CHANGE = "skills.change_employeeskill"
+    RATE = "skills.rate_skill"  # معرفة داخل Meta.permissions في الموديل
+
+    owner = getattr(instance, "created_by", None)
+    emp_user_new = _employee_user_of(instance)
+
+    if created:
+        # مالك السجل (المنشئ) — عرض وتعديل (ويمكنك إضافة حذف إن أردت)
+        _grant_many(owner, [VIEW, CHANGE, RATE], instance)
+
+        # مستخدم الموظف — عرض فقط
+        _grant_many(emp_user_new, [VIEW], instance)
         return
 
-    GROUPS = {
-        "Skills Managers": [
-            ("rate_skill", HrEmployeeSkill),
-            ("view_employeeskill", HrEmployeeSkill),
-            ("change_employeeskill", HrEmployeeSkill),
-        ],
-        "Skills Officers": [
-            ("view_employeeskill", HrEmployeeSkill),
-        ],
-    }
+    # تحديث: إن تغيّر الموظف ننقل صلاحية العرض من القديم للجديد
+    old_emp_id = getattr(instance, "_old_employee_id", None)
+    if old_emp_id is not None and old_emp_id != getattr(instance, "employee_id", None):
+        # المستخدم القديم للموظف (إن وجد)
+        try:
+            old_emp = models.Employee.objects.only("user_id").get(pk=old_emp_id)
+            emp_user_old = getattr(old_emp, "user", None)
+        except models.Employee.DoesNotExist:
+            emp_user_old = None
 
-    for group_name, entries in GROUPS.items():
-        group, _ = Group.objects.get_or_create(name=group_name)
-        for codename, model in entries:
-            ct = ContentType.objects.get_for_model(model)
-            try:
-                perm = Permission.objects.get(codename=codename, content_type=ct)
-                group.permissions.add(perm)
-            except Permission.DoesNotExist:
-                continue
+        # أزل VIEW عن المستخدم القديم وأعطه للمستخدم الجديد
+        _remove_many(emp_user_old, [VIEW], instance)
+        _grant_many(emp_user_new, [VIEW], instance)
+
+
+# ============================================================
+# ResumeLine — منح/تحديث صلاحيات الكائن
+# ============================================================
+
+@receiver(pre_save, sender=models.ResumeLine)
+def _resumeline_capture_old_employee(sender, instance: models.ResumeLine, **kwargs):
+    if not instance.pk:
+        instance._old_employee_id = None
+        return
+    try:
+        old = sender.objects.only("employee_id").get(pk=instance.pk)
+        instance._old_employee_id = old.employee_id
+    except sender.DoesNotExist:
+        instance._old_employee_id = None
+
+
+@receiver(post_save, sender=models.ResumeLine)
+def _resumeline_assign_object_perms(sender, instance: models.ResumeLine, created: bool, **kwargs):
+    """
+    منطق الصلاحيات (Object-Level) للـ ResumeLine:
+      1) عند الإنشاء:
+         - created_by: view + change
+         - employee.user: view فقط
+      2) عند التعديل:
+         - إن تغيّر الموظف: انقل view من مستخدم الموظف القديم إلى مستخدم الموظف الجديد
+    """
+    VIEW = "skills.view_resumeline"
+    CHANGE = "skills.change_resumeline"
+
+    owner = getattr(instance, "created_by", None)
+    emp_user_new = _employee_user_of(instance)
+
+    if created:
+        _grant_many(owner, [VIEW, CHANGE], instance)
+        _grant_many(emp_user_new, [VIEW], instance)
+        return
+
+    old_emp_id = getattr(instance, "_old_employee_id", None)
+    if old_emp_id is not None and old_emp_id != getattr(instance, "employee_id", None):
+        try:
+            old_emp = models.Employee.objects.only("user_id").get(pk=old_emp_id)
+            emp_user_old = getattr(old_emp, "user", None)
+        except models.Employee.DoesNotExist:
+            emp_user_old = None
+
+        _remove_many(emp_user_old, [VIEW], instance)
+        _grant_many(emp_user_new, [VIEW], instance)

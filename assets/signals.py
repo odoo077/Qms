@@ -1,84 +1,145 @@
-from django.db.models.signals import post_delete
-from django.db.models.signals import post_migrate
-from django.contrib.auth.models import Group, Permission
-from django.contrib.contenttypes.models import ContentType
-from django.db.models.signals import post_save
+# -*- coding: utf-8 -*-
+"""
+إشعارات (Signals) للتكامل مع صلاحيات Guardian ومنطق الاتساق
+- على الإنشاء: تعيين المنشئ كصاحب صلاحيات على الكائن
+- على تغيير الشركة: ضمان اتساق الشركة مع العلاقات التابعة (Category/Assignment)
+"""
+
+from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
-from guardian.shortcuts import assign_perm
 from django.contrib.auth import get_user_model
-from assets.models import AssetItem, EmployeeAsset
+from django.utils import timezone
+
+from . import models as m
+from . import services as s
 
 User = get_user_model()
 
 
-@receiver(post_delete, sender=EmployeeAsset)
-def reset_item_after_delete(sender, instance: EmployeeAsset, **kwargs):
-    item = instance.item
-    # لو لم يبقَ تسليم نشط، صفّر الحامل وأعد الحالة
-    other = EmployeeAsset.objects.filter(item=item, is_active=True).values_list("employee_id", flat=True).first()
-    item.current_employee_id = other or None
-    if not other and item.status == "assigned":
-        item.status = "in_stock"
-    item.save(update_fields=["current_employee", "status"])
-
-# --------- ownership & roles -------
-
-@receiver(post_save, sender=AssetItem)
-def grant_owner_perms_item(sender, instance, created, **kwargs):
-    """إسناد صلاحيات العرض والتعديل لمنشئ الأصل عند إنشائه."""
-    if created and hasattr(instance, "created_by") and instance.created_by:
-        user = instance.created_by
-        assign_perm("assets.view_assetitem", user, instance)
-        assign_perm("assets.change_assetitem", user, instance)
-        assign_perm("assets.assign_item", user, instance)
+@receiver(pre_save, sender=m.AssetCategory)
+def _cat_update_parent_path(sender, instance: m.AssetCategory, **kwargs):
+    """
+    تحديث parent_path للفئة عند الحفظ (منطق بسيط مستوحى من Odoo).
+    """
+    if instance.parent_id:
+        # parent_path = مسار الأب + معرف الأب + '/'
+        prefix = (instance.parent.parent_path if instance.parent and instance.parent.parent_path else "")
+        instance.parent_path = f"{prefix}{instance.parent_id}/"
+    else:
+        instance.parent_path = ""
 
 
-@receiver(post_save, sender=EmployeeAsset)
-def grant_owner_perms_assignment(sender, instance, created, **kwargs):
-    if created and instance.created_by:
-        user = instance.created_by
-        assign_perm("assets.view_employeeasset", user, instance)
-        assign_perm("assets.change_employeeasset", user, instance)
-        assign_perm("assets.delete_employeeasset", user, instance)
+@receiver(post_save, sender=m.Asset)
+def _asset_grant_creator_object_perms(sender, instance: m.Asset, created: bool, **kwargs):
+    """
+    عند إنشاء أصل:
+    - امنح المنشئ صلاحيات الكائن الافتراضية (إن وُجد)
+    يمكنك توسيع هذا المنح ليشمل أدوار الشركة أو مدراء القسم...
+    """
+    if created and instance.created_by_id:
+        try:
+            s.grant_default_object_perms(instance, users=[instance.created_by])
+        except Exception:
+            # لا نفشل المعاملة بسبب منح صلاحية؛ سجّل لاحقًا إن أردت
+            pass
 
-@receiver(post_migrate)
-def ensure_asset_groups_and_perms(sender, **kwargs):
-    # تأكد أن الإشارة تعمل عند ترحيل تطبيق الأصول فقط
-    if getattr(sender, "name", None) != "assets":
+
+@receiver(pre_save, sender=m.Asset)
+def _asset_company_consistency(sender, instance: m.Asset, **kwargs):
+    """
+    ضمان الاتساق عند تغيير الشركة:
+    - إن تغيّر company، ننظف العلاقات التي لا تتبع الشركة الجديدة (holder/department/category).
+    - الهدف محاكاة أسلوب Odoo في تجاوز التعارضات بدل رفع أخطاء تخريبية.
+    """
+    if not instance.pk:
+        return
+    try:
+        old: m.Asset = m.Asset.objects.get(pk=instance.pk)
+        # حفظ القيم القديمة لاستخدامها بعد الحفظ
+        instance._old_holder_id = old.holder_id
+        instance._old_status = old.status
+
+        # ✅ إذا غيّر المستخدم الحالة إلى غير "Assigned" ننظف الحامل لضمان الاتساق
+        if instance.status != m.Asset.Status.ASSIGNED and instance.holder_id:
+            instance.holder = None
+
+
+    except m.Asset.DoesNotExist:
         return
 
-    # 1) أنشئ/اجلب مجموعة Asset Officers
-    group, _ = Group.objects.get_or_create(name="Asset Officers")
+    if old.company_id != instance.company_id:
+        # إن تغيّرت الشركة:
+        # 1) category من شركة أخرى؟ أزلها
+        if instance.category_id and instance.category and instance.category.company_id and \
+           instance.category.company_id != instance.company_id:
+            instance.category = None
 
-    # 2) اجلب ContentTypes
-    ct_item = ContentType.objects.get_for_model(AssetItem)
-    ct_assign = ContentType.objects.get_for_model(EmployeeAsset)
+        # 2) department من شركة أخرى؟ أزلها
+        if instance.department_id and instance.department and instance.department.company_id and \
+           instance.department.company_id != instance.company_id:
+            instance.department = None
 
-    # 3) صلاحيات موديل EmployeeAsset
-    needed_codenames = [
-        ("add_employeeasset", ct_assign),
-        ("change_employeeasset", ct_assign),
-        ("view_employeeasset", ct_assign),
-        # (يمكن إضافة delete_employeeasset لاحقًا إن احتجته)
-    ]
+        # 3) holder من شركة أخرى؟ ألغِ إسناده
+        if instance.holder_id and instance.holder and instance.holder.company_id and \
+           instance.holder.company_id != instance.company_id:
+            instance.holder = None
+            instance.status = m.Asset.Status.AVAILABLE
 
-    # 4) صلاحيات موديل/كائن AssetItem (الموديل + المخصصة)
-    needed_codenames += [
-        ("view_assetitem", ct_item),
-        ("change_assetitem", ct_item),
-        ("assign_item", ct_item),
-        ("return_item", ct_item),
-        ("transfer_item", ct_item),
-    ]
 
-    perms = []
-    for codename, ct in needed_codenames:
-        try:
-            perm = Permission.objects.get(codename=codename, content_type=ct)
-            perms.append(perm)
-        except Permission.DoesNotExist:
-            # في حال تأخر إنشاء Permission (نادرًا)، يمكن تجاهلها وسيُعاد استدعاء post_migrate
-            continue
+@receiver(post_save, sender=m.Asset)
+def _asset_auto_assignment_on_holder_change(sender, instance: m.Asset, created: bool, **kwargs):
+    """
+    منطق تلقائي لإنشاء/إغلاق العهدة (AssetAssignment):
+    - على الإنشاء أو التحديث: إذا تغيّر holder أو status، نغلق العهدة السابقة وننشئ عهدة جديدة عند الاقتضاء.
+    """
+    today = timezone.now().date()
 
-    if perms:
-        group.permissions.add(*perms)
+    old_holder_id = getattr(instance, "_old_holder_id", None)
+    old_status = getattr(instance, "_old_status", None)
+    new_holder_id = instance.holder_id
+    new_status = instance.status
+
+    # نتحرك فقط عند الإنشاء أو تغيّر الحقول ذات الصلة
+    changed = created or (old_holder_id != new_holder_id) or (old_status != new_status)
+    if not changed:
+        return
+
+    # 1) إغلاق العهدة المفتوحة للموظف السابق عند تغيّر الحائز أو تغيّر الحالة لغير Assigned
+    if old_holder_id:
+        open_qs = m.AssetAssignment.objects.filter(
+            asset=instance,
+            employee_id=old_holder_id,
+            date_to__isnull=True,
+            active=True,
+        )
+        if (new_holder_id != old_holder_id) or (new_status != m.Asset.Status.ASSIGNED):
+            open_qs.update(date_to=today)
+
+    # 2) إنشاء عهدة جديدة إذا لدينا حائز جديد والحالة Assigned ولا توجد عهدة مفتوحة له أصلًا
+    if new_holder_id and (new_status == m.Asset.Status.ASSIGNED):
+        exists = m.AssetAssignment.objects.filter(
+            asset=instance,
+            employee_id=new_holder_id,
+            date_to__isnull=True,
+            active=True,
+        ).exists()
+        if not exists:
+            m.AssetAssignment.objects.create(
+                asset=instance,
+                employee_id=new_holder_id,
+                company=instance.company,
+                date_from=today,
+                note="Auto-created from Asset change",
+            )
+
+
+
+@receiver(pre_save, sender=m.AssetAssignment)
+def _ensure_assignment_company_consistency(sender, instance: m.AssetAssignment, **kwargs):
+    """
+    ضمان اتساق الشركة في AssetAssignment:
+    إذا كانت الشركة لا تطابق شركة الأصل، يتم تعديلها تلقائيًا.
+    (محاكاة لمنطق Odoo الذي يفرض company consistency بدون أخطاء).
+    """
+    if instance.asset_id and instance.asset.company_id:
+        instance.company_id = instance.asset.company_id

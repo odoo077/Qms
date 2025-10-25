@@ -62,18 +62,74 @@ class WorkLocationAdmin(AppAdmin):
     autocomplete_fields = ("company", "address")
 
 
-# ------------------------------------------------------------
+# -------------------------------
 # Job
-# ------------------------------------------------------------
+# -------------------------------
 @admin.register(models.Job)
 class JobAdmin(AppAdmin):
-    list_display = ("name", "company", "department", "no_of_employee", "no_of_recruitment", "expected_employees", "active")
+    list_display = (
+        "name", "company", "department",
+        "no_of_employee_display", "no_of_recruitment", "expected_employees_display",
+        "active",
+    )
     list_filter = ("company", "department", "active")
     search_fields = ("name", "department__name")
     list_select_related = ("company", "department")
     ordering = ("company", "department__complete_name", "name")
-
     autocomplete_fields = ("company", "department", "recruiter", "contract_type")
+
+    # اعرض المُحتسبين في صفحة التفاصيل كحقول للقراءة فقط (الدوال، لا الحقول المخزّنة)
+    readonly_fields = ("no_of_employee_display", "expected_employees_display")
+
+    # ====== Helpers (unscoped + FK discovery) ======
+    def _employee_unscoped_manager(self):
+        """
+        نأخذ مدير غير مقيّد لـ Employee كي لا يتأثر بـ Company Scope.
+        - يفضّل all_objects إن كان معرّفًا، وإلا _base_manager.
+        """
+        Emp = models.Employee
+        return getattr(Emp, "all_objects", Emp._base_manager)
+
+    def _emp_fk_to_job(self) -> str:
+        """
+        نكتشف اسم حقل الـ FK من Employee → Job (مهما كان اسمه).
+        """
+        Emp = models.Employee
+        for f in Emp._meta.get_fields():
+            if getattr(f, "many_to_one", False) and getattr(f, "related_model", None) is models.Job:
+                return f.name
+        return "job"  # احتياط
+
+    def _employees_qs_for_job(self, job_obj):
+        """
+        مصدر بيانات الموظفين لهذه الوظيفة عبر مدير غير مقيّد ثم نفلتر:
+        - نفس الوظيفة
+        - نفس الشركة (Odoo-like)
+        - active=True إن وُجد الحقل
+        """
+        mgr = self._employee_unscoped_manager()
+        fk = self._emp_fk_to_job()
+        qs = mgr.filter(**{fk: job_obj})
+
+        # فقط نفس الشركة
+        if any(f.name == "company" for f in models.Employee._meta.get_fields()):
+            qs = qs.filter(company=job_obj.company)
+
+        # نشِط فقط
+        if any(f.name == "active" for f in models.Employee._meta.get_fields()):
+            qs = qs.filter(active=True)
+
+        return qs
+
+    # ====== Displays (استخدم هذه الأسماء في list_display و readonly_fields) ======
+    @admin.display(description="No of employees", ordering=False)
+    def no_of_employee_display(self, obj):
+        return self._employees_qs_for_job(obj).count()
+
+    @admin.display(description="Expected employees", ordering=False)
+    def expected_employees_display(self, obj):
+        return self.no_of_employee_display(obj) + (obj.no_of_recruitment or 0)
+
 
 
 # ------------------------------------------------------------

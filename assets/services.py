@@ -1,75 +1,101 @@
+# -*- coding: utf-8 -*-
+"""
+خدمات (Domain Services) للأصول
+- دوال إسناد/إلغاء إسناد الأصول بشكل موحّد وآمن
+- منح/إدارة صلاحيات Guardian على مستوى الكائن (يوزرات معيّنة) عبر نقاط إدخال جاهزة
+"""
+
+from __future__ import annotations
+from typing import Optional, Iterable
+from datetime import date
+
+from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.core.exceptions import ValidationError
-from assets.models import EmployeeAsset, AssetItem
-from django.http import HttpResponse
-from django.template.loader import get_template
-from django.utils import timezone
 
+from guardian.shortcuts import assign_perm, remove_perm
 
-class AssignmentService:
+from . import models as m
 
-    @staticmethod
-    @transaction.atomic
-    def assign_item(item: AssetItem, employee, date_assigned=None, due_back=None, note=""):
-        if item.status in {"lost", "scrapped"}:
-            raise ValidationError("Cannot assign lost or scrapped items.")
-        if EmployeeAsset.objects.filter(item=item, is_active=True).exists():
-            raise ValidationError("This item is already assigned.")
-        rec = EmployeeAsset.objects.create(
-            employee=employee,
-            item=item,
-            date_assigned=date_assigned or timezone.now().date(),
-            due_back=due_back,
-            handover_note=note,
-        )
-        return rec
+User = get_user_model()
 
-    @staticmethod
-    @transaction.atomic
-    def return_item(assignment: EmployeeAsset, date_returned=None, note=""):
-        if not assignment.is_active:
-            return assignment
-        assignment.mark_returned(date_returned=date_returned, return_note=note)
-        return assignment
+# ------------------------------------------------------------
+# صلاحيات الكائن (Guardian) – أسماء الصلاحيات القياسية من Django:
+#   view_asset, change_asset, delete_asset | view_assetcategory ... إلخ
+# يمكنك توسيع منطق المنح هنا إذا رغبت.
+# ------------------------------------------------------------
 
-    @staticmethod
-    @transaction.atomic
-    def transfer_item(item: AssetItem, to_employee, date_assigned=None, due_back=None, note=""):
-        # إرجاع التسليم الحالي ثم إنشاء تسليم جديد
-        curr = EmployeeAsset.objects.filter(item=item, is_active=True).first()
-        if curr:
-            AssignmentService.return_item(curr, date_returned=date_assigned or timezone.now().date(), note="Auto-transfer")
-        return AssignmentService.assign_item(item, to_employee, date_assigned=date_assigned, due_back=due_back, note=note)
-
-# ---------- pdf services -------
-
-"""
-MSYS2 is a collection of tools and libraries providing you with an easy-to-use environment for building,
- installing and running native Windows software.
- مكتبة weasyprint تتطلب تنصيب مكتبات على النظام الاصلي ( خاصة مع نظام وندوز ) لذلك نحتاج ل MSYS2
-"""
-try:
-    from weasyprint import HTML
-    WEASY_AVAILABLE = True
-except ImportError:
-    WEASY_AVAILABLE = False
-
-
-def render_receipt_pdf(request, template_name, context, filename_prefix="receipt"):
+def grant_default_object_perms(asset: m.Asset, users: Iterable[User]) -> None:
     """
-    تُحوّل قالب HTML إلى PDF باستخدام WeasyPrint.
-    إن لم تتوفر المكتبة، تُرجع صفحة HTML للطباعة.
+    منح الصلاحيات الافتراضية لمجموعة مستخدمين على أصل معيّن.
     """
-    template = get_template(template_name)
-    html = template.render(context)
+    for u in users:
+        assign_perm("view_asset", u, asset)
+        assign_perm("change_asset", u, asset)
+        assign_perm("delete_asset", u, asset)
 
-    # إذا المستخدم طلب صراحة HTML
-    if request.GET.get("format") == "html" or not WEASY_AVAILABLE:
-        return HttpResponse(html)
 
-    # إنشاء PDF
-    pdf_file = HTML(string=html, base_url=request.build_absolute_uri()).write_pdf()
-    response = HttpResponse(pdf_file, content_type="application/pdf")
-    ts = timezone.now().strftime("%Y%m%d-%H%M%S")
-    response["Content-Disposition"] = f'inline; filename="{filename_prefix}-{ts}.pdf"'
-    return response
+def revoke_all_object_perms(asset: m.Asset, users: Iterable[User]) -> None:
+    """
+    سحب جميع صلاحيات الكائن للمستخدمين المحددين.
+    """
+    for u in users:
+        remove_perm("view_asset", u, asset)
+        remove_perm("change_asset", u, asset)
+        remove_perm("delete_asset", u, asset)
+
+
+# ------------------------------------------------------------
+# منطق الإسناد
+# ------------------------------------------------------------
+
+@transaction.atomic
+def assign_asset(asset: m.Asset, employee_id: int, *, date_from: Optional[date] = None, note: str = "") -> m.AssetAssignment:
+    """
+    إسناد أصل لموظف:
+    - إنشاء سجل إسناد جديد
+    - تحديث حامل الأصل والحالة
+    - لا يتعارض مع إسنادات سابقة (يغلق القديمة إذا لزم)
+    """
+    if asset.status == m.Asset.Status.RETIRED:
+        raise ValidationError("Cannot assign a retired asset.")
+
+    # أغلق أي اسناد سابق مفتوح لنفس الأصل
+    latest_open = asset.assignments.filter(date_to__isnull=True, active=True).order_by("-id").first()
+    if latest_open:
+        latest_open.date_to = date_from or date.today()
+        latest_open.save(update_fields=["date_to"])
+
+    asg = m.AssetAssignment.objects.create(
+        asset=asset,
+        employee_id=employee_id,
+        company=asset.company,
+        date_from=date_from or date.today(),
+        note=note,
+        active=True,
+    )
+
+    asset.holder_id = employee_id
+    asset.status = m.Asset.Status.ASSIGNED
+    asset.save(update_fields=["holder_id", "status", "updated_at"])
+    return asg
+
+
+@transaction.atomic
+def unassign_asset(asset: m.Asset, *, date_to: Optional[date] = None, note: str = "") -> None:
+    """
+    إلغاء إسناد أصل:
+    - إغلاق آخر إسناد مفتوح
+    - إرجاع الأصل إلى الحالة Available
+    """
+    latest_open = asset.assignments.filter(date_to__isnull=True, active=True).order_by("-id").first()
+    if not latest_open:
+        return
+    latest_open.date_to = date_to or date.today()
+    if note:
+        latest_open.note = (latest_open.note + " | " + note).strip(" |")
+    latest_open.save(update_fields=["date_to", "note"])
+
+    asset.holder = None
+    asset.status = m.Asset.Status.AVAILABLE
+    asset.save(update_fields=["holder_id", "status", "updated_at"])

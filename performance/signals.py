@@ -1,28 +1,29 @@
-from django.db.models.signals import post_delete
-from django.db.models.signals import post_save
-from guardian.shortcuts import assign_perm
-from django.db.models.signals import post_migrate
-from django.dispatch import receiver
-from django.contrib.auth.models import Group, Permission
-from django.contrib.contenttypes.models import ContentType
-from performance.models import (
-    ObjectiveParticipant,
-    EvaluationTemplate,
-    EvaluationParameter,
-    Evaluation,
-    EvaluationParameterResult,
-)
-from performance.models import (
-    Objective, KPI, Task,
-    ObjectiveDepartmentAssignment, ObjectiveEmployeeAssignment
-)
-
-# -----------------------------
-# Participants: rebuild when assignments change
-# -----------------------------
+# -*- coding: utf-8 -*-
+"""
+Signals:
+- إعادة بناء المشاركين عند تغيّر تعيينات الأقسام/الموظفين.
+- إعادة تجميع الهدف عند تغيّر KPI/Task.
+- منح صلاحيات الكائن للمنشئ (Guardian).
+- إنشاء مجموعات وصلاحيات افتراضية بعد الترحيل.
+"""
 
 from typing import Optional
 
+from django.db.models.signals import post_save, post_delete, post_migrate
+from django.dispatch import receiver
+from guardian.shortcuts import assign_perm
+from django.contrib.auth.models import Group, Permission
+from django.contrib.contenttypes.models import ContentType
+
+from performance.models import (
+    Objective, KPI, Task,
+    ObjectiveDepartmentAssignment, ObjectiveEmployeeAssignment, ObjectiveParticipant,
+    EvaluationTemplate, EvaluationParameter, Evaluation, EvaluationParameterResult,
+)
+
+# -----------------------------
+# Participants: rebuild on assignments change
+# -----------------------------
 def _get_objective_safe(obj_id) -> Optional[Objective]:
     if not obj_id:
         return None
@@ -30,10 +31,6 @@ def _get_objective_safe(obj_id) -> Optional[Objective]:
         return Objective.objects.only("id").get(pk=obj_id)
     except Objective.DoesNotExist:
         return None
-
-# -----------------------------
-# Participants: rebuild when assignments change
-# -----------------------------
 
 
 @receiver(post_save, sender=ObjectiveDepartmentAssignment)
@@ -51,12 +48,11 @@ def rebuild_participants_on_emp_assignment_change(sender, instance, **kwargs):
     if obj:
         obj._rebuild_participants()
 
-# -----------------------------
-# Objective aggregations: bubble up on KPI/Task changes
-# -----------------------------
 
+# -----------------------------
+# Objective aggregations bubble-up
+# -----------------------------
 def _recompute_objective(obj: Objective):
-    # Recompute progress & score and persist (only fields)
     obj.recompute_progress_and_score()
     obj.save(update_fields=["progress_pct", "score_pct"])
 
@@ -76,16 +72,10 @@ def recompute_objective_on_task_change(sender, instance, **kwargs):
     if obj:
         _recompute_objective(obj)
 
-# Note: We fetch Objective by id inside signals instead of touching instance.objective directly
-# because post_delete handlers may run after the related Objective has been removed (cascade),
-# and dereferencing `instance.objective` could raise DoesNotExist. Using the id avoids that race.
 
-
-# ---------- ownership & roles ---------
-
-# مَنح صلاحيات معقولة للمنشئ عند الإنشاء (يمكن تعديلها حسب سياساتك)
-
-
+# -----------------------------
+# Object-level permissions (creator ownership)
+# -----------------------------
 @receiver(post_save, sender=Objective)
 def grant_owner_perms_objective(sender, instance, created, **kwargs):
     user = getattr(instance, "created_by", None)
@@ -155,45 +145,38 @@ def grant_owner_perms_param_result(sender, instance, created, **kwargs):
         assign_perm("performance.change_evaluationparameterresult", user, instance)
         assign_perm("performance.rate_parameter_result", user, instance)
 
-# لم أمنح صلاحيات للـ Assignments/Participants لأنها سجلات “مشتقة/إدارية”، وغالبًا تُدار بالصلاحيات على Objective نفسه.
 
-
+# -----------------------------
+# Default roles/groups after migrate
+# -----------------------------
 @receiver(post_migrate)
 def ensure_performance_roles(sender, **kwargs):
     """
-    ينشئ مجموعات الأداء ويُسند لها صلاحيات الموديلات (الافتراضية) + الصلاحيات المخصّصة.
+    إنشاء مجموعات افتراضية ومنحها صلاحيات الموديلات + الصلاحيات المخصّصة.
     يُنفَّذ فقط عند ترحيل تطبيق performance.
     """
     if getattr(sender, "name", None) != "performance":
         return
 
-    # مختصر لجلب Permission بالـ codename على موديل معيّن
     def _perm(codename: str, model):
         ct = ContentType.objects.get_for_model(model)
         return Permission.objects.get(codename=codename, content_type=ct)
 
-    # ⬇️ مجموعات مقترحة وقابلة للتعديل حسب فريقك
     GROUPS = {
-        # مديرو الأداء: كل شيء تقريبًا
         "Performance Managers": [
             # Objective
-            ("view_objective", Objective),
-            ("change_objective", Objective),
+            ("view_objective", Objective), ("change_objective", Objective),
             ("close_objective", Objective),
             ("manage_objective_participants", Objective),
             ("manage_objective_kpis", Objective),
             ("manage_objective_tasks", Objective),
             # KPI
-            ("view_kpi", KPI),
-            ("change_kpi", KPI),
-            ("recompute_kpi", KPI),
-            ("set_kpi_manual_value", KPI),
+            ("view_kpi", KPI), ("change_kpi", KPI),
+            ("recompute_kpi", KPI), ("set_kpi_manual_value", KPI),
             # Task
-            ("view_task", Task),
-            ("change_task", Task),
-            ("assign_task", Task),
-            ("update_task_progress", Task),
-            # Assignments / Participants (قراءة وتعديل إدارياً على التعيينات)
+            ("view_task", Task), ("change_task", Task),
+            ("assign_task", Task), ("update_task_progress", Task),
+            # Assignments / Participants
             ("view_objectivedepartmentassignment", ObjectiveDepartmentAssignment),
             ("change_objectivedepartmentassignment", ObjectiveDepartmentAssignment),
             ("manage_department_assignments", ObjectiveDepartmentAssignment),
@@ -208,7 +191,7 @@ def ensure_performance_roles(sender, **kwargs):
             ("change_evaluationtemplate", EvaluationTemplate),
             ("use_evaluation_template", EvaluationTemplate),
             ("manage_template_parameters", EvaluationTemplate),
-            # Template parameters
+            # Parameters
             ("view_evaluationparameter", EvaluationParameter),
             ("change_evaluationparameter", EvaluationParameter),
             ("reorder_parameters", EvaluationParameter),
@@ -218,33 +201,22 @@ def ensure_performance_roles(sender, **kwargs):
             ("submit_evaluation", Evaluation),
             ("approve_evaluation", Evaluation),
             ("view_confidential_notes", Evaluation),
-            # Parameter results
+            # Results
             ("view_evaluationparameterresult", EvaluationParameterResult),
             ("change_evaluationparameterresult", EvaluationParameterResult),
             ("rate_parameter_result", EvaluationParameterResult),
         ],
-
-        # موظفو الأداء: صلاحيات تشغيلية بدون صلاحيات إدارية كاملة
         "Performance Officers": [
-            # Objective (قراءة عامة)
             ("view_objective", Objective),
-            # KPI (قراءة + ضبط يدوي عند الحاجة)
-            ("view_kpi", KPI),
-            ("set_kpi_manual_value", KPI),
-            # Task (قراءة + تحديث تقدّم)
-            ("view_task", Task),
-            ("update_task_progress", Task),
-            # Participants / Assignments (قراءة فقط)
+            ("view_kpi", KPI), ("set_kpi_manual_value", KPI),
+            ("view_task", Task), ("update_task_progress", Task),
             ("view_objectiveparticipant", ObjectiveParticipant),
             ("view_objectivedepartmentassignment", ObjectiveDepartmentAssignment),
             ("view_objectiveemployeeassignment", ObjectiveEmployeeAssignment),
-            # Templates (استخدام القالب فقط)
             ("view_evaluationtemplate", EvaluationTemplate),
             ("use_evaluation_template", EvaluationTemplate),
             ("view_evaluationparameter", EvaluationParameter),
-            # Evaluation (قراءة + تسليم)
-            ("view_evaluation", Evaluation),
-            ("submit_evaluation", Evaluation),
+            ("view_evaluation", Evaluation), ("submit_evaluation", Evaluation),
             ("view_evaluationparameterresult", EvaluationParameterResult),
             ("rate_parameter_result", EvaluationParameterResult),
         ],
@@ -252,13 +224,9 @@ def ensure_performance_roles(sender, **kwargs):
 
     for group_name, entries in GROUPS.items():
         group, _ = Group.objects.get_or_create(name=group_name)
-        assigned = 0
         for codename, model in entries:
             try:
                 perm = _perm(codename, model)
             except Permission.DoesNotExist:
-                # قد يحدث إذا لم تُنشأ الصلاحية بعد أول post_migrate؛ ستُستكمل لاحقًا بدون فشل
                 continue
             group.permissions.add(perm)
-            assigned += 1
-        # يمكن طباعة/تسجيل assigned إذا رغبت بالتحقق
