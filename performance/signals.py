@@ -11,7 +11,7 @@ from typing import Optional
 
 from django.db.models.signals import post_save, post_delete, post_migrate
 from django.dispatch import receiver
-from guardian.shortcuts import assign_perm
+from base.acl_service import grant_access
 from django.contrib.auth.models import Group, Permission
 from django.contrib.contenttypes.models import ContentType
 
@@ -80,70 +80,77 @@ def recompute_objective_on_task_change(sender, instance, **kwargs):
 def grant_owner_perms_objective(sender, instance, created, **kwargs):
     user = getattr(instance, "created_by", None)
     if created and user:
-        assign_perm("performance.view_objective", user, instance)
-        assign_perm("performance.change_objective", user, instance)
-        assign_perm("performance.manage_objective_kpis", user, instance)
-        assign_perm("performance.manage_objective_tasks", user, instance)
-        assign_perm("performance.manage_objective_participants", user, instance)
+        grant_access(
+            instance, user=user,
+            view=True, change=True, delete=True,  # الأساسية
+            extras=["manage_objective_kpis", "manage_objective_tasks", "manage_objective_participants"],
+        )
 
 
 @receiver(post_save, sender=KPI)
 def grant_owner_perms_kpi(sender, instance, created, **kwargs):
     user = getattr(instance, "created_by", None)
     if created and user:
-        assign_perm("performance.view_kpi", user, instance)
-        assign_perm("performance.change_kpi", user, instance)
-        assign_perm("performance.recompute_kpi", user, instance)
-        assign_perm("performance.set_kpi_manual_value", user, instance)
+        grant_access(
+            instance, user=user,
+            view=True, change=True, delete=True,
+            extras=["recompute_kpi", "set_kpi_manual_value"],
+        )
 
 
 @receiver(post_save, sender=Task)
 def grant_owner_perms_task(sender, instance, created, **kwargs):
     user = getattr(instance, "created_by", None)
     if created and user:
-        assign_perm("performance.view_task", user, instance)
-        assign_perm("performance.change_task", user, instance)
-        assign_perm("performance.assign_task", user, instance)
-        assign_perm("performance.update_task_progress", user, instance)
+        grant_access(
+            instance, user=user,
+            view=True, change=True, delete=True,
+            extras=["assign_task", "update_task_progress"],
+        )
 
 
 @receiver(post_save, sender=EvaluationTemplate)
 def grant_owner_perms_template(sender, instance, created, **kwargs):
     user = getattr(instance, "created_by", None)
     if created and user:
-        assign_perm("performance.view_evaluationtemplate", user, instance)
-        assign_perm("performance.change_evaluationtemplate", user, instance)
-        assign_perm("performance.use_evaluation_template", user, instance)
-        assign_perm("performance.manage_template_parameters", user, instance)
+        grant_access(
+            instance, user=user,
+            view=True, change=True, delete=True,
+            extras=["use_evaluation_template", "manage_template_parameters"],
+        )
 
 
 @receiver(post_save, sender=EvaluationParameter)
 def grant_owner_perms_parameter(sender, instance, created, **kwargs):
     user = getattr(instance, "created_by", None)
     if created and user:
-        assign_perm("performance.view_evaluationparameter", user, instance)
-        assign_perm("performance.change_evaluationparameter", user, instance)
-        assign_perm("performance.reorder_parameters", user, instance)
+        grant_access(
+            instance, user=user,
+            view=True, change=True, delete=True,
+            extras=["reorder_parameters"],
+        )
 
 
 @receiver(post_save, sender=Evaluation)
 def grant_owner_perms_evaluation(sender, instance, created, **kwargs):
     user = getattr(instance, "created_by", None)
     if created and user:
-        assign_perm("performance.view_evaluation", user, instance)
-        assign_perm("performance.change_evaluation", user, instance)
-        assign_perm("performance.submit_evaluation", user, instance)
-        assign_perm("performance.approve_evaluation", user, instance)
-        assign_perm("performance.view_confidential_notes", user, instance)
+        grant_access(
+            instance, user=user,
+            view=True, change=True, delete=True, approve=True,  # approve كصلاحية أساسية بالـACL
+            extras=["submit_evaluation", "view_confidential_notes"],
+        )
 
 
 @receiver(post_save, sender=EvaluationParameterResult)
 def grant_owner_perms_param_result(sender, instance, created, **kwargs):
     user = getattr(instance, "created_by", None)
     if created and user:
-        assign_perm("performance.view_evaluationparameterresult", user, instance)
-        assign_perm("performance.change_evaluationparameterresult", user, instance)
-        assign_perm("performance.rate_parameter_result", user, instance)
+        grant_access(
+            instance, user=user,
+            view=True, change=True, delete=True, rate=True,  # rate كصلاحية أساسية في ACL
+            extras=["rate_parameter_result"],  # من باب التوافق إن رغبت بالاسم القديم أيضًا
+        )
 
 
 # -----------------------------

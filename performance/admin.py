@@ -6,6 +6,7 @@
 from django.contrib import admin, messages
 from django.db import transaction
 from base.admin_mixins import AppAdmin  # ✅ الاستثناء من صلاحيات الكائن
+from base.admin import ObjectACLInline
 
 from performance.models import (
     Objective, KPI, Task,
@@ -80,7 +81,8 @@ class ObjectiveAdmin(AppAdmin):
     if USE_AUTOCOMPLETE: autocomplete_fields = ["company","reviewer"]
     else:                 raw_id_fields = ["company","reviewer"]
     readonly_fields = ("created_at","updated_at","created_by","updated_by")
-    inlines = [ObjectiveDepartmentAssignmentInline, ObjectiveEmployeeAssignmentInline, ObjectiveParticipantInline, KPIInline, TaskInline]
+    inlines = [ObjectACLInline, ObjectiveDepartmentAssignmentInline, ObjectiveEmployeeAssignmentInline, ObjectiveParticipantInline, KPIInline, TaskInline]
+
     actions = ["rebuild_participants","recompute_objectives",action_activate,action_deactivate]
 
     @admin.action(description="Rebuild participants for selected objectives")
@@ -111,6 +113,8 @@ class KPIAdmin(AppAdmin):
     readonly_fields = ("created_at","updated_at","created_by","updated_by")
     actions = ["recompute_kpis", action_activate, action_deactivate]
 
+    inlines = [ObjectACLInline]
+
     @admin.action(description="Recompute selected KPIs")
     def recompute_kpis(self, request, queryset):
         with transaction.atomic():
@@ -132,6 +136,8 @@ class TaskAdmin(AppAdmin):
     else:                 raw_id_fields = ["company","objective","assignee","kpi"]
     readonly_fields = ("created_at","updated_at","created_by","updated_by")
     actions = [action_activate, action_deactivate]
+
+    inlines = [ObjectACLInline]
 
 
 # -------- Assignments/Participants --------
@@ -191,7 +197,8 @@ class EvaluationTemplateAdmin(AppAdmin):
         if USE_AUTOCOMPLETE: autocomplete_fields = ["objective","kpi"]
         else:                 raw_id_fields = ["objective","kpi"]
 
-    inlines = [EvaluationParameterInline]
+    inlines = [ObjectACLInline, EvaluationParameterInline]
+
     actions = [action_activate, action_deactivate]
 
 @admin.register(EvaluationParameter)
@@ -204,6 +211,8 @@ class EvaluationParameterAdmin(AppAdmin):
     if USE_AUTOCOMPLETE: autocomplete_fields = ["template","objective","kpi"]
     else:                 raw_id_fields = ["template","objective","kpi"]
     readonly_fields = ("created_at","updated_at","created_by","updated_by")
+
+    inlines = [ObjectACLInline]
 
 @admin.register(Evaluation)
 class EvaluationAdmin(AppAdmin):
@@ -225,7 +234,8 @@ class EvaluationAdmin(AppAdmin):
         if USE_AUTOCOMPLETE: autocomplete_fields = ["parameter"]
         else:                 raw_id_fields = ["parameter"]
 
-    inlines = [EvaluationParameterResultInline]
+    inlines = [ObjectACLInline, EvaluationParameterResultInline]
+
     actions = ["recompute_evaluations", action_activate, action_deactivate]
 
     @admin.action(description="Recompute selected evaluations (final score + results)")
@@ -245,3 +255,6 @@ class EvaluationParameterResultAdmin(AppAdmin):
     if USE_AUTOCOMPLETE: autocomplete_fields = ["evaluation","parameter"]
     else:                 raw_id_fields = ["evaluation","parameter"]
     readonly_fields = ("created_at","updated_at","created_by","updated_by")
+
+    inlines = [ObjectACLInline]
+

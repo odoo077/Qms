@@ -14,6 +14,7 @@ from django.contrib import admin, messages
 from base.admin_mixins import AppAdmin
 
 from . import models
+from base.admin import ObjectACLInline
 
 
 # ============================================================
@@ -98,6 +99,9 @@ class SkillAdmin(AppAdmin):
 
 @admin.register(models.EmployeeSkill)
 class EmployeeSkillAdmin(AppAdmin):
+
+    inlines = (ObjectACLInline,)
+
     """
     مهارة موظف (hr.employee.skill)
     - الأدمن هنا مستثنى من صلاحيات الكائن (يعرض كل شيء)، بفضل AppAdmin.
@@ -160,6 +164,9 @@ class ResumeLineTypeAdmin(AppAdmin):
 
 @admin.register(models.ResumeLine)
 class ResumeLineAdmin(AppAdmin):
+
+    inlines = (ObjectACLInline,)
+
     """
     سطر سيرة موظف (hr.resume.line)
     - الأدمن هنا مستثنى من صلاحيات الكائن (يعرض كل شيء)، بفضل AppAdmin.

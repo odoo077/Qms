@@ -12,7 +12,7 @@ from typing import Optional
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 
-from guardian.shortcuts import assign_perm, remove_perm
+from base.acl_service import grant_access, revoke_access
 
 from . import models
 
@@ -23,39 +23,67 @@ from . import models
 
 def _grant_if_user(user, codename: str, obj) -> None:
     """
-    امنح صلاحية واحدة لمستخدم معيّن على كائن معيّن (Idempotent).
-    - إن كان user=None نتجاهل بهدوء.
+    يمنح صلاحية واحدة على الكائن عبر نظام الـACL.
+    يدعم codenames على نسق Guardian مثل "skills.view_employeeskill"
+    أو أسماء مباشرة مثل "view" أو "approve"… إلخ.
+    - الأساسية: view/change/delete/share/approve/assign/comment/export/rate/attach
+    - غير الأساسية تُسجَّل كـ extra_perms.
     """
     if user is None:
         return
-    try:
-        assign_perm(codename, user, obj)
-    except Exception:
-        # لا نكسر عملية الحفظ بسبب الأذونات
-        pass
+
+    # استخرج الإجراء من codename (مثال: "skills.view_employeeskill" → "view")
+    name = (codename or "").strip().lower()
+    name = name.split(".")[-1]          # "view_employeeskill"
+    action = name.split("_", 1)[0]      # "view"
+
+    core = {"view", "change", "delete", "share", "approve", "assign", "comment", "export", "rate", "attach"}
+
+    if action in core:
+        grant_access(obj, user=user, **{action: True})
+    else:
+        # تُخزَّن كصلاحية إضافية مفتوحة
+        grant_access(obj, user=user, extras=[action])
 
 
 def _grant_many(user, perms: list[str], obj) -> None:
     """
-    امنح مجموعة صلاحيات دفعة واحدة.
+    يمنح مجموعة صلاحيات كائنية دفعة واحدة عبر نظام الـACL.
+    - الأسماء الأساسية: view/change/delete/share/approve/assign/comment/export/rate/attach
+    - أي أسماء أخرى ستُخزَّن في extra_perms تلقائيًا.
     """
     if user is None:
         return
-    for p in perms:
-        _grant_if_user(user, p, obj)
+    core = {"view": False, "change": False, "delete": False, "share": False,
+            "approve": False, "assign": False, "comment": False, "export": False,
+            "rate": False, "attach": False}
+    extras = []
+    for p in (perms or []):
+        p = (p or "").strip().lower()
+        if p in core:
+            core[p] = True
+        else:
+            extras.append(p)
+    grant_access(
+        obj,
+        user=user,
+        view=core["view"], change=core["change"], delete=core["delete"],
+        share=core["share"], approve=core["approve"], assign=core["assign"],
+        comment=core["comment"], export=core["export"], rate=core["rate"], attach=core["attach"],
+        extras=extras or None,
+    )
 
 
 def _remove_many(user, perms: list[str], obj) -> None:
     """
-    أزل مجموعة صلاحيات من مستخدم على كائن.
+    يسحب صلاحيات محددة (core أو extra) للمستخدم على الكائن.
     """
     if user is None:
         return
-    for p in perms:
-        try:
-            remove_perm(p, user, obj)
-        except Exception:
-            pass
+    names = [(p or "").strip().lower() for p in (perms or []) if (p or "").strip()]
+    if not names:
+        return
+    revoke_access(obj, user=user, only=names)
 
 
 def _employee_user_of(instance) -> Optional[models.User]:
@@ -106,26 +134,24 @@ def _employeeskill_assign_object_perms(sender, instance: models.EmployeeSkill, c
     emp_user_new = _employee_user_of(instance)
 
     if created:
-        # مالك السجل (المنشئ) — عرض وتعديل (ويمكنك إضافة حذف إن أردت)
-        _grant_many(owner, [VIEW, CHANGE, RATE], instance)
-
-        # مستخدم الموظف — عرض فقط
-        _grant_many(emp_user_new, [VIEW], instance)
+        # مالك السجل: عرض + تعديل + تقييم (rate)
+        _grant_many(owner, ["view", "change", "rate"], instance)
+        # مستخدم الموظف: عرض فقط
+        _grant_many(emp_user_new, ["view"], instance)
         return
 
     # تحديث: إن تغيّر الموظف ننقل صلاحية العرض من القديم للجديد
     old_emp_id = getattr(instance, "_old_employee_id", None)
     if old_emp_id is not None and old_emp_id != getattr(instance, "employee_id", None):
-        # المستخدم القديم للموظف (إن وجد)
         try:
             old_emp = models.Employee.objects.only("user_id").get(pk=old_emp_id)
             emp_user_old = getattr(old_emp, "user", None)
         except models.Employee.DoesNotExist:
             emp_user_old = None
 
-        # أزل VIEW عن المستخدم القديم وأعطه للمستخدم الجديد
-        _remove_many(emp_user_old, [VIEW], instance)
-        _grant_many(emp_user_new, [VIEW], instance)
+        _remove_many(emp_user_old, ["view"], instance)
+        _grant_many(emp_user_new, ["view"], instance)
+
 
 
 # ============================================================
@@ -161,8 +187,8 @@ def _resumeline_assign_object_perms(sender, instance: models.ResumeLine, created
     emp_user_new = _employee_user_of(instance)
 
     if created:
-        _grant_many(owner, [VIEW, CHANGE], instance)
-        _grant_many(emp_user_new, [VIEW], instance)
+        _grant_many(owner, ["view", "change"], instance)
+        _grant_many(emp_user_new, ["view"], instance)
         return
 
     old_emp_id = getattr(instance, "_old_employee_id", None)
@@ -173,5 +199,6 @@ def _resumeline_assign_object_perms(sender, instance: models.ResumeLine, created
         except models.Employee.DoesNotExist:
             emp_user_old = None
 
-        _remove_many(emp_user_old, [VIEW], instance)
-        _grant_many(emp_user_new, [VIEW], instance)
+        _remove_many(emp_user_old, ["view"], instance)
+        _grant_many(emp_user_new, ["view"], instance)
+

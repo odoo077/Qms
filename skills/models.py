@@ -15,6 +15,7 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Q, UniqueConstraint, CheckConstraint
 from django.utils.translation import gettext_lazy as _
+from base.acl import AccessControlledMixin
 
 # ------------------------------------------------------------
 # روابط للتطبيقات الأساسية (حسب مشروعك)
@@ -171,7 +172,7 @@ class Skill(TimeUserStampedMixin):
 # Employee Skill (Odoo: hr.employee.skill)
 # ============================================================
 
-class EmployeeSkill(TimeUserStampedMixin):
+class EmployeeSkill(TimeUserStampedMixin, AccessControlledMixin):
     """
     مهارة موظف:
     - employee + (skill_type, skill, skill_level)

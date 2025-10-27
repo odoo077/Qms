@@ -18,8 +18,7 @@ from django.db import transaction
 from django.db.models.signals import post_migrate, pre_save, post_save, post_delete
 from django.dispatch import receiver
 
-# في حال تفعيل django-guardian للصلاحيات الكائنية
-from guardian.shortcuts import assign_perm
+from base.acl_service import grant_access
 
 
 # ------------------------------
@@ -110,16 +109,20 @@ def ensure_employee_work_contact(sender, instance, created: bool, **kwargs):
 def grant_owner_perms_employee(sender, instance, created: bool, **kwargs):
     """
     عند إنشاء موظف بواسطة مستخدم معيّن (created_by):
-      - امنحه صلاحيات عرض/تعديل/اعتماد على هذا السجل (Object-level).
+      - امنحه صلاحيات كائنية عبر نظام ACL: view + change + delete + approve.
+        (approve هنا صلاحية كائنية من نظامنا، مختلفة عن صلاحية الموديل.)
     """
     if created and getattr(instance, "created_by", None):
         user = instance.created_by
-        for codename in ("view_employee", "change_employee", "approve_employee"):
-            try:
-                assign_perm(f"hr.{codename}", user, instance)
-            except Exception:
-                # إن لم تتوفر guardian أو حدثت مشكلة بسيطة، نتجاهل بهدوء
-                pass
+        # نداء واحد يضبط الأعلام المطلوبة على ACE
+        grant_access(
+            instance,
+            user=user,
+            view=True,
+            change=True,
+            delete=True,
+            approve=True,  # متاحة في ACL الجديد
+        )
 
 
 # ------------------------------------------------------------

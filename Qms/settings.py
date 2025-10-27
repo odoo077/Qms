@@ -71,7 +71,6 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
 
     # Third-party
-    "guardian",                 # Object-level permissions (مثل Odoo access rules)
     "tailwind",
     "theme",
 
@@ -136,18 +135,10 @@ AUTH_USER_MODEL = "base.User"
 # مدة صلاحية توكن التفعيل واستعادة كلمة المرور (48 ساعة)
 PASSWORD_RESET_TIMEOUT = 48 * 60 * 60  # 172800 ثانية
 
-# Object-level permissions (django-guardian)
-# الفائدة: إخبار Django باستخدام Backend الخاص بـ Guardian للتحقق من صلاحيات الكائن الواحد وليس الموديل فقط.
 AUTHENTICATION_BACKENDS = (
     "django.contrib.auth.backends.ModelBackend",
-    "guardian.backends.ObjectPermissionBackend",
 )
 
-# اسم المستخدم المجهول الذي يستخدمه guardian
-# مستخدم خاص تمثّله الحزمة ليحمل صلاحيات كائنية (object-level) لزوّار غير مسجّلين.
-# أنظمة الموارد البشرية عادة مغلقة على موظفين مسجّلين، ولا يوجد محتوى عام بلا تسجيل. إذن، لا حاجة عملية له.
-# بهذه الحالة، لن تُنشئ الحزمة مستخدمًا مجهولًا ولن تحاول استخدامه.
-ANONYMOUS_USER_NAME = None
 
 # Auth redirects
 # إذا حاول فتح أي رابط مباشر بدون تسجيل الدخول → يتحول تلقائيًا لصفحة تسجيل الدخول.

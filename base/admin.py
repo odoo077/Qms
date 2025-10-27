@@ -16,6 +16,68 @@ from django.utils.html import format_html
 from base.admin_mixins import AppAdmin, HideAuditFieldsMixin , UnscopedAdminMixin
 from . import models
 
+from django.contrib.contenttypes.admin import GenericTabularInline
+from django.contrib.auth.models import Group
+from .acl import ObjectACL
+
+
+# 1) Inline لسطور الـACL (ACE) ليظهر داخل شاشة أي سجل
+class ObjectACLInline(GenericTabularInline):
+    model = ObjectACL
+    extra = 0
+    fields = (
+        "user", "group",
+        "can_view", "can_change", "can_delete",
+        "can_share", "can_approve", "can_assign",
+        "can_comment", "can_export", "can_rate", "can_attach",
+        "extra_perms",
+    )
+    autocomplete_fields = ("user", "group")
+    verbose_name = "Access Entry"
+    verbose_name_plural = "Access Control (per-object)"
+
+# 2) أكشنات Bulk لمنح/سحب صلاحيات لجروب معيّن
+def grant_view_to_group(modeladmin, request, queryset):
+    from base.acl_service import grant_access
+    group_id = request.POST.get("_acl_group_id")
+    if not group_id:
+        modeladmin.message_user(request, "اختر Group ثم اضغط تنفيذ.")
+        return
+    group = Group.objects.get(pk=group_id)
+    cnt = 0
+    for obj in queryset:
+        grant_access(obj, group=group, view=True)  # تعديل/حذف إن رغبت
+        cnt += 1
+    modeladmin.message_user(request, f"تم منح عرض لـ{cnt} سجل.")
+
+grant_view_to_group.short_description = "Grant VIEW to selected → Group"
+
+def revoke_group_access(modeladmin, request, queryset):
+    from base.acl_service import revoke_access
+    group_id = request.POST.get("_acl_group_id")
+    if not group_id:
+        modeladmin.message_user(request, "اختر Group ثم اضغط تنفيذ.")
+        return
+    group = Group.objects.get(pk=group_id)
+    cnt = 0
+    for obj in queryset:
+        revoke_access(obj, group=group)
+        cnt += 1
+    modeladmin.message_user(request, f"تم سحب الصلاحيات من {cnt} سجل.")
+
+revoke_group_access.short_description = "Revoke ALL ACL from selected ← Group"
+
+# مكسن صغير يضيف فورم اختيار الجروب أعلى صفحة الأكشن
+class ACLBulkMixin:
+    change_list_template = "admin/change_list_with_acl_toolbar.html"
+    actions = [grant_view_to_group, revoke_group_access]  # أضف أكشنات أخرى عند الحاجة
+
+    def changelist_view(self, request, extra_context=None):
+        extra_context = extra_context or {}
+        extra_context["acl_groups"] = Group.objects.all()
+        return super().changelist_view(request, extra_context=extra_context)
+
+
 
 
 # ------------------------------------------------------------
@@ -244,3 +306,5 @@ class UserAdmin(UnscopedAdminMixin, HideAuditFieldsMixin, DjangoUserAdmin):
 # ------------------------------------------------------------
 # قيمة العرض الافتراضية للحقل الفارغ
 admin.site.empty_value_display = "—"
+
+

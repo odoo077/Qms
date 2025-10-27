@@ -16,6 +16,7 @@ from django.utils.html import format_html
 from base.admin_mixins import AppAdmin
 from . import models
 from xfields.admin import XValueInline
+from base.admin import ObjectACLInline
 
 
 # ------------------------------------------------------------
@@ -266,7 +267,8 @@ class EmployeeAdmin(AppAdmin):
     form = EmployeeAdminForm
 
     readonly_fields = ("work_contact_display",)
-    inlines = (*getattr(AppAdmin, "inlines", ()), XValueInline)
+    inlines = (ObjectACLInline, XValueInline)
+
 
     # روابط سريعة
     def user_link(self, obj):

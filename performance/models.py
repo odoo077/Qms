@@ -9,6 +9,7 @@
 from django.db import models, transaction
 from django.core.exceptions import ValidationError
 from django.utils import timezone
+from base.acl import AccessControlledMixin
 
 # مكسينات أساسية موحّدة في المشروع
 from base.models import (
@@ -30,7 +31,7 @@ from performance.services import (
 # ------------------------------------------------------------
 # Task
 # ------------------------------------------------------------
-class Task(TimeStampedMixin, UserStampedMixin, ActivableMixin):
+class Task(AccessControlledMixin,TimeStampedMixin, UserStampedMixin, ActivableMixin):
     """
     مهام تنفيذية تحت Objective (قد ترتبط بـ KPI).
     """
@@ -95,7 +96,7 @@ class Task(TimeStampedMixin, UserStampedMixin, ActivableMixin):
 # ------------------------------------------------------------
 # KPI
 # ------------------------------------------------------------
-class KPI(TimeStampedMixin, UserStampedMixin, ActivableMixin):
+class KPI(AccessControlledMixin, TimeStampedMixin, UserStampedMixin, ActivableMixin):
     """
     مؤشر أداء رئيسي داخل Objective، مع تخزين نتائج attainment/score.
     """
@@ -192,7 +193,7 @@ class KPI(TimeStampedMixin, UserStampedMixin, ActivableMixin):
 # ------------------------------------------------------------
 # Objective
 # ------------------------------------------------------------
-class Objective(CompanyOwnedMixin, TimeStampedMixin, UserStampedMixin, ActivableMixin):
+class Objective(AccessControlledMixin, CompanyOwnedMixin, TimeStampedMixin, UserStampedMixin, ActivableMixin):
     """
     الهدف: وعاء KPIs/Tasks + تجميع progress/score + مادة للمشاركين.
     """
@@ -388,7 +389,7 @@ class ObjectiveParticipant(TimeStampedMixin):
 # ------------------------------------------------------------
 # Evaluation Template / Parameters / Results
 # ------------------------------------------------------------
-class EvaluationTemplate(TimeStampedMixin, UserStampedMixin, ActivableMixin):
+class EvaluationTemplate(AccessControlledMixin, TimeStampedMixin, UserStampedMixin, ActivableMixin):
     """
     قالب تقييم رسمي (مثال: Call Center Q1 Form) يُستَخدم لبناء تقييمات لموظفين.
     """
@@ -414,7 +415,7 @@ class EvaluationTemplate(TimeStampedMixin, UserStampedMixin, ActivableMixin):
         return self.name
 
 
-class EvaluationParameter(TimeStampedMixin, UserStampedMixin):
+class EvaluationParameter(AccessControlledMixin, TimeStampedMixin, UserStampedMixin):
     """
     صف/معامل داخل القالب.
     يدعم مصادر متعددة: Objective/KPI/Tasks/External/Manual.
@@ -464,7 +465,7 @@ class EvaluationParameter(TimeStampedMixin, UserStampedMixin):
         return f"{self.template.name}: {self.name} ({self.weight_pct}%)"
 
 
-class EvaluationParameterResult(TimeStampedMixin, UserStampedMixin):
+class EvaluationParameterResult(AccessControlledMixin, TimeStampedMixin, UserStampedMixin):
     """
     نتيجة مُحتسبة لمعامل واحد ضمن تقييم معيّن.
     - raw_value: قيمة المصدر (رقم/JSON)
@@ -490,7 +491,7 @@ class EvaluationParameterResult(TimeStampedMixin, UserStampedMixin):
 # ------------------------------------------------------------
 # Evaluation
 # ------------------------------------------------------------
-class Evaluation(CompanyOwnedMixin, TimeStampedMixin, UserStampedMixin, ActivableMixin):
+class Evaluation(AccessControlledMixin, CompanyOwnedMixin, TimeStampedMixin, UserStampedMixin, ActivableMixin):
     """
     تقييم نهاية فترة لموظّف، مرتبط بقالب، ويُنتج نتائج معاملات ودرجة نهائية.
     """

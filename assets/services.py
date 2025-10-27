@@ -13,7 +13,7 @@ from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.core.exceptions import ValidationError
 
-from guardian.shortcuts import assign_perm, remove_perm
+from base.acl_service import grant_access, revoke_access
 
 from . import models as m
 
@@ -27,22 +27,19 @@ User = get_user_model()
 
 def grant_default_object_perms(asset: m.Asset, users: Iterable[User]) -> None:
     """
-    منح الصلاحيات الافتراضية لمجموعة مستخدمين على أصل معيّن.
+    منح الصلاحيات الافتراضية لمجموعة مستخدمين على أصل معيّن عبر نظام الـACL.
     """
     for u in users:
-        assign_perm("view_asset", u, asset)
-        assign_perm("change_asset", u, asset)
-        assign_perm("delete_asset", u, asset)
+        grant_access(asset, user=u, view=True, change=True, delete=True)
 
 
 def revoke_all_object_perms(asset: m.Asset, users: Iterable[User]) -> None:
     """
-    سحب جميع صلاحيات الكائن للمستخدمين المحددين.
+    سحب جميع صلاحيات الكائن (يحذف ACE) للمستخدمين المحددين.
     """
     for u in users:
-        remove_perm("view_asset", u, asset)
-        remove_perm("change_asset", u, asset)
-        remove_perm("delete_asset", u, asset)
+        revoke_access(asset, user=u)  # حذف السطر بالكامل للمستخدم
+
 
 
 # ------------------------------------------------------------

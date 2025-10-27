@@ -1,28 +1,283 @@
-# base/acl_service.py
+# base/acl_service.py  (FULL REWRITE to match the new base/acl.py)
 from __future__ import annotations
+from typing import Iterable, Optional, Sequence, Tuple
+
 from django.contrib.contenttypes.models import ContentType
-from .acl import ObjectACL
+from django.db.models import Q
 
-def grant_access(obj, *, user=None, group=None, view=True, change=False, delete=False, active=True, company=None):
-    """
-    امنح/حدّث ACE على سجل.
-    """
-    ct = ContentType.objects.get_for_model(obj, for_concrete_model=False)
-    return ObjectACL.objects.update_or_create(
-        content_type=ct, object_id=obj.pk, user=user, group=group,
-        defaults=dict(can_view=view, can_change=change, can_delete=delete, active=active, company=company),
-    )[0]
+from .acl import ObjectACL, CORE_PERMS
 
-def revoke_access(obj, *, user=None, group=None):
+# --------------------------------------------------------------------------------------
+# ملاحظات سريعة:
+# - يدعم منح/تعديل/سحب صلاحيات أساسية (view/change/delete/share/approve/assign/comment/export/rate/attach)
+#   + صلاحيات إضافية مفتوحة عبر extra_perms (قائمة أسماء نصية) بدون ترقية سكيما لاحقًا.
+# - grant_access: يحدّث أو ينشئ ACE ويُعدّل فقط الأعلام التي تم تمريرها (غير None) ويدمج extras.
+# - revoke_access: يحذف ACE بالكامل (ل principal معيّن) أو يسحب صلاحيات معيّنة فقط دون حذف السطر.
+# - has_perm: يفحص صلاحية على سجل لمستخدم (يشمل مجموعاته)، يعتمد الـACL فقط (بدون منطق الشركة).
+#   للفلترة بالسياق الكامل (شركة/خصوصية/مشاركة) استعمل QuerySet.with_acl(...) كما في acl.py.
+# - list_access: يرجع جميع ACEs الخاصة بالسجل.
+# --------------------------------------------------------------------------------------
+
+
+# خريطة الاسم → اسم الحقل البولياني في نموذج الـACL
+_CORE_FLAG_BY_NAME = ObjectACL.CORE_FLAG_BY_NAME  # نفس المعجم المعرّف داخل ObjectACL
+
+
+def _ct_and_pk(obj) -> Tuple[ContentType, int]:
+    return ContentType.objects.get_for_model(obj, for_concrete_model=False), obj.pk
+
+
+def _principal_filter(user=None, group=None) -> Q:
+    q = Q()
+    if user is not None:
+        q &= Q(user=user)
+    if group is not None:
+        q &= Q(group=group)
+    return q
+
+
+def _normalize_extras(extras: Optional[Iterable[str]]) -> list[str]:
+    if not extras:
+        return []
+    out: set[str] = set()
+    for x in extras:
+        x = (x or "").strip().lower()
+        if x:
+            out.add(x)
+    return sorted(out)
+
+
+# ======================================================================================
+# واجهات المنح/السحب
+# ======================================================================================
+
+def grant_access(
+    obj,
+    *,
+    user=None,
+    group=None,
+    # الأعلام الأساسية (مرّر None لترك القيمة كما هي، و True/False لضبطها)
+    view: Optional[bool] = None,
+    change: Optional[bool] = None,
+    delete: Optional[bool] = None,
+    share: Optional[bool] = None,
+    approve: Optional[bool] = None,
+    assign: Optional[bool] = None,
+    comment: Optional[bool] = None,
+    export: Optional[bool] = None,
+    rate: Optional[bool] = None,
+    attach: Optional[bool] = None,
+    # صلاحيات إضافية مفتوحة
+    extras: Optional[Iterable[str]] = None,
+    # إعدادات إدارية
+    active: Optional[bool] = None,
+    company=None,
+):
     """
-    ألغِ ACE الخاص بالمستخدم/المجموعة على السجل.
+    امنح/حدّث ACE على سجل محدّد (update_or_create):
+      - يضبط فقط الأعلام التي تم تمريرها (غير None).
+      - يدمج extra_perms دون تكرار.
+      - لا يلمس الأعلام غير الممرّرة.
     """
-    ct = ContentType.objects.get_for_model(obj, for_concrete_model=False)
-    return ObjectACL.objects.filter(content_type=ct, object_id=obj.pk, user=user, group=group).delete()
+    ct, pk = _ct_and_pk(obj)
+
+    ace, created = ObjectACL.objects.get_or_create(
+        content_type=ct,
+        object_id=pk,
+        user=user,
+        group=group,
+        defaults={
+            # افتراضيات آمنة عند الإنشاء؛ سيتم تعديلها أدناه حسب ما تم تمريره
+            "active": True if active is None else bool(active),
+            "company": company,
+        },
+    )
+
+    # اضبط الأعلام الأساسية التي تم تمريرها فقط
+    core_updates = {
+        "can_view": view, "can_change": change, "can_delete": delete,
+        "can_share": share, "can_approve": approve, "can_assign": assign,
+        "can_comment": comment, "can_export": export, "can_rate": rate, "can_attach": attach,
+    }
+    for field_name, maybe_value in core_updates.items():
+        if maybe_value is not None:
+            setattr(ace, field_name, bool(maybe_value))
+
+    # دمج extra_perms
+    new_extras = _normalize_extras(extras)
+    if new_extras:
+        current = set(ace.extra_perms or [])
+        current.update(new_extras)
+        ace.extra_perms = sorted(current)
+
+    # active / company
+    if active is not None:
+        ace.active = bool(active)
+    if company is not None:
+        ace.company = company
+
+    ace.save()
+    return ace
+
+
+def revoke_access(
+    obj,
+    *,
+    user=None,
+    group=None,
+    only: Optional[Sequence[str]] = None,
+    keep_row_if_empty: bool = False,
+):
+    """
+    اسحب الوصول:
+      - إن لم تُمرَّر 'only' → يُحذف ACE بالكامل (لـ user/group).
+      - إن مُرِّرت 'only' → تُسحب صلاحيات محدّدة فقط (core/extra)،
+        وإذا أصبح السطر بلا أي صلاحية:
+          - يحذف السطر كليًا، إلا إذا keep_row_if_empty=True فيُترك بلا صلاحيات.
+    """
+    ct, pk = _ct_and_pk(obj)
+    qs = ObjectACL.objects.filter(content_type=ct, object_id=pk).filter(_principal_filter(user, group))
+    if not only:
+        # حذف ACE بالكامل
+        return qs.delete()
+
+    # سحب صلاحيات محددة فقط
+    names = [(n or "").strip().lower() for n in only if (n or "").strip()]
+    for ace in qs:
+        # اسحب الأعلام الأساسية
+        for name in names:
+            flag = _CORE_FLAG_BY_NAME.get(name)
+            if flag:
+                setattr(ace, flag, False)
+
+        # اسحب من extras
+        if ace.extra_perms:
+            ace.extra_perms = sorted(x for x in ace.extra_perms if x not in names)
+
+        # هل بقي أي صلاحية؟
+        still_has = (
+            ace.can_view or ace.can_change or ace.can_delete or ace.can_share or
+            ace.can_approve or ace.can_assign or ace.can_comment or ace.can_export or
+            ace.can_rate or ace.can_attach or bool(ace.extra_perms)
+        )
+        if still_has or keep_row_if_empty:
+            ace.save()
+        else:
+            ace.delete()
+    return None
+
+
+# ======================================================================================
+# الفحص والقوائم
+# ======================================================================================
+
+def has_perm(obj, user, action: str) -> bool:
+    """
+    فحص صلاحية كائنية عبر الـACL فقط (لا يشمل سكوب الشركة/الخصوصية).
+    للفلترة بحسب الشركة/الخصوصية استخدم QuerySet.with_acl(..) كما في base/acl.py.
+    """
+    if not user or not getattr(user, "is_authenticated", False):
+        return False
+    if getattr(user, "is_superuser", False):
+        return True
+
+    action = (action or "").strip().lower()
+    ct, pk = _ct_and_pk(obj)
+
+    # مجموعات المستخدم
+    group_ids = list(user.groups.values_list("id", flat=True))
+
+    # بنية استعلام ACE
+    q = Q(content_type=ct, object_id=pk, active=True) & (Q(user=user) | Q(group_id__in=group_ids))
+
+    flag, extra = ObjectACL.normalize_action(action)  # يعالج الأسماء الأساسية + extras
+    if flag:
+        q &= Q(**{flag: True})
+    else:
+        q &= Q(extra_perms__contains=[extra])
+
+    return ObjectACL.objects.filter(q).exists()
+
 
 def list_access(obj):
     """
-    أعِد جميع ACEs على السجل.
+    جميع ACEs الخاصة بالسجل.
     """
-    ct = ContentType.objects.get_for_model(obj, for_concrete_model=False)
-    return ObjectACL.objects.filter(content_type=ct, object_id=obj.pk)
+    ct, pk = _ct_and_pk(obj)
+    return ObjectACL.objects.filter(content_type=ct, object_id=pk)
+
+
+# ======================================================================================
+# مُساعِدات عملية (اختيارية) للسيناريوهات المتكررة
+# ======================================================================================
+
+def set_access(
+    obj,
+    *,
+    user=None,
+    group=None,
+    # مجموعة أسماء صلاحيات (أساسية/موسّعة). مثال: ["view", "change", "approve", "escalate"]
+    perms: Optional[Iterable[str]] = None,
+    active: Optional[bool] = None,
+    company=None,
+):
+    """
+    يضبط مجموعة صلاحيات معيّنة دفعة واحدة (يُفعّل المذكور ويُبطّل غير المذكور كلها)،
+    مع الحفاظ على السطر نفسه.
+    """
+    ct, pk = _ct_and_pk(obj)
+    ace, _ = ObjectACL.objects.get_or_create(
+        content_type=ct,
+        object_id=pk,
+        user=user,
+        group=group,
+        defaults={"active": True if active is None else bool(active), "company": company},
+    )
+
+    # أعلام أساسية → False ثم True لما هو مطلوب
+    for flag in _CORE_FLAG_BY_NAME.values():
+        setattr(ace, flag, False)
+
+    extras_set = set()
+
+    if perms:
+        for name in perms:
+            name = (name or "").strip().lower()
+            if not name:
+                continue
+            flag = _CORE_FLAG_BY_NAME.get(name)
+            if flag:
+                setattr(ace, flag, True)
+            else:
+                extras_set.add(name)
+
+    ace.extra_perms = sorted(extras_set)
+
+    if active is not None:
+        ace.active = bool(active)
+    if company is not None:
+        ace.company = company
+
+    ace.save()
+    return ace
+
+
+def grant_bulk(objs: Iterable, *, user=None, group=None, perms: Iterable[str] | None = None):
+    """
+    منح مجموعة صلاحيات لأكثر من سجل دفعة واحدة.
+    """
+    perms = list(perms or [])
+    core_kwargs = {}
+    extras: list[str] = []
+    for p in perms:
+        p = (p or "").strip().lower()
+        if not p:
+            continue
+        flag = _CORE_FLAG_BY_NAME.get(p)
+        if flag:
+            core_kwargs[flag.replace("can_", "")] = True  # "can_view" → view=True
+        else:
+            extras.append(p)
+
+    for obj in objs:
+        grant_access(obj, user=user, group=group, extras=extras, **core_kwargs)

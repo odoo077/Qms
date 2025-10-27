@@ -10,6 +10,8 @@
 
 from django.contrib import admin, messages
 from django.utils.translation import gettext_lazy as _
+
+from base.admin import ObjectACLInline
 from base.admin_mixins import AppAdmin  # ✅ الميكسن النهائي للاستثناء من صلاحيات الكائن
 from . import models as m
 
@@ -58,6 +60,8 @@ class AssetCategoryAdmin(AppAdmin):
 
 @admin.register(m.Asset)
 class AssetAdmin(AppAdmin):
+
+    inlines = [ObjectACLInline]
 
     """
     إدارة الأصول (assets.asset)

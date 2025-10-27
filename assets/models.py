@@ -7,6 +7,8 @@
 from django.db import models
 from django.conf import settings
 from django.utils.translation import gettext_lazy as _
+from base.acl import AccessControlledMixin
+
 
 COMPANY_MODEL = "base.Company"
 EMPLOYEE_MODEL = "hr.Employee"
@@ -70,7 +72,7 @@ class AssetCategory(models.Model):
 # Asset
 # ============================================================
 
-class Asset(models.Model):
+class Asset(AccessControlledMixin, models.Model):
     """
     الأصول – يمثل الأصل الرئيسي كما في Odoo
     """
