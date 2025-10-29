@@ -75,8 +75,8 @@ def filter_by_xfield(qs: QuerySet, code: str, value, company_id: int | None = No
     ct = ContentType.objects.get_for_model(model)
     xf = _get_field(ct, code, company_id)
     if not xf:
-        # لا يوجد تعريف → لا ترشيح
-        return qs.none()
+        # لا يوجد تعريف → نُبقي الاستعلام كما هو (بدون ترشيح)
+        return qs
 
     # بناء ترشيح حسب نوع الحقل
     filter_kwargs = {

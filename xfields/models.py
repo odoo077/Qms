@@ -145,6 +145,11 @@ class XValue(models.Model):
 
     def clean(self):
         super().clean()
+
+        # إذا لم تُحدد content_type بعد (داخل Inline قبل الحفظ) → تخطّ الفحص
+        if not getattr(self, "content_type_id", None):
+            return
+
         # تحقق من required
         if self.field.required:
             if self.field.field_type in (XField.FIELD_MULTI, XField.FIELD_CHOICE):
@@ -154,7 +159,7 @@ class XValue(models.Model):
                 if (self.value is None) or (self.value == ""):
                     raise ValidationError({"value": _("This field is required.")})
 
-        # تحقق من خيارات الحقول للأنواع القائمة على الاختيارات
+        # تحقق من خيارات الحقول للأنواع choice/multi_choice
         if self.field.field_type in (XField.FIELD_CHOICE, XField.FIELD_MULTI) and self.json_value:
             allowed = set(self.field.options.values_list("value", flat=True))
             picked = set(self.json_value or [])
@@ -162,18 +167,17 @@ class XValue(models.Model):
             if illegal:
                 raise ValidationError({"json_value": _(f"Invalid options: {sorted(illegal)}")})
 
-        # ✅ ضمان سجل واحد لكل (field, content_type, object_id)
-        #   (نخزّن التعدد داخل json_value وليس كسجلات متعددة)
-        qs = type(self).objects.filter(
-            field=self.field,
-            content_type=self.content_type,
-            object_id=self.object_id,
-        )
-        if self.pk:
-            qs = qs.exclude(pk=self.pk)
-        if qs.exists():
-            raise ValidationError(_("Only one value record is allowed for this field on this object."))
-
+        # السماح بسجل واحد لكل (field, content_type, object_id)
+        if self.content_type_id and self.object_id:
+            qs = type(self).objects.filter(
+                field=self.field,
+                content_type=self.content_type,
+                object_id=self.object_id,
+            )
+            if self.pk:
+                qs = qs.exclude(pk=self.pk)
+            if qs.exists():
+                raise ValidationError(_("Only one value record is allowed for this field on this object."))
 
     # --------------------------
     # إدارة القيمة كسمة واحدة
@@ -198,6 +202,20 @@ class XValue(models.Model):
         if t in (XField.FIELD_CHOICE, XField.FIELD_MULTI):
             return self.json_value
         return self.json_value
+
+
+    def short_value(self) -> str:
+        """
+        عرض مختصر للقيمة — مفيد للأدمن (يتعامل مع النص/العدد/القائمة/JSON).
+        """
+        v = self.value
+        if isinstance(v, (list, dict)):
+            import json as _json
+            s = _json.dumps(v, ensure_ascii=False)
+        else:
+            s = "" if v is None else str(v)
+        return (s[:100] + "…") if len(s) > 100 else s
+
 
     @value.setter
     def value(self, v):
@@ -239,25 +257,6 @@ class XValue(models.Model):
                     self.json_value = list(v) if not isinstance(v, list) else v
         else:
             self.json_value = v
-
-    def clean(self):
-        super().clean()
-        # تحقق من required
-        if self.field.required:
-            if self.field.field_type in (XField.FIELD_MULTI, XField.FIELD_CHOICE):
-                if not self.json_value:
-                    raise ValidationError({"json_value": _("This field is required.")})
-            else:
-                if (self.value is None) or (self.value == ""):
-                    raise ValidationError({"value": _("This field is required.")})
-
-        # تحقق من خيارات الحقول للأنواع choice/multi_choice
-        if self.field.field_type in (XField.FIELD_CHOICE, XField.FIELD_MULTI) and self.json_value:
-            allowed = set(self.field.options.values_list("value", flat=True))
-            picked = set(self.json_value or [])
-            illegal = picked - allowed
-            if illegal:
-                raise ValidationError({"json_value": _(f"Invalid options: {sorted(illegal)}")})
 
     def __str__(self):
         return f"{self.field.code}={self.value} → {self.content_type.app_label}.{self.content_type.model}#{self.object_id}"
