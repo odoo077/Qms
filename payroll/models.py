@@ -64,6 +64,16 @@ class PayrollPeriod(TimeStampedMixin):
         unique_together = [("company", "month", "year")]
         ordering = ["-year", "-month"]
         indexes = [models.Index(fields=["company", "year", "month", "state"])]
+        constraints = [
+            models.CheckConstraint(
+                name="chk_payroll_period_dates",
+                check=models.Q(date_from__lte=models.F("date_to")),
+            ),
+            models.CheckConstraint(
+                name="chk_payroll_period_month_1_12",
+                check=models.Q(month__gte=1, month__lte=12),
+            ),
+        ]
 
     def __str__(self):
         return f"{self.company} {self.year}-{self.month:02d} ({self.state})"
@@ -101,7 +111,19 @@ class Payslip(TimeStampedMixin):
         indexes = [
             models.Index(fields=["company", "period", "employee", "state"]),
             models.Index(fields=["company", "period", "department"]),
+            models.Index(fields=["employee", "period"], name="pay_ps_emp_per_idx"),
         ]
+
+    def clean(self):
+        super().clean()
+        # company ↔ period.company
+        if self.period_id and self.company_id:
+            if self.period.company_id != self.company_id:
+                raise ValidationError({"company": "Company must match the payslip period company."})
+        # company ↔ employee.company
+        if self.employee_id and self.company_id:
+            if self.employee.company_id != self.company_id:
+                raise ValidationError({"company": "Company must match the employee company."})
 
     # ---- تجميع الأرقام من السطور ----
     def _compute_totals(self):
@@ -122,21 +144,6 @@ class Payslip(TimeStampedMixin):
             type(self).objects.filter(pk=self.pk).update(
                 basic=b, allowances=a, deductions=d, net=n
             )
-
-    def save(self, *args, **kwargs):
-        # سنابشوت القسم/الوظيفة + أمان الشركة
-        if self.employee and not self.department_id:
-            self.department = self.employee.department
-        if self.employee and not self.job_id:
-            self.job = self.employee.job
-        if self.employee and self.employee.company_id != self.company_id:
-            self.company_id = self.employee.company_id
-
-        # حفظ الهيدر أولًا للحصول على PK
-        super().save(*args, **kwargs)
-
-        # بعد الحفظ: احسب وحدث المجاميع عبر UPDATE مباشر (بدون save() لتفادي recursion)
-        self.recompute(persist=True)
 
     def __str__(self):
         return f"Payslip {self.employee} {self.period} [{self.state}]"
@@ -235,6 +242,26 @@ class EmployeeSalary(TimeStampedMixin):
             raise ValidationError("date_end must be >= date_start")
         if self.employee.company_id != self.company_id:
             raise ValidationError("Company must match the employee company.")
+
+        # ❗ منع تداخل فترات الرواتب لنفس الموظف
+        from django.db.models import Q
+        qs = type(self)._base_manager.filter(
+            employee=self.employee, company=self.company
+        )
+        if self.pk:
+            qs = qs.exclude(pk=self.pk)
+
+        # نعامل null كـ open-ended حتى تاريخ السجل الآخر
+        start = self.date_start
+        end = self.date_end
+
+        overlaps = qs.filter(
+            Q(date_end__isnull=True, date_start__lte=end or self.date_start) |
+            Q(date_end__isnull=False, date_start__lte=(end or models.F("date_end")), date_end__gte=start)
+        ).exists()
+
+        if overlaps:
+            raise ValidationError("Another salary period overlaps this range for the same employee.")
 
     def __str__(self):
         return f"{self.employee} - {self.amount} ({self.date_start} → {self.date_end or 'open'})"

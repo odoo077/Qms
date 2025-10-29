@@ -18,12 +18,13 @@ User = get_user_model()
 
 @receiver(pre_save, sender=m.AssetCategory)
 def _cat_update_parent_path(sender, instance: m.AssetCategory, **kwargs):
-    """
-    تحديث parent_path للفئة عند الحفظ (منطق بسيط مستوحى من Odoo).
-    """
     if instance.parent_id:
-        # parent_path = مسار الأب + معرف الأب + '/'
-        prefix = (instance.parent.parent_path if instance.parent and instance.parent.parent_path else "")
+        # اجلب parent_path من DB لضمان التوفر
+        try:
+            parent = m.AssetCategory.objects.only("id", "parent_path").get(pk=instance.parent_id)
+            prefix = parent.parent_path or ""
+        except m.AssetCategory.DoesNotExist:
+            prefix = ""
         instance.parent_path = f"{prefix}{instance.parent_id}/"
     else:
         instance.parent_path = ""

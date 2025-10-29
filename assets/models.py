@@ -133,34 +133,38 @@ class Asset(AccessControlledMixin, models.Model):
     # Validations (human-friendly admin errors)
     # ------------------------------------------------------------
     def clean(self):
-        """
-        عرض رسالة واضحة للمستخدم الإداري بدل رسالة قاعدة البيانات
-        عندما تكون الحالة 'Assigned' بدون حامل، أو العكس.
-        """
         from django.core.exceptions import ValidationError
+        super().clean()
 
-        # حالة "Assigned" تتطلب وجود حامل
+        errors = {}
+
+        # 1) منطق الحالة ↔ الحامل
         if self.status == self.Status.ASSIGNED and not self.holder_id:
-            raise ValidationError({
-                "holder": "You must select a holder when status is ‘Assigned’."
-            })
-
-        # إن كانت الحالة ليست "Assigned" فلا يجوز وجود حامل
+            errors["holder"] = "You must select a holder when status is ‘Assigned’."
         if self.status != self.Status.ASSIGNED and self.holder_id:
-            raise ValidationError({
-                "holder": "Holder can only be set when status is ‘Assigned’."
-            })
+            errors["holder"] = "Holder can only be set when status is ‘Assigned’."
 
-        # شركات الحقول المرتبطة يجب أن تطابق شركة الأصل (رسالة ودية)
-        if self.category_id and getattr(self.category, "company_id", None) and self.category.company_id != self.company_id:
-            raise ValidationError({"category": "Category must belong to the same company as the asset."})
+        # 2) اتساق الشركة عبر العلاقات
+        if self.category_id and getattr(self.category, "company_id",
+                                        None) and self.category.company_id != self.company_id:
+            errors["category"] = "Category must belong to the same company as the asset."
 
-        if self.department_id and getattr(self.department, "company_id", None) and self.department.company_id != self.company_id:
-            raise ValidationError({"department": "Department must belong to the same company as the asset."})
+        if self.department_id and getattr(self.department, "company_id",
+                                          None) and self.department.company_id != self.company_id:
+            errors["department"] = "Department must belong to the same company as the asset."
 
         if self.holder_id and getattr(self.holder, "company_id", None) and self.holder.company_id != self.company_id:
-            raise ValidationError({"holder": "Holder must belong to the same company as the asset."})
+            errors["holder"] = "Holder must belong to the same company as the asset."
 
+        # 3) Parent: منع self-reference + اتساق الشركة
+        if self.parent_id:
+            if self.parent_id == self.pk:
+                errors["parent"] = "Asset cannot be its own parent."
+            elif getattr(self.parent, "company_id", None) and self.parent.company_id != self.company_id:
+                errors["parent"] = "Parent asset must belong to the same company as the asset."
+
+        if errors:
+            raise ValidationError(errors)
 
 
     class Meta:
@@ -175,14 +179,13 @@ class Asset(AccessControlledMixin, models.Model):
             models.UniqueConstraint(
                 fields=["company", "serial"],
                 name="as_ast_comp_serial_uniq",
-                condition=models.Q(serial__isnull=False),
+                # يطابق سلوك Odoo: التفرد على القيم الحقيقية فقط، ويمنع إدخالات خادعة بـ "".
+                condition=models.Q(serial__isnull=False) & ~models.Q(serial=""),
             ),
-            # ✅ الحالة Assigned يجب أن يكون لها حامل، أو أي حالة أخرى بدون حامل
             models.CheckConstraint(
                 name="as_ast_status_holder_chk",
                 check=models.Q(status="assigned", holder__isnull=False) | ~models.Q(status="assigned"),
             ),
-
         ]
         ordering = ("company_id", "name", "code")
 

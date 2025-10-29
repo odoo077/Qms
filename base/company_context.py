@@ -59,8 +59,9 @@ def bootstrap_from_request(request) -> None:
             current = sess_company_id
 
         # 3) تفضيل المستخدم (UserSettings.default_company)
-        if current is None and hasattr(user, "usersettings") and user.usersettings and user.usersettings.default_company_id:
-            default_id = _coerce_int(user.usersettings.default_company_id)
+        settings = getattr(user, "settings", None)
+        if current is None and settings and getattr(settings, "default_company_id", None):
+            default_id = _coerce_int(settings.default_company_id)
             if default_id and (is_super or default_id in allowed):
                 current = default_id
 

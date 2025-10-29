@@ -85,6 +85,9 @@ class Task(AccessControlledMixin,TimeStampedMixin, UserStampedMixin, ActivableMi
             raise ValidationError({"kpi": "KPI must belong to the same Objective."})
         if self.assignee and self.assignee.company_id != self.company_id:
             raise ValidationError({"assignee": "Assignee must belong to the same company."})
+        if self.kpi and self.kpi.company_id != self.company_id:
+            raise ValidationError({"kpi": "KPI must belong to the same company."})
+
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
@@ -139,6 +142,14 @@ class KPI(AccessControlledMixin, TimeStampedMixin, UserStampedMixin, ActivableMi
             models.CheckConstraint(
                 check=models.Q(weight_pct__gte=0, weight_pct__lte=100),
                 name="chk_kpi_weight_0_100",
+            ),
+            models.CheckConstraint(
+                check=models.Q(attainment_pct__gte=0, attainment_pct__lte=200),
+                name="chk_kpi_att_0_200",
+            ),
+            models.CheckConstraint(
+                check=models.Q(score_pct__gte=0, score_pct__lte=100),
+                name="chk_kpi_score_0_100",
             ),
         ]
         permissions = [
@@ -244,6 +255,14 @@ class Objective(AccessControlledMixin, CompanyOwnedMixin, TimeStampedMixin, User
                 name="uniq_objective_code_company_period",
                 condition=~models.Q(code=""),
             ),
+            models.CheckConstraint(
+                check=models.Q(progress_pct__gte=0, progress_pct__lte=100),
+                name="chk_objective_progress_0_100",
+            ),
+            models.CheckConstraint(
+                check=models.Q(score_pct__gte=0, score_pct__lte=100),
+                name="chk_objective_score_0_100",
+            ),
         ]
         permissions = [
             ("close_objective", "Can close/archive objective"),
@@ -343,9 +362,26 @@ class ObjectiveDepartmentAssignment(TimeStampedMixin, UserStampedMixin):
     department      = models.ForeignKey("hr.Department", on_delete=models.CASCADE, related_name="objective_assignments")
     include_children = models.BooleanField(default=True)
 
+    def clean(self):
+        super().clean()
+        # department.company == objective.company
+        if (
+            self.department_id
+            and self.objective_id
+            and getattr(self.department, "company_id", None) is not None
+            and getattr(self.objective, "company_id", None) is not None
+            and self.department.company_id != self.objective.company_id
+        ):
+            raise ValidationError({"department": "Department must belong to the same company as the Objective."})
+
     class Meta:
         db_table = "perf_objective_dept_assignment"
-        unique_together = [("objective", "department")]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["objective", "department"],
+                name="perf_obj_dept_uniq",
+            ),
+        ]
         indexes = [models.Index(fields=["objective", "department"])]
         permissions = [("manage_department_assignments", "Can manage department assignments")]
 
@@ -358,9 +394,26 @@ class ObjectiveEmployeeAssignment(TimeStampedMixin, UserStampedMixin):
     objective = models.ForeignKey("performance.Objective", on_delete=models.CASCADE, related_name="employee_assignments")
     employee  = models.ForeignKey("hr.Employee", on_delete=models.CASCADE, related_name="objective_assignments")
 
+    def clean(self):
+        super().clean()
+        # employee.company == objective.company
+        if (
+            self.employee_id
+            and self.objective_id
+            and getattr(self.employee, "company_id", None) is not None
+            and getattr(self.objective, "company_id", None) is not None
+            and self.employee.company_id != self.objective.company_id
+        ):
+            raise ValidationError({"employee": "Employee must belong to the same company as the Objective."})
+
     class Meta:
         db_table = "perf_objective_employee_assignment"
-        unique_together = [("objective", "employee")]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["objective", "employee"],
+                name="perf_obj_emp_uniq",
+            ),
+        ]
         indexes = [models.Index(fields=["objective", "employee"])]
         permissions = [("manage_employee_assignments", "Can manage employee assignments")]
 
@@ -376,9 +429,26 @@ class ObjectiveParticipant(TimeStampedMixin):
     objective = models.ForeignKey("performance.Objective", on_delete=models.CASCADE, related_name="participants")
     employee  = models.ForeignKey("hr.Employee", on_delete=models.CASCADE, related_name="objective_participations")
 
+    def clean(self):
+        super().clean()
+        # employee.company == objective.company
+        if (
+            self.employee_id
+            and self.objective_id
+            and getattr(self.employee, "company_id", None) is not None
+            and getattr(self.objective, "company_id", None) is not None
+            and self.employee.company_id != self.objective.company_id
+        ):
+            raise ValidationError({"employee": "Participant must belong to the same company as the Objective."})
+
     class Meta:
         db_table = "perf_objective_participant"
-        unique_together = [("objective", "employee")]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["objective", "employee"],
+                name="perf_obj_participant_uniq",
+            ),
+        ]
         indexes = [models.Index(fields=["employee", "objective"])]
         permissions = [("view_objective_participants", "Can view objective participants")]
 
@@ -450,6 +520,14 @@ class EvaluationParameter(AccessControlledMixin, TimeStampedMixin, UserStampedMi
     min_score_pct            = models.PositiveIntegerField(default=0)
     max_score_pct            = models.PositiveIntegerField(default=100)
 
+    def clean(self):
+        super().clean()
+        # نضمن أن المصدر (Objective/KPI) يتبع نفس شركة القالب
+        if self.objective and self.objective.company_id != self.template.company_id:
+            raise ValidationError({"objective": "Objective must belong to the same company as the Template."})
+        if self.kpi and self.kpi.company_id != self.template.company_id:
+            raise ValidationError({"kpi": "KPI must belong to the same company as the Template."})
+
     class Meta:
         db_table = "perf_evaluation_parameter"
         ordering = ["template", "name"]
@@ -457,9 +535,17 @@ class EvaluationParameter(AccessControlledMixin, TimeStampedMixin, UserStampedMi
             models.CheckConstraint(check=models.Q(weight_pct__gte=0, weight_pct__lte=100), name="chk_param_weight_0_100"),
             models.CheckConstraint(check=models.Q(min_score_pct__gte=0, min_score_pct__lte=100), name="chk_param_min_0_100"),
             models.CheckConstraint(check=models.Q(max_score_pct__gte=0, max_score_pct__lte=100), name="chk_param_max_0_100"),
+            models.CheckConstraint(
+                check=models.Q(min_score_pct__lte=models.F("max_score_pct")),
+                name="chk_param_min_le_max",
+            ),
+            models.UniqueConstraint(
+                fields=["template", "code"],
+                name="perf_param_template_code_uniq",
+                condition=~models.Q(code=""),
+            ),
         ]
         permissions = [("reorder_parameters", "Can reorder evaluation parameters")]
-        unique_together = [("template", "code")]
 
     def __str__(self):
         return f"{self.template.name}: {self.name} ({self.weight_pct}%)"
@@ -478,11 +564,27 @@ class EvaluationParameterResult(AccessControlledMixin, TimeStampedMixin, UserSta
     raw_value_json   = models.JSONField(null=True, blank=True)
     score_pct        = models.PositiveIntegerField(default=0)
 
+    def clean(self):
+        super().clean()
+        # parameter.template يجب أن يطابق evaluation.template (نفس القالب)
+        if self.parameter and self.evaluation and self.parameter.template_id != self.evaluation.template_id:
+            raise ValidationError({"parameter": "Parameter must belong to the same template as the Evaluation."})
+
+        # كما نضمن اتساق الشركة عبر (evaluation.company == parameter.template.company)
+        if self.parameter and self.evaluation and self.parameter.template.company_id != self.evaluation.company_id:
+            raise ValidationError({"parameter": "Parameter's Template company must match the Evaluation company."})
+
     class Meta:
         db_table = "perf_evaluation_parameter_result"
         unique_together = [("evaluation", "parameter")]
         indexes = [models.Index(fields=["evaluation", "parameter"])]
         permissions = [("rate_parameter_result", "Can rate parameter result")]
+        constraints = [
+            models.CheckConstraint(
+                check=models.Q(score_pct__gte=0, score_pct__lte=100),
+                name="chk_param_result_score_0_100",
+            ),
+        ]
 
     def __str__(self):
         return f"{self.evaluation} · {self.parameter.name}: {self.score_pct}%"
@@ -543,6 +645,10 @@ class Evaluation(AccessControlledMixin, CompanyOwnedMixin, TimeStampedMixin, Use
         constraints = [
             models.CheckConstraint(check=models.Q(date_start__lte=models.F("date_end")), name="chk_eval_dates"),
             models.UniqueConstraint(fields=["employee", "date_start", "date_end"], name="uniq_eval_employee_period"),
+            models.CheckConstraint(
+                check=models.Q(final_score_pct__gte=0, final_score_pct__lte=100),
+                name="chk_eval_final_0_100",
+            ),
         ]
         permissions = [
             ("submit_evaluation", "Can submit evaluation"),
@@ -561,6 +667,15 @@ class Evaluation(AccessControlledMixin, CompanyOwnedMixin, TimeStampedMixin, Use
             raise ValidationError({"employee": "Employee must belong to the same company."})
         if self.template and self.template.company_id != self.company_id:
             raise ValidationError({"template": "Template must belong to the same company."})
+        if self.evaluator and self.evaluator.company_id != self.company_id:
+            raise ValidationError({"evaluator": "Evaluator must belong to the same company."})
+        if self.submitted_by and self.submitted_by.company_id != self.company_id:
+            raise ValidationError({"submitted_by": "Submitted-by must belong to the same company."})
+        if self.calibrated_by and self.calibrated_by.company_id != self.company_id:
+            raise ValidationError({"calibrated_by": "Calibrated-by must belong to the same company."})
+        if self.approved_by and self.approved_by.company_id != self.company_id:
+            raise ValidationError({"approved_by": "Approved-by must belong to the same company."})
+
 
     # -------- Scoring Engine --------
     def _external_metric(self, param):

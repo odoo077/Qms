@@ -293,39 +293,8 @@ def bootstrap_user(sender, instance: User, created: bool, **kwargs):
 
 
 # ==========================================================
-# post_migrate — إنشاء مجموعات افتراضية + الشركة الرئيسية
+# post_migrate — الشركة الرئيسية
 # ==========================================================
-@receiver(post_migrate)
-def bootstrap_base_groups(sender, **kwargs):
-    """
-    إنشاء مجموعات افتراضية Odoo-like:
-      - Employees      : قراءة أساسية
-      - HR Officer     : قراءة + تعديل
-      - HR Manager     : جميع صلاحيات hr.*
-    ملاحظة: هذه الدالة لن تغيّر شيئًا إن لم توجد موديلات hr بعد الآن؛
-    تُستدعى ثانية بعد ترحيل تطبيق hr وتُضبط الأذونات عندها.
-    """
-    employees_group, _ = Group.objects.get_or_create(name="Employees")
-    hr_officer, _     = Group.objects.get_or_create(name="HR Officer")
-    hr_manager, _     = Group.objects.get_or_create(name="HR Manager")
-
-    # كل صلاحيات تطبيقات الموارد لاحقًا (إن وُجدت)
-    hr_perms = Permission.objects.filter(content_type__app_label__in=["hr", "employees", "performance"])
-
-    # HR Manager: كل شيء
-    if hr_perms.exists():
-        hr_manager.permissions.set(hr_perms)
-
-    # HR Officer: view + change فقط
-    officer_perms = hr_perms.filter(codename__regex=r"^(view_|change_)")
-    if officer_perms.exists():
-        hr_officer.permissions.set(officer_perms)
-
-    # Employees: view فقط
-    employee_perms = hr_perms.filter(codename__startswith="view_")
-    if employee_perms.exists():
-        employees_group.permissions.set(employee_perms)
-
 
 @receiver(post_migrate)
 def bootstrap_main_company(sender, **kwargs):

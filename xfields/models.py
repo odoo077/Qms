@@ -98,6 +98,12 @@ class XFieldOption(models.Model):
         db_table = "xf_field_option"
         unique_together = [("field", "value")]
         ordering = ["field", "sequence", "id"]
+        constraints = [
+            models.CheckConstraint(
+                name="xf_option_value_not_empty",
+                check=~models.Q(value=""),
+            ),
+        ]
 
     def __str__(self):
         return f"{self.field.code} :: {self.label} ({self.value})"

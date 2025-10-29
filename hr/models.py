@@ -406,11 +406,11 @@ class Employee(AccessControlledMixin, CompanyOwnedMixin, ActivableMixin, TimeSta
             models.Index(fields=["company", "barcode"], name="hr_emp_comp_barcode_idx"),
         ]
         constraints = [
-            # barcode فريد على مستوى النظام كله (مطابق لأودو)
+            # barcode فريد على مستوى النظام كله (مطابق لأودو) — نسمح بتكرار NULL و ""
             models.UniqueConstraint(
                 fields=["barcode"],
                 name="uniq_employee_barcode",
-                condition=models.Q(barcode__isnull=False),
+                condition=models.Q(barcode__isnull=False) & ~models.Q(barcode=""),
             ),
             models.CheckConstraint(
                 name="employee_manager_not_self",
@@ -420,16 +420,22 @@ class Employee(AccessControlledMixin, CompanyOwnedMixin, ActivableMixin, TimeSta
                 name="employee_coach_not_self",
                 check=~models.Q(pk=models.F("coach")),
             ),
+            # PIN فريد داخل الشركة — نسمح بتكرار NULL و ""
             models.UniqueConstraint(
                 fields=["company", "pin"],
                 name="uniq_employee_pin_per_company",
-                condition=models.Q(pin__gt=""),
+                condition=models.Q(pin__isnull=False) & ~models.Q(pin=""),
             ),
-            # (user, company) فريد داخل نفس الشركة فقط (مطابق لأودو)
+            # مستخدم واحد ↔ موظف واحد على مستوى النظام كله (الأقوى والأقرب لمنطق Odoo)
             models.UniqueConstraint(
-                fields=["company", "user"],
-                name="uniq_employee_user_per_company",
+                fields=["user"],
+                name="hr_employee_user_uniq",
                 condition=models.Q(user__isnull=False),
+            ),
+            models.UniqueConstraint(
+                fields=["work_contact"],
+                name="hr_employee_unique_work_contact",
+                condition=models.Q(work_contact__isnull=False),
             ),
         ]
         permissions = [
@@ -563,8 +569,8 @@ class Employee(AccessControlledMixin, CompanyOwnedMixin, ActivableMixin, TimeSta
     # --------- مساعدات ----------
     @property
     def current_skills(self):
-        from skills.models import HrEmployeeSkill
-        return HrEmployeeSkill.current_for_employee(self.id)
+        from skills.models import EmployeeSkill
+        return EmployeeSkill.current_for_employee(self.id)
 
     def __str__(self):
         return self.name
