@@ -207,6 +207,120 @@ class WorkLocation(CompanyOwnedMixin, ActivableMixin, TimeStampedMixin, UserStam
 
 
 # ------------------------------------------------------------
+# WorkShift / WorkShiftRule (Odoo-like resource.calendar)
+# ------------------------------------------------------------
+
+class WorkShift(CompanyOwnedMixin, ActivableMixin, TimeStampedMixin, UserStampedMixin, models.Model):
+    """
+    تقويم دوام (Shift/Calendar) على مستوى الشركة فقط (Company-level).
+    لا يوجد ربط على مستوى الأقسام.
+    """
+    name = models.CharField(max_length=255)
+    company = models.ForeignKey(
+        "base.Company",
+        on_delete=models.PROTECT,
+        related_name="work_shifts",
+    )
+
+    code = models.CharField(max_length=32, blank=True)
+    timezone = models.CharField(
+        max_length=64,
+        default="Asia/Baghdad",
+        help_text="IANA time zone (e.g., Asia/Baghdad)",
+    )
+    hours_per_day = models.DecimalField(max_digits=5, decimal_places=2, default=8)  # مرجع عام فقط
+    note = models.TextField(blank=True)
+
+    def clean(self):
+        super().clean()
+        # ساعات اليوم يجب أن تكون ضمن (0,24]
+        if self.hours_per_day is not None and (self.hours_per_day <= 0 or self.hours_per_day > 24):
+            raise ValidationError({"hours_per_day": "Hours per day must be within (0, 24]."})
+
+    def __str__(self):
+        comp = f"{self.company}" if getattr(self, "company", None) else "Company"
+        return f"{self.name} ({comp})"
+
+    class Meta:
+        db_table = "hr_work_shift"
+        indexes = [
+            models.Index(fields=["company", "active"], name="hr_ws_company_active_idx"),
+            models.Index(fields=["company", "name"], name="hr_ws_comp_name_idx"),
+        ]
+        constraints = [
+            # فريد داخل الشركة
+            models.UniqueConstraint(
+                fields=["company", "name"],
+                name="uniq_ws_company_name",
+            ),
+        ]
+        ordering = ("company", "name")
+
+class WorkShiftRule(TimeStampedMixin, UserStampedMixin, models.Model):
+    """
+    قاعدة يومية واحدة لكل يوم ضمن الشفت (Mon..Sun).
+    دعم "الشفت العابر لمنتصف الليل" عبر spans_next_day:
+      - مثال: start=16:30, end=01:00, spans_next_day=True
+    """
+    WEEKDAY = [(0,"Mon"),(1,"Tue"),(2,"Wed"),(3,"Thu"),(4,"Fri"),(5,"Sat"),(6,"Sun")]
+
+    shift = models.ForeignKey("hr.WorkShift", on_delete=models.CASCADE, related_name="rules")
+    weekday = models.PositiveSmallIntegerField(choices=WEEKDAY)
+    start_time = models.TimeField()
+    end_time = models.TimeField()
+    break_minutes = models.PositiveSmallIntegerField(default=0)
+    spans_next_day = models.BooleanField(default=False)  # يدعم عبور منتصف الليل
+
+    def clean(self):
+        super().clean()
+        if self.break_minutes < 0 or self.break_minutes > 600:
+            raise ValidationError({"break_minutes": "Break minutes must be between 0 and 600."})
+
+        if not self.spans_next_day:
+            # الحالة العادية: يجب أن يكون end > start
+            if self.start_time >= self.end_time:
+                raise ValidationError({"end_time": "End time must be greater than start time (same day)."})
+        else:
+            # العابر لمنتصف الليل: end_time قد يكون <= start_time، لكن لا يمكن أن يساوِيه
+            if self.start_time == self.end_time:
+                raise ValidationError({"end_time": "Overnight rule cannot have identical start/end times."})
+
+        if self.net_minutes <= 0:
+            raise ValidationError({"end_time": "Net working minutes must be positive."})
+
+    @property
+    def net_minutes(self) -> int:
+        """المدة الصافية لهذا اليوم (بالدقائق) = (المدة الكاملة - الاستراحة)، مع دعم overnight."""
+        s = self.start_time
+        e = self.end_time
+        if s is None or e is None:
+            return 0
+
+        s_tot = s.hour*60 + s.minute
+        e_tot = e.hour*60 + e.minute
+
+        if not self.spans_next_day:
+            total = e_tot - s_tot
+        else:
+            # مثال 16:30 → 01:00: المدة = (24*60 - s) + e
+            total = (24*60 - s_tot) + e_tot
+
+        return max(0, total - (self.break_minutes or 0))
+
+    def __str__(self):
+        tag = "↦+1d" if self.spans_next_day else ""
+        return f"{self.shift.name} · {self.get_weekday_display()} {self.start_time}-{self.end_time}{tag}"
+
+    class Meta:
+        db_table = "hr_work_shift_rule"
+        constraints = [
+            # قاعدة واحدة فقط لكل يوم داخل الشفت (بسيط وواضح)
+            models.UniqueConstraint(fields=["shift", "weekday"], name="uniq_rule_weekday_per_shift"),
+        ]
+        ordering = ("shift", "weekday", "start_time")
+
+
+# ------------------------------------------------------------
 # Job — مسمى وظيفي
 # ------------------------------------------------------------
 class Job(CompanyOwnedMixin, ActivableMixin, TimeStampedMixin, UserStampedMixin, models.Model):
@@ -276,6 +390,203 @@ class EmployeeCategory(TimeStampedMixin, UserStampedMixin, models.Model):
 
 
 # ------------------------------------------------------------
+# EmployeeSchedule / EmployeeDayOff (Odoo-like assignments & leaves)
+# ------------------------------------------------------------
+
+class EmployeeSchedule(ActivableMixin, TimeStampedMixin, UserStampedMixin, models.Model):
+    """
+    يربط الموظف بشفت ضمن فترة (من/إلى). يمنع التداخل التاريخي ويُلزم تطابق الشركة.
+    الآن يتضمن أيضًا العطلة الأسبوعية الثابتة (داخل نفس السجل) عبر weekly_off_mask.
+    """
+    # ثوابت البِتّات لأيام الأسبوع (Mon..Sun)
+    MON = 1 << 0  # 1
+    TUE = 1 << 1  # 2
+    WED = 1 << 2  # 4
+    THU = 1 << 3  # 8
+    FRI = 1 << 4  # 16
+    SAT = 1 << 5  # 32
+    SUN = 1 << 6  # 64
+    WEEKDAY_CHOICES = [(0,"Mon"),(1,"Tue"),(2,"Wed"),(3,"Thu"),(4,"Fri"),(5,"Sat"),(6,"Sun")]
+    WEEKDAY_TO_BIT = {0: MON, 1: TUE, 2: WED, 3: THU, 4: FRI, 5: SAT, 6: SUN}
+
+    employee   = models.ForeignKey("hr.Employee", on_delete=models.CASCADE, related_name="schedules")
+    shift      = models.ForeignKey("hr.WorkShift", on_delete=models.PROTECT, related_name="employee_schedules")
+    date_from  = models.DateField()
+    date_to    = models.DateField(null=True, blank=True)  # فترة مفتوحة ممكنة
+
+    # [NEW] أيام العطلة الأسبوعية لهذه الفترة (bitmask)
+    weekly_off_mask = models.PositiveSmallIntegerField(default=0, help_text="Weekly off days as bitmask (Mon..Sun)")
+
+    # ---------- أدوات مساعدة للـ mask ----------
+    @classmethod
+    def mask_from_weekday_list(cls, weekday_list):
+        mask = 0
+        for wd in (weekday_list or []):
+            mask |= cls.WEEKDAY_TO_BIT.get(int(wd), 0)
+        return mask
+
+    @classmethod
+    def weekday_list_from_mask(cls, mask):
+        out = []
+        for wd, bit in cls.WEEKDAY_TO_BIT.items():
+            if mask & bit:
+                out.append(wd)
+        return out
+
+    @staticmethod
+    def _bitcount(n: int) -> int:
+        return bin(n).count("1")
+
+    def clean(self):
+        super().clean()
+
+        # 1) إلزام تطابق الشركة بين الموظف والشفت
+        if self.employee_id and self.shift_id:
+            if self.employee.company_id != self.shift.company_id:
+                raise ValidationError({"shift": "Shift must belong to the same company as the employee."})
+
+        # 2) إلزام date_from
+        if not self.date_from:
+            raise ValidationError({"date_from": "This field is required."})
+
+        # 3) منع التداخل: يُتحقق منه على مستوى Inline FormSet في الأدمن لتجنّب القراءة من DB قبل الحفظ.
+
+        # 4) تحقق العطلة الأسبوعية: لازم يختار 1 أو 2 أيام (حسب سيناريو شركتك)
+        if self.weekly_off_mask == 0:
+            # خطأ عام لأن الفورم يعرض weekly_off_days (وليس weekly_off_mask)
+            raise ValidationError("Select at least one weekly off day.")
+        off_count = self._bitcount(self.weekly_off_mask)
+        if off_count not in (1, 2):
+            # اجعل الخطأ عامًا كذلك كي لا يرتبط بحقل غير معروض
+            raise ValidationError("Weekly off must be 1 day (6-day work) or 2 days (5-day work).")
+
+    def __str__(self):
+        days = ",".join(dict(self.WEEKDAY_CHOICES)[wd] for wd in self.weekday_list_from_mask(self.weekly_off_mask))
+        return f"{self.employee} · {self.shift} [{self.date_from} → {self.date_to or '...'}] · OFF({days})"
+
+    class Meta:
+        db_table = "hr_employee_schedule"
+        indexes = [
+            models.Index(fields=["employee", "active"], name="hr_es_emp_active_idx"),
+            models.Index(fields=["employee", "-date_from"], name="hr_es_emp_from_idx"),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["employee"],
+                name="uniq_open_schedule_per_employee",
+                condition=models.Q(active=True, date_to__isnull=True),
+            ),
+        ]
+        ordering = ("-date_from",)
+
+
+class EmployeeWeeklyOffPeriod(ActivableMixin, TimeStampedMixin, UserStampedMixin, models.Model):
+    """
+    العطل الأسبوعية الثابتة للموظف على شكل "سجل واحد" يُحوي عدة أيام عبر checkboxes.
+    تُحفظ داخليًا كـ Bitmask داخل days_mask.
+    - دعم الفترات التاريخية (date_from/date_to)، مع منع التداخل إن كان هناك اشتراك بأيام.
+    - مثال: موظف يعمل 5 أيام → يختار يومين (Fri, Sat) لسجله الحالي؛ لاحقًا يُغلق هذا السجل ويفتح سجلًا آخر أيام (Sun, Mon).
+    - موظف يعمل 6 أيام → يختار يومًا واحدًا فقط.
+    """
+
+    # ثوابت البتّات للأيام (Sun..Sat أو Mon..Sun حسب تفضيلك؛ هنا Mon..Sun لأتساق قواعد الشفت)
+    MON = 1 << 0  # 1
+    TUE = 1 << 1  # 2
+    WED = 1 << 2  # 4
+    THU = 1 << 3  # 8
+    FRI = 1 << 4  # 16
+    SAT = 1 << 5  # 32
+    SUN = 1 << 6  # 64
+
+    WEEKDAY_CHOICES = [
+        (0, "Mon"),
+        (1, "Tue"),
+        (2, "Wed"),
+        (3, "Thu"),
+        (4, "Fri"),
+        (5, "Sat"),
+        (6, "Sun"),
+    ]
+    WEEKDAY_TO_BIT = {
+        0: MON, 1: TUE, 2: WED, 3: THU, 4: FRI, 5: SAT, 6: SUN
+    }
+
+    employee = models.ForeignKey("hr.Employee", on_delete=models.CASCADE, related_name="weekly_off_periods")
+    date_from = models.DateField()
+    date_to = models.DateField(null=True, blank=True)  # فترة مفتوحة ممكنة
+    days_mask = models.PositiveSmallIntegerField(default=0, help_text="Bitmask of weekly off days (Mon..Sun)")
+
+    # ---------- أدوات مساعدة للتعامل مع الـ mask ----------
+    @classmethod
+    def to_mask(cls, weekday_list):
+        """من قائمة أرقام الأيام → bitmask."""
+        mask = 0
+        for wd in (weekday_list or []):
+            mask |= cls.WEEKDAY_TO_BIT.get(int(wd), 0)
+        return mask
+
+    @classmethod
+    def from_mask(cls, mask):
+        """من bitmask → قائمة أرقام الأيام المختارة."""
+        out = []
+        for wd, bit in cls.WEEKDAY_TO_BIT.items():
+            if mask & bit:
+                out.append(wd)
+        return out
+
+    def has_overlap_on_any_day(self, other_mask: int) -> bool:
+        """هل يوجد أي يوم مشترك بين this.days_mask و other_mask؟"""
+        return (self.days_mask & other_mask) != 0
+
+    # ---------- تحقق صحة ----------
+    def clean(self):
+        super().clean()
+        # يجب اختيار يوم/أيام على الأقل
+        if not self.days_mask:
+            raise ValidationError({"days_mask": "Select at least one weekly off day."})
+
+        # منع التداخل: نفس الموظف، أي تقاطع في الأيام + تداخل زمني
+        if self.employee_id and self.date_from is not None:
+            qs = type(self).objects.filter(employee_id=self.employee_id, active=True)
+            if self.pk:
+                qs = qs.exclude(pk=self.pk)
+
+            df, dt = self.date_from, self.date_to
+
+            # فترة المرشح (df..dt) تتداخل مع فترة أخرى؟
+            if dt:
+                overlap_time = (
+                    (models.Q(date_to__isnull=True) | models.Q(date_to__gte=df)) &
+                    models.Q(date_from__lte=dt)
+                )
+            else:
+                overlap_time = (models.Q(date_to__isnull=True) | models.Q(date_to__gte=df))
+
+            # فلترة أولية على التداخل الزمني
+            qs = qs.filter(overlap_time)
+
+            # فحص التقاطع في الأيام
+            for other in qs.only("days_mask"):
+                if (self.days_mask & other.days_mask) != 0:
+                    raise ValidationError("Overlapping weekly-off periods on intersecting weekdays are not allowed.")
+
+    def __str__(self):
+        day_labels = [dict(self.WEEKDAY_CHOICES)[wd] for wd in self.from_mask(self.days_mask)]
+        label = ",".join(day_labels) or "—"
+        return f"{self.employee} · OFF [{label}] [{self.date_from} → {self.date_to or '...'}]"
+
+    class Meta:
+        db_table = "hr_employee_weekly_off_period"
+        indexes = [
+            models.Index(fields=["employee", "-date_from"], name="hr_ewop_emp_from_idx"),
+        ]
+        constraints = [
+            # يمكن أن يكون هناك أكثر من سجل مفتوح بشرط ألا تتقاطع الأيام.
+            # (المنع الفعلي للتقاطع ننجزه في clean() لأن DB constraints لا تفهم bitmask بسهولة)
+        ]
+        ordering = ("employee", "-date_from")
+
+# ------------------------------------------------------------
 # Employee — الموظف (مع ACL + Company scope)
 # ------------------------------------------------------------
 class Employee(AccessControlledMixin, CompanyOwnedMixin, ActivableMixin, TimeStampedMixin, UserStampedMixin, models.Model):
@@ -303,8 +614,7 @@ class Employee(AccessControlledMixin, CompanyOwnedMixin, ActivableMixin, TimeSta
 
     department = models.ForeignKey(
         "hr.Department",
-        null=True, blank=True,
-        on_delete=models.SET_NULL,
+        on_delete=models.PROTECT,
         related_name="members",
     )
 
@@ -571,6 +881,26 @@ class Employee(AccessControlledMixin, CompanyOwnedMixin, ActivableMixin, TimeSta
     def current_skills(self):
         from skills.models import EmployeeSkill
         return EmployeeSkill.current_for_employee(self.id)
+
+    # ---- Work scheduling helpers ----
+    def current_shift_on(self, the_date):
+        """
+        يرجع الشفت الفعّال للموظف في تاريخ معيّن (أو None).
+        """
+        sched = self.schedules.filter(
+            active=True,
+            date_from__lte=the_date
+        ).filter(
+            models.Q(date_to__isnull=True) | models.Q(date_to__gte=the_date)
+        ).select_related("shift").order_by("-date_from").first()
+        return sched.shift if sched else None
+
+    def is_day_off(self, the_date):
+        """
+        هل لدى الموظّف إجازة (كاملة/جزئية) في هذا اليوم؟
+        """
+        return self.days_off.filter(active=True, date=the_date).exists()
+
 
     def __str__(self):
         return self.name
