@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+# payroll/models.py
 """
 Payroll models — بسيط وفعّال داخل نطاق HR:
 - PayrollPeriod: فترة الرواتب
@@ -13,7 +13,7 @@ from django.db import models
 from django.core.exceptions import ValidationError
 
 # مكسنات عامة من تطبيق base (نستخدم أساسًا الطوابع الزمنية)
-from base.models import TimeStampedMixin
+from base.models import TimeStampedMixin, CompanyScopeManager
 
 
 # ------------------------------------------------------------
@@ -58,6 +58,8 @@ class PayrollPeriod(TimeStampedMixin):
 
     STATE = [("open", "Open"), ("closed", "Closed")]
     state = models.CharField(max_length=10, choices=STATE, default="open")
+
+    objects = CompanyScopeManager()
 
     class Meta:
         db_table = "payroll_period"
@@ -105,6 +107,8 @@ class Payslip(TimeStampedMixin):
 
     note = models.CharField(max_length=255, blank=True)
 
+    objects = CompanyScopeManager()
+
     class Meta:
         db_table = "payroll_payslip"
         unique_together = [("employee", "period")]
@@ -133,17 +137,22 @@ class Payslip(TimeStampedMixin):
         dedu  = sum((l.amount for l in lines.filter(kind="deduction")), Decimal("0.00"))
         return basic, addi, dedu, basic + addi - dedu
 
-    def recompute(self, persist=True):
-        """
-        نحسب المجاميع ثم —عند الحاجة— نحدّثها في قاعدة البيانات بدون استدعاء save()
-        لتجنّب الاستدعاء الذاتي (recursion).
-        """
-        b, a, d, n = self._compute_totals()
-        self.basic, self.allowances, self.deductions, self.net = b, a, d, n
+    def recompute(self, persist: bool = False):
+        qs = self.lines.all()
+        basic = qs.filter(kind="basic").aggregate(t=models.Sum("amount"))["t"] or 0
+        allowances = qs.filter(kind="allowance").aggregate(t=models.Sum("amount"))["t"] or 0
+        deductions = qs.filter(kind="deduction").aggregate(t=models.Sum("amount"))["t"] or 0
+        net = basic + allowances - deductions
+
+        # اكتب القيم على الحقول
+        self.basic = basic
+        self.allowances = allowances
+        self.deductions = deductions
+        self.net = net
+
         if persist and self.pk:
-            type(self).objects.filter(pk=self.pk).update(
-                basic=b, allowances=a, deductions=d, net=n
-            )
+            # احفظ عبر instance.save لتجاوز أي مدير مُقَيَّد (scoped manager)
+            self.save(update_fields=["basic", "allowances", "deductions", "net"])
 
     def __str__(self):
         return f"Payslip {self.employee} {self.period} [{self.state}]"
@@ -169,6 +178,8 @@ class RecurringComponent(TimeStampedMixin):
     date_end   = models.DateField(null=True, blank=True)  # null = open
 
     active = models.BooleanField(default=True)
+
+    objects = CompanyScopeManager()
 
     class Meta:
         db_table = "payroll_recurring_component"
@@ -203,6 +214,8 @@ class MonthlyAdjustment(TimeStampedMixin):
     name   = models.CharField(max_length=128)
     amount = models.DecimalField(max_digits=12, decimal_places=2)
 
+    objects = CompanyScopeManager()
+
     class Meta:
         db_table = "payroll_monthly_adjustment"
         indexes = [models.Index(fields=["employee", "company", "period", "kind"])]
@@ -231,6 +244,8 @@ class EmployeeSalary(TimeStampedMixin):
     date_end   = models.DateField(null=True, blank=True)  # null = open
 
     note = models.CharField(max_length=255, blank=True)
+
+    objects = CompanyScopeManager()
 
     class Meta:
         db_table = "payroll_employee_salary"

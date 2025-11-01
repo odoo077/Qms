@@ -81,16 +81,35 @@ def grant_access(
     """
     ct, pk = _ct_and_pk(obj)
 
+    # جهّز أعلام الصلاحيات الممرّرة كافتراضات للإنشاء الأولي (حتى لا نخالف قيد DB)
+    core_defaults = {
+        "can_view": bool(view) if view is not None else False,
+        "can_change": bool(change) if change is not None else False,
+        "can_delete": bool(delete) if delete is not None else False,
+        "can_share": bool(share) if share is not None else False,
+        "can_approve": bool(approve) if approve is not None else False,
+        "can_assign": bool(assign) if assign is not None else False,
+        "can_comment": bool(comment) if comment is not None else False,
+        "can_export": bool(export) if export is not None else False,
+        "can_rate": bool(rate) if rate is not None else False,
+        "can_attach": bool(attach) if attach is not None else False,
+    }
+    extras_list = _normalize_extras(extras)
+
+    defaults = {
+        "active": True if active is None else bool(active),
+        "company": company,
+        **core_defaults,
+    }
+    if extras_list:
+        defaults["extra_perms"] = extras_list
+
     ace, created = ObjectACL.objects.get_or_create(
         content_type=ct,
         object_id=pk,
         user=user,
         group=group,
-        defaults={
-            # افتراضيات آمنة عند الإنشاء؛ سيتم تعديلها أدناه حسب ما تم تمريره
-            "active": True if active is None else bool(active),
-            "company": company,
-        },
+        defaults=defaults,
     )
 
     # اضبط الأعلام الأساسية التي تم تمريرها فقط

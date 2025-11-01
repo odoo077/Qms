@@ -64,6 +64,12 @@ def _asset_company_consistency(sender, instance: m.Asset, **kwargs):
         if instance.status != m.Asset.Status.ASSIGNED and instance.holder_id:
             instance.holder = None
 
+        # ✅ إذا أصبحت الحالة "Assigned" بدون حامل مضبوط، امنع الحفظ بمنطق ودّي
+        if instance.status == m.Asset.Status.ASSIGNED and not instance.holder_id:
+            # نجعلها Available بدلًا من كسر العملية (Odoo-like leniency)
+            instance.status = m.Asset.Status.AVAILABLE
+
+
 
     except m.Asset.DoesNotExist:
         return

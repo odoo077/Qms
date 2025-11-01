@@ -54,7 +54,17 @@ def generic_model_adapter(
         return None, {"error": "model_not_found"}
 
     flt = {k: _apply_placeholders(v, context) for k, v in (filter_json or {}).items()}
+
+    # ✅ أمان الشركة: إن كان الموديل يحوي company_id ولم يضعه منادِي الخدمة، نحقنه من السياق
+    try:
+        has_company = any(f.name == "company" or f.attname == "company_id" for f in Model._meta.fields)
+    except Exception:
+        has_company = False
+    if has_company and context.get("company_id") and ("company" not in flt and "company_id" not in flt):
+        flt["company_id"] = context["company_id"]
+
     qs: QuerySet = Model.objects.all()
+
     if flt:
         qs = qs.filter(**flt)
 

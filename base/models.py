@@ -203,7 +203,7 @@ class Currency(models.Model):
         return self.code
 
 
-class Company(TimeStampedMixin, ActivableMixin):
+class Company(UserStampedMixin,TimeStampedMixin, ActivableMixin):
     """
     Django flavor of Odoo's res.company.
     - parent/children tree
@@ -725,7 +725,7 @@ class PartnerCategory(models.Model):
         return self.name
 
 
-class Partner(CompanyOwnedMixin, TimeStampedMixin, ActivableMixin, AddressMixin):
+class Partner(CompanyOwnedMixin, UserStampedMixin, TimeStampedMixin, ActivableMixin, AddressMixin):
     """
     Django flavor of Odoo's res.partner.
     - companies & persons share same table
@@ -794,6 +794,9 @@ class Partner(CompanyOwnedMixin, TimeStampedMixin, ActivableMixin, AddressMixin)
     company_dependent_relations: tuple[str, ...] = ()
     COMPANY_SCOPE_IGNORE_RELATIONS = {"parent"}
 
+    # Manager مقيَّد بسياق الشركة (Odoo-like)
+    objects = CompanyScopeManager()
+
     class Meta:
         db_table = "partner"
 
@@ -810,6 +813,7 @@ class Partner(CompanyOwnedMixin, TimeStampedMixin, ActivableMixin, AddressMixin)
             models.Index(fields=["parent"], name="partner_parent_idx"),
             models.Index(fields=["company"], name="partner_company_idx"),
             models.Index(fields=["parent_company", "company_type", "type"], name="partner_flat_parent_mix_idx"),
+            models.Index(fields=["company", "is_company", "name"], name="partner_comp_iscomp_name_idx"),
         ]
 
         # قيود سلامة/تفرد (بدون JOIN قدر الإمكان)
@@ -835,6 +839,24 @@ class Partner(CompanyOwnedMixin, TimeStampedMixin, ActivableMixin, AddressMixin)
                 name="partner_unique_registry_per_company",
                 condition=models.Q(company_registry__gt=""),
                 violation_error_message="Company Registry must be unique per company when set.",
+            ),
+
+            # company_type مطابق لـ is_company (Odoo-like)
+            models.CheckConstraint(
+                name="partner_company_type_matches_flag",
+                check=(
+                    (models.Q(is_company=True, company_type="company")) |
+                    (models.Q(is_company=False, company_type="person"))
+                ),
+            ),
+
+            # الشخص لا يكون type != contact (يجنب أخطاء تعيين عنوان بدلاً من جهة اتصال شخص)
+            models.CheckConstraint(
+                name="partner_person_must_be_contact_type",
+                check=(
+                    models.Q(is_company=True) |
+                    models.Q(is_company=False, type="contact")
+                ),
             ),
         ]
 

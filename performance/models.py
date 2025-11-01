@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+# performance/models.py
 """
 نظام الأداء (Performance) — متوافق مع روح Odoo داخل نطاق HR:
 - Objectives (أهداف) + KPIs + Tasks
@@ -14,9 +14,9 @@ from base.acl import AccessControlledMixin
 # مكسينات أساسية موحّدة في المشروع
 from base.models import (
     CompanyOwnedMixin,  # يضيف company + company اتساق
-    ActivableMixin,     # active
-    TimeStampedMixin,   # created_at / updated_at
-    UserStampedMixin,   # created_by / updated_by
+    ActivableMixin,  # active
+    TimeStampedMixin,  # created_at / updated_at
+    UserStampedMixin, CompanyScopeManager,  # created_by / updated_by
 )
 
 # خدمات مساعدة (Adapters + Utilities)
@@ -56,6 +56,8 @@ class Task(AccessControlledMixin,TimeStampedMixin, UserStampedMixin, ActivableMi
 
     # 0..100; تُستخدم لتجميع تقدّم الـ Objective
     percent_complete = models.PositiveIntegerField(default=0)
+
+    objects = CompanyScopeManager()
 
     class Meta:
         db_table = "perf_task"
@@ -131,6 +133,8 @@ class KPI(AccessControlledMixin, TimeStampedMixin, UserStampedMixin, ActivableMi
     # Stored computes
     attainment_pct = models.PositiveIntegerField(default=0, help_text="0..100% of target achieved", db_index=True)
     score_pct      = models.PositiveIntegerField(default=0, help_text="0..100 normalized score")
+
+    objects = CompanyScopeManager()
 
     class Meta:
         db_table = "perf_kpi"
@@ -234,6 +238,8 @@ class Objective(AccessControlledMixin, CompanyOwnedMixin, TimeStampedMixin, User
     # تجمعات مخزنة
     progress_pct = models.PositiveIntegerField(default=0, help_text="Aggregated from Tasks (0..100)", db_index=True)
     score_pct    = models.PositiveIntegerField(default=0, help_text="Aggregated from KPIs (0..100)")
+
+    objects = CompanyScopeManager()
 
     class Meta:
         db_table = "perf_objective"
@@ -472,6 +478,8 @@ class EvaluationTemplate(AccessControlledMixin, TimeStampedMixin, UserStampedMix
     def total_weight_pct(self) -> int:
         return sum(p.weight_pct or 0 for p in self.parameters.all())
 
+    objects = CompanyScopeManager()
+
     class Meta:
         db_table = "perf_evaluation_template"
         unique_together = [("company", "name")]
@@ -635,6 +643,8 @@ class Evaluation(AccessControlledMixin, CompanyOwnedMixin, TimeStampedMixin, Use
     @property
     def is_locked(self) -> bool:
         return self.state in ("approved", "locked") or bool(self.locked_at)
+
+    objects = CompanyScopeManager()
 
     class Meta:
         db_table = "perf_evaluation"

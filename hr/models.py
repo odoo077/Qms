@@ -11,13 +11,14 @@ from __future__ import annotations
 
 from django.db import models
 from django.core.exceptions import ValidationError
+from django.utils.translation import gettext_lazy as _
 
 # مكسنات وبُنى أساسية من تطبيق base
 from base.models import (
-    CompanyOwnedMixin,     # يضمن company + فحوص التوافق
-    ActivableMixin,        # يحوي active=BooleanField
-    TimeStampedMixin,           # created_at / updated_at
-    UserStampedMixin,           # created_by / updated_by
+    CompanyOwnedMixin,  # يضمن company + فحوص التوافق
+    ActivableMixin,  # يحوي active=BooleanField
+    TimeStampedMixin,  # created_at / updated_at
+    UserStampedMixin, CompanyScopeManager,  # created_by / updated_by
 )
 
 # ACL (صلاحيات كائنية) — نطبّقها على Employee تحديدًا
@@ -95,6 +96,8 @@ class Department(CompanyOwnedMixin, ActivableMixin, TimeStampedMixin, UserStampe
     # خصائص إضافية اختيارية
     note = models.TextField(blank=True)
     color = models.IntegerField(default=0)
+
+    objects = CompanyScopeManager()
 
     class Meta:
         db_table = "hr_department"
@@ -190,6 +193,8 @@ class WorkLocation(CompanyOwnedMixin, ActivableMixin, TimeStampedMixin, UserStam
     location_number = models.CharField(max_length=64, blank=True)
 
     company_dependent_relations = ("address",)
+
+    objects = CompanyScopeManager()
 
     def clean(self):
         super().clean()
@@ -351,6 +356,8 @@ class Job(CompanyOwnedMixin, ActivableMixin, TimeStampedMixin, UserStampedMixin,
     # store=True في Odoo → تُحدَّث بعد الحفظ
     no_of_employee = models.PositiveIntegerField(default=0, editable=False)
     expected_employees = models.PositiveIntegerField(default=0, editable=False)
+
+    objects = CompanyScopeManager()
 
     class Meta:
         db_table = "hr_job"
@@ -794,17 +801,36 @@ class Employee(AccessControlledMixin, CompanyOwnedMixin, ActivableMixin, TimeSta
                 raise ValidationError({"coach": "Employee cannot be their own coach."})
 
         # ------------------------------------------------------------
-        # 3) Work contact sanity (جهة العمل يجب أن تتبع نفس الشركة)
+        # 3) Work contact sanity (Odoo-like HR):
+        #    - must be a PERSON (not company) and type='contact'
+        #    - must belong to the same employee company
+        #    - if company.partner exists → work_contact.parent == company.partner
         # ------------------------------------------------------------
         if self.work_contact_id:
             wc = self.work_contact
-            # company must match employee company
+
+            # 3.a شخص وليس شركة + نوع contact
+            if getattr(wc, "is_company", False):
+                raise ValidationError({"work_contact": "Work contact must be a PERSON (not a company)."})
+            # بعض قواعدك قد تسمح بنوع None، هنا نفرض contact صراحة
+            if getattr(wc, "type", None) not in (None, "contact"):
+                raise ValidationError({"work_contact": "Work contact must be of type 'contact'."})
+
+            # 3.b نفس الشركة
             if getattr(wc, "company_id", None) != self.company_id:
                 raise ValidationError({"work_contact": "Work contact must belong to the employee company."})
-            # if parent has company, it must be the same employee company
-            parent_company_id = getattr(getattr(wc, "parent", None), "company_id", None)
-            if parent_company_id and parent_company_id != self.company_id:
-                raise ValidationError({"work_contact": "Work contact must be a child of the employee company partner."})
+
+            # 3.c تبعية هرمية صارمة: إن كان لدى الشركة Partner مخصص → يجب أن يكون parent هو نفسه
+            company_partner_id = getattr(getattr(self, "company", None), "partner_id", None)
+            if company_partner_id:
+                if getattr(wc, "parent_id", None) != company_partner_id:
+                    raise ValidationError({"work_contact": "Work contact must be a child of the company's partner."})
+            else:
+                # إن لم يكن للشركة Partner، فنتأكد على الأقل أن parent (إن وُجد) يتبع نفس الشركة
+                parent_company_id = getattr(getattr(wc, "parent", None), "company_id", None)
+                if parent_company_id and parent_company_id != self.company_id:
+                    raise ValidationError({"work_contact": "Work contact's parent must belong to the employee company."})
+
 
         # ------------------------------------------------------------
         # 4) User/company consistency (مطابق لمنطق Odoo)
@@ -831,6 +857,19 @@ class Employee(AccessControlledMixin, CompanyOwnedMixin, ActivableMixin, TimeSta
                 raise ValidationError({"user": "This user already has an employee in this company."})
 
         # ------------------------------------------------------------
+        # 5.b) منع ربط نفس المستخدم بأي موظف آخر على مستوى النظام كله
+        #      (يعكس قيد DB: UniqueConstraint على الحقل user)
+        # ------------------------------------------------------------
+        if self.user_id:
+            Emp = type(self)
+            mgr = getattr(Emp, "all_objects", Emp._base_manager)
+            qs_global = mgr.filter(user_id=self.user_id)
+            if self.pk:
+                qs_global = qs_global.exclude(pk=self.pk)
+            if qs_global.exists():
+                raise ValidationError({"user": _("This user is already linked to another employee.")})
+
+        # ------------------------------------------------------------
         # 6) تنظيف الباركود (تنميط بسيط)
         # ------------------------------------------------------------
         if self.barcode is not None:
@@ -840,6 +879,8 @@ class Employee(AccessControlledMixin, CompanyOwnedMixin, ActivableMixin, TimeSta
 
     # --------- حفظ ----------
     def save(self, *args, **kwargs):
+        # تحقّق شامل قبل الحفظ — يمسك تعارض user مبكرًا ويحوّله لValidationError بدلاً من IntegrityError
+        self.full_clean()
         # عرض تاريخ الميلاد (للاستخدامات البسيطة)
         if self.birthday:
             self.birthday_public_display_string = self.birthday.strftime("%d %B")

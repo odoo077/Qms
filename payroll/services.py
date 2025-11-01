@@ -47,6 +47,13 @@ def _monthly_adjustments(employee, period: PayrollPeriod):
 
 @transaction.atomic
 def generate_payslip(employee, period: PayrollPeriod, *, overwrite: bool = False, note: str = "") -> Payslip:
+
+    # لا نسمح بالعمل على فترة مقفلة
+    if getattr(period, "state", "open") == "closed":
+        return Payslip.objects.filter(employee=employee, period=period).first() or Payslip(
+            employee=employee, company=period.company, period=period, note=note
+        )
+
     """
     ابْنِ (أو أعد بناء) قسيمة موظف لفترة معيّنة.
     - overwrite=True: يحذف السطور القديمة ويعيد بناءها إذا كانت القسيمة موجودة.
@@ -101,6 +108,8 @@ def generate_payslips_for_period(period: PayrollPeriod, employees_qs, *, overwri
     توليد قسائم لمجموعة موظفين في فترة واحدة (مع احترام الشركة).
     """
     slips: list[Payslip] = []
+    if getattr(period, "state", "open") == "closed":
+        return []
     for emp in employees_qs.select_related("company", "department", "job"):
         if emp.company_id != period.company_id:
             continue

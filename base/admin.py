@@ -291,15 +291,13 @@ class UserAdmin(UnscopedAdminMixin, HideAuditFieldsMixin, DjangoUserAdmin):
 
     # ضمان بقاء الشركة الافتراضية ضمن المسموح بها حتى لو نسي الأدمن إضافتها
     def save_related(self, request, form, formsets, change):
-        """
-        تأكيد أن user.company ضمن user.companies قبل تنفيذ الحفظ لعلاقات M2M.
-        """
         result = super().save_related(request, form, formsets, change)
         user = form.instance
         if getattr(user, "company_id", None) and not user.companies.filter(pk=user.company_id).exists():
-            user.companies.add(user.company_id)
+            # تمت المعالجة تلقائيًا بواسطة الإشارة post_remove/post_clear
+            # لا حاجة لإضافة الشركة هنا.
+            pass
         return result
-
 
 # ------------------------------------------------------------
 # Global admin display tweaks

@@ -12,8 +12,6 @@ from __future__ import annotations
 from django.db import transaction
 from django.db.models.signals import post_save, m2m_changed, post_migrate
 from django.dispatch import receiver
-from django.core.exceptions import ValidationError
-from django.contrib.auth.models import Group, Permission
 from django.db.utils import OperationalError
 
 # نُبقي هذه الاستيرادات لأغراض sender في الديكوريترز (لا مشكلة بها)
@@ -146,21 +144,20 @@ def company_post_save(sender, instance: Company, created: bool, **kwargs):
 @receiver(m2m_changed, sender=User.companies.through)
 def prevent_removing_default_company(sender, instance: User, action, pk_set, **kwargs):
     """
-    حماية Odoo-like (مع تساهل أثناء الإنشاء الأول):
-      - امنع إزالة الشركة الافتراضية من allowed فقط إذا كانت موجودة فعليًا الآن ضمن المسموح بها.
+    Soft enforcement:
+    - لا نرفع أي استثناء (لا صفحات أخطاء).
+    - بعد أي إزالة/تفريغ، نضمن إعادة إضافة الشركة الافتراضية تلقائيًا إن لزم.
+    هذا يحافظ على invariant: default company ∈ allowed companies.
     """
+    # لا شيء نفعله إن لم يكن للمستخدم شركة افتراضية
     if not getattr(instance, "company_id", None):
         return
 
-    default_is_currently_allowed = instance.companies.filter(pk=instance.company_id).exists()
+    # بعد الإزالة أو التفريغ، تأكد من وجود الافتراضية ضمن المسموح بها
+    if action in ("post_remove", "post_clear"):
+        if not instance.companies.filter(pk=instance.company_id).exists():
+            instance.companies.add(instance.company_id)
 
-    # pre_remove: امنع فقط إذا كنت تزيل الافتراضية وهي موجودة فعليًا الآن
-    if action == "pre_remove" and default_is_currently_allowed and instance.company_id in (pk_set or []):
-        raise ValidationError("Cannot remove the default company from allowed companies.")
-
-    # pre_clear: امنع فقط إذا كانت الافتراضية موجودة فعليًا الآن (لا تمنع أثناء الإنشاء الأول)
-    if action == "pre_clear" and default_is_currently_allowed:
-        raise ValidationError("Cannot clear allowed companies while a default company is set.")
 
 
 @receiver(m2m_changed, sender=User.companies.through)
@@ -322,3 +319,33 @@ def bootstrap_main_company(sender, **kwargs):
     except OperationalError:
         # أثناء عمليات الترحيل الأولى قد لا تكون الجداول جاهزة بعد
         pass
+
+
+# ===== UserStamped: تعبئة created_by / updated_by تلقائيًا =====
+from django.db.models.signals import pre_save
+from django.dispatch import receiver
+from .security_context import get_current_user_id
+
+@receiver(pre_save)
+def _autoset_userstamped(sender, instance, **kwargs):
+    """
+    يعمَل لأي موديل يحتوي حقلي created_by / updated_by.
+    - عند الإنشاء: يضبط created_by إذا كان فارغًا + يضبط دائمًا updated_by.
+    - عند التعديل: يضبط دائمًا updated_by.
+    """
+    # لا نفعل شيئًا إن لم يملك الحقول
+    if not (hasattr(instance, "created_by_id") or hasattr(instance, "updated_by_id")):
+        return
+
+    uid = get_current_user_id()
+    if not uid:
+        return  # لا يوجد مستخدم في السياق (سكربت/مهاجرات/سيرفس)
+
+    # إضافة أم تعديل؟
+    is_adding = getattr(instance._state, "adding", False)
+
+    if is_adding and hasattr(instance, "created_by_id") and not getattr(instance, "created_by_id", None):
+        instance.created_by_id = uid
+
+    if hasattr(instance, "updated_by_id"):
+        instance.updated_by_id = uid

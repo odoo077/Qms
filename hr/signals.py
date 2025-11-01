@@ -42,7 +42,12 @@ def _flag_partner_employee(partner_id, value: bool):
 # ============================================================
 # 1) Ensure work_contact (company-scoped) — Odoo-like (بدون تعديل شركة شريك موجود)
 # ============================================================
-@receiver(post_save, sender=_get_model("hr", "Employee"))
+
+@receiver(
+    post_save,
+    sender=_get_model("hr", "Employee"),
+    dispatch_uid="hr.ensure_employee_work_contact.v3",
+)
 def ensure_employee_work_contact(sender, instance, created: bool, **kwargs):
     """
     Idempotent & single-source-of-truth:
@@ -53,12 +58,17 @@ def ensure_employee_work_contact(sender, instance, created: bool, **kwargs):
     Partner = _get_model("base", "Partner")
     Emp = sender
 
-    # اقرأ قيمة work_contact الحالية من قاعدة البيانات (حتى لو لم يمررها الفورم)
+    # حارس تكرار داخل نفس الطلب/الحفظ لمنع إعادة التنفيذ
+    if getattr(instance, "_work_contact_ensured", False):
+        return
+    setattr(instance, "_work_contact_ensured", True)
+
+    # اقرأ قيمة work_contact الحالية من قاعدة البيانات (حتى لو لم يمرره الفورم)
     db_wc_id = None
     if instance.pk:
         db_wc_id = Emp.objects.filter(pk=instance.pk).values_list("work_contact_id", flat=True).first()
 
-    # لو مرتبط بمستخدم وله partner
+    # لو مرتبط بمستخدم وله partner → هذا هو المصدر الحقيقي (أولوية قصوى مثل Odoo)
     user = getattr(instance, "user", None)
     up_id = getattr(user, "partner_id", None)
 
@@ -79,7 +89,6 @@ def ensure_employee_work_contact(sender, instance, created: bool, **kwargs):
         updates = {}
         if instance.company_id and Partner.objects.filter(pk=up_id).exclude(company_id=instance.company_id).exists():
             updates["company_id"] = instance.company_id
-            # ضع parent إلى Partner الشركة (إن وجد) لمطابقة شجرة Odoo
             company_partner = _company_partner_for(instance.company_id)
             updates["parent_id"] = getattr(company_partner, "id", None)
         if updates:
@@ -89,36 +98,74 @@ def ensure_employee_work_contact(sender, instance, created: bool, **kwargs):
         return
 
     # لا يوجد user.partner:
+    # إن كان الفورم/الموديل قد حدده أصلاً على الـ instance → لا ننشئ ولا نبدل، فقط نضمن العلم
+    if getattr(instance, "work_contact_id", None):
+        _flag_partner_employee(instance.work_contact_id, True)
+        return
+
+    # إن كان هناك work_contact محفوظ في قاعدة البيانات للسجل الحالي → أعد تفعيل العلم وتوقف
     if db_wc_id:
-        # أعد فقط تفعيل العلم وتوقف — لا إنشاء جديد
         Partner.objects.filter(pk=db_wc_id, employee=False).update(employee=True)
         return
 
-    # محاولة إعادة استخدام بطاقة داخل الشركة (نفس الاسم وتحت Partner الشركة)
-    company_partner = _company_partner_for(instance.company_id)
-    reuse = Partner.objects.filter(
-        company_id=instance.company_id,
-        parent_id=getattr(company_partner, "id", None),
-        type="contact",
-        name=instance.name,
-        is_company=False,
-    ).order_by("id").first()
-
-    if reuse:
-        _use_partner(reuse.id)
+    # لا تُنشئ أي جهة اتصال جديدة عند تعديل/فتح السجل؛ الإنشاء لأول مرة فقط
+    if not created:
         return
 
-    # إنشاء بطاقة جديدة مرة واحدة فقط
-    new_p = Partner.objects.create(
-        name=instance.name,
+    # محاولة إعادة استخدام بطاقة داخل الشركة (تجاهل parent_id أولاً لتفادي التذبذب)
+    from django.db.models import Q
+    company_partner = _company_partner_for(instance.company_id)
+    parent_id = getattr(company_partner, "id", None)
+
+    # ➊ جرّب إعادة الاستخدام بالاسم داخل نفس الشركة بغضّ النظر عن parent
+    reuse = Partner.objects.filter(
         company_id=instance.company_id,
         is_company=False,
-        type="contact",
-        parent_id=getattr(company_partner, "id", None),
-        employee=True,
-    )
-    _use_partner(new_p.id)
+    ).filter(
+        Q(type="contact") | Q(type__isnull=True)
+    ).filter(
+        Q(name=instance.name) | Q(display_name=instance.name)
+    ).order_by("id").first()
 
+    # ➊ إعادة الاستخدام أو الإنشاء (مرة واحدة فقط عند created=True)
+    partner = reuse
+    if not partner:
+        partner = Partner.objects.create(
+            company_id=instance.company_id,
+            is_company=False,
+            name=instance.name,
+            parent_id=parent_id,
+            employee=True,
+            type="contact",
+            display_name=instance.name,
+        )
+
+    partner_id = partner.id
+
+    # --- تثبيت الثوابت: شخص + نفس الشركة + parent = Company.partner إن وُجد (Odoo-like HR) ---
+    updates = {
+        "is_company": False,
+        "company_type": "person",
+        "type": "contact",
+        "company_id": instance.company_id,
+        "parent_id": parent_id,
+    }
+    # لا نكتب None صراحة
+    updates = {k: v for k, v in updates.items() if v is not None}
+
+    # تأكيد display_name إن كان فارغًا
+    if not getattr(partner, "display_name", None):
+        updates["display_name"] = instance.name
+
+    # تفعيل علم employee على الشريك الحالي
+    if not getattr(partner, "employee", False):
+        updates["employee"] = True
+
+    if updates:
+        Partner.objects.filter(pk=partner_id).update(**updates)
+
+    _use_partner(partner_id)
+    return
 
 
 # ------------------------------------------------------------

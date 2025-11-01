@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+# assets/models.py
 """
 تطبيق الأصول (assets) – بنية البيانات المتوافقة مع منطق Odoo
 يتضمن دعم تعدد الشركات، التدرج الهرمي للفئات، وتعقب الإسنادات.
@@ -8,7 +8,7 @@ from django.db import models
 from django.conf import settings
 from django.utils.translation import gettext_lazy as _
 from base.acl import AccessControlledMixin
-
+from base.models import CompanyScopeManager
 
 COMPANY_MODEL = "base.Company"
 EMPLOYEE_MODEL = "hr.Employee"
@@ -48,6 +48,8 @@ class AssetCategory(models.Model):
             raise ValidationError({
                 "parent": _("Parent category cannot be the same as the category itself.")
             })
+
+    objects = CompanyScopeManager()
 
     class Meta:
         db_table = "assets_category"
@@ -166,6 +168,7 @@ class Asset(AccessControlledMixin, models.Model):
         if errors:
             raise ValidationError(errors)
 
+    objects = CompanyScopeManager()
 
     class Meta:
         db_table = "assets_asset"
@@ -229,6 +232,14 @@ class AssetAssignment(models.Model):
         if self.date_from and self.date_to and self.date_to < self.date_from:
             raise ValidationError({"date_to": "End date must be greater than or equal to start date."})
 
+        # 3) company consistency: employee.company = asset.company
+        emp_company_id = getattr(self.employee, "company_id", None) if self.employee_id else None
+        ast_company_id = getattr(self.asset, "company_id", None) if self.asset_id else None
+        if emp_company_id and ast_company_id and emp_company_id != ast_company_id:
+            raise ValidationError({"employee": "Employee must belong to the same company as the asset."})
+
+
+    objects = CompanyScopeManager()
 
     class Meta:
         db_table = "assets_assignment"

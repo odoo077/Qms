@@ -140,3 +140,10 @@ class PayslipAdmin(AppAdmin):
             services.generate_payslip(obj.employee, obj.period, overwrite=True, note=obj.note or "")
 
     actions = ["recompute_totals", "set_state_confirmed", "set_state_paid", "set_state_cancelled"]
+
+    def change_view(self, request, object_id, form_url="", extra_context=None):
+        # نضمن أن المجاميع محسوبة ومحفوظة قبل عرض الصفحة
+        obj = self.get_queryset(request).get(pk=object_id)
+        obj.recompute(persist=True)
+        return super().change_view(request, object_id, form_url, extra_context)
+

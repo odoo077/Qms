@@ -21,7 +21,7 @@ from base.acl import AccessControlledMixin
 # روابط للتطبيقات الأساسية (حسب مشروعك)
 # ------------------------------------------------------------
 # Company و Employee مأخوذان من تطبيقاتك الحالية:
-from base.models import Company  # شركتك
+from base.models import Company, CompanyScopeManager  # شركتك
 from hr.models import Employee   # موظفك
 
 
@@ -201,6 +201,8 @@ class EmployeeSkill(TimeUserStampedMixin, AccessControlledMixin):
     note = models.TextField(_("Note"), blank=True, default="")
     active = models.BooleanField(_("Active"), default=True)
 
+    objects = CompanyScopeManager()
+
     class Meta:
         verbose_name = _("Employee Skill")
         verbose_name_plural = _("Employee Skills")
@@ -323,6 +325,8 @@ class ResumeLine(TimeUserStampedMixin):
     external_url = models.URLField(blank=True, default="")
 
     active = models.BooleanField(_("Active"), default=True)
+
+    objects = CompanyScopeManager()
 
     class Meta:
         verbose_name = _("Resume Line")
