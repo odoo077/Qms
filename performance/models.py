@@ -232,6 +232,21 @@ class Objective(AccessControlledMixin, CompanyOwnedMixin, TimeStampedMixin, User
 
     status = models.CharField(max_length=12, choices=STATUS, default="draft", db_index=True)
 
+    # ---- Target Scope (Company / Department / Employee) ----
+    TARGET = [
+        ("company", "Company"),
+        ("department", "Department"),
+        ("employee", "Employee"),
+    ]
+    target_kind = models.CharField(max_length=12, choices=TARGET, default="company", db_index=True)
+
+    target_department = models.ForeignKey(
+        "hr.Department", null=True, blank=True, on_delete=models.PROTECT, related_name="target_objectives"
+    )
+    target_employee = models.ForeignKey(
+        "hr.Employee", null=True, blank=True, on_delete=models.PROTECT, related_name="target_objectives"
+    )
+
     # وزن داخل مجموع التقييمات
     weight_pct = models.PositiveIntegerField(default=100, help_text="0..100 (%) weight")
 
@@ -246,6 +261,7 @@ class Objective(AccessControlledMixin, CompanyOwnedMixin, TimeStampedMixin, User
         indexes = [
             models.Index(fields=["company", "status"]),
             models.Index(fields=["date_start", "date_end"]),
+            models.Index(fields=["company", "target_kind"]),
         ]
         constraints = [
             models.CheckConstraint(
@@ -282,8 +298,36 @@ class Objective(AccessControlledMixin, CompanyOwnedMixin, TimeStampedMixin, User
 
     def clean(self):
         super().clean()
+
+        # تحقق من تطابق الشركة مع المراجع
         if self.reviewer and self.reviewer.company_id != self.company_id:
             raise ValidationError({"reviewer": "Reviewer must belong to the same company."})
+        if self.target_department and self.target_department.company_id != self.company_id:
+            raise ValidationError({"target_department": "Department must belong to the same company."})
+        if self.target_employee and self.target_employee.company_id != self.company_id:
+            raise ValidationError({"target_employee": "Employee must belong to the same company."})
+
+        # تحقق من منطق target_kind
+        if self.target_kind == "company":
+            if self.target_department or self.target_employee:
+                raise ValidationError(
+                    "For company-wide objectives, please leave 'Target department' and 'Target employee' empty."
+                )
+        elif self.target_kind == "department":
+            if not self.target_department:
+                raise ValidationError({"target_department": "Please select a department for department-level objective."})
+            if self.target_employee:
+                raise ValidationError(
+                    {"target_employee": "You cannot select an employee for a department-level objective."}
+                )
+        elif self.target_kind == "employee":
+            if not self.target_employee:
+                raise ValidationError({"target_employee": "Please select an employee for employee-level objective."})
+            if self.target_department:
+                raise ValidationError(
+                    {"target_department": "You cannot select a department for an employee-level objective."}
+                )
+
 
     # -------- Aggregations --------
     def recompute_progress_and_score(self):
@@ -302,11 +346,26 @@ class Objective(AccessControlledMixin, CompanyOwnedMixin, TimeStampedMixin, User
     # -------- Participants materialization --------
     def _collect_department_ids(self):
         """
-        تجميع الأقسام المستهدفة، مع توسيع الأقسام الأبناء عند الطلب.
-        يعتمد على Department.parent_path لسرعة الاختيار.
+        تجميع الأقسام المستهدفة:
+        - إن كان target_kind=department نبدأ بالقسم الهدف (+ الأبناء عند وجود تعيين قسم بـ include_children=True).
+        - ثم نضيف تعيينات الأقسام (dept_assignments) الحالية.
         """
         from hr.models import Department
         dept_ids = set()
+
+        # Seed from target_department
+        if self.target_kind == "department" and self.target_department_id:
+            dept_ids.add(self.target_department_id)
+            # توسيع الأبناء عبر parent_path
+            parent_path = self.target_department.parent_path or ""
+            if parent_path:
+                q = Department.objects.filter(
+                    company_id=self.company_id,
+                    parent_path__startswith=parent_path
+                ).values_list("id", flat=True)
+                dept_ids.update(q)
+
+        # Existing explicit assignments
         for a in self.dept_assignments.select_related("department").all():
             if not a.department_id:
                 continue
@@ -319,14 +378,27 @@ class Objective(AccessControlledMixin, CompanyOwnedMixin, TimeStampedMixin, User
                         parent_path__startswith=parent_path
                     ).values_list("id", flat=True)
                     dept_ids.update(q)
+
         return dept_ids
 
     def _collect_employee_ids(self):
         """
-        اتحاد الموظفين الصريحين + موظفي الأقسام (مع الأبناء).
+        اتحاد:
+        - الموظف الهدف إن كان target_kind=employee
+        - موظفو الأقسام (مع الأبناء) من الناتج أعلاه
+        - التعيينات الصريحة لموظفين (employee_assignments)
         """
         from hr.models import Employee
-        emp_ids = set(self.employee_assignments.values_list("employee_id", flat=True))
+        emp_ids = set()
+
+        # Seed from target_employee
+        if self.target_kind == "employee" and self.target_employee_id:
+            emp_ids.add(self.target_employee_id)
+
+        # Explicit employee assignments
+        emp_ids.update(self.employee_assignments.values_list("employee_id", flat=True))
+
+        # Department-based employees
         dept_ids = self._collect_department_ids()
         if dept_ids:
             q = Employee.objects.filter(
@@ -335,6 +407,7 @@ class Objective(AccessControlledMixin, CompanyOwnedMixin, TimeStampedMixin, User
                 department_id__in=list(dept_ids),
             ).values_list("id", flat=True)
             emp_ids.update(q)
+
         return emp_ids
 
     @transaction.atomic
@@ -540,19 +613,30 @@ class EvaluationParameter(AccessControlledMixin, TimeStampedMixin, UserStampedMi
         db_table = "perf_evaluation_parameter"
         ordering = ["template", "name"]
         constraints = [
-            models.CheckConstraint(check=models.Q(weight_pct__gte=0, weight_pct__lte=100), name="chk_param_weight_0_100"),
-            models.CheckConstraint(check=models.Q(min_score_pct__gte=0, min_score_pct__lte=100), name="chk_param_min_0_100"),
-            models.CheckConstraint(check=models.Q(max_score_pct__gte=0, max_score_pct__lte=100), name="chk_param_max_0_100"),
+            # الوزن
+            models.CheckConstraint(
+                check=models.Q(weight_pct__gte=0, weight_pct__lte=100),
+                name="chk_param_weight_0_100_v2",
+            ),
+            models.CheckConstraint(
+                check=models.Q(min_score_pct__gte=0, min_score_pct__lte=100),
+                name="chk_param_min_0_100",
+            ),
+            models.CheckConstraint(
+                check=models.Q(max_score_pct__gte=0, max_score_pct__lte=100),
+                name="chk_param_max_0_100",
+            ),
             models.CheckConstraint(
                 check=models.Q(min_score_pct__lte=models.F("max_score_pct")),
                 name="chk_param_min_le_max",
             ),
             models.UniqueConstraint(
                 fields=["template", "code"],
-                name="perf_param_template_code_uniq",
+                name="perf_param_template_code_uniq_v2",
                 condition=~models.Q(code=""),
             ),
         ]
+
         permissions = [("reorder_parameters", "Can reorder evaluation parameters")]
 
     def __str__(self):

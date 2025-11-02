@@ -19,7 +19,7 @@ DEPARTMENT_MODEL = "hr.Department"
 # Asset Category
 # ============================================================
 
-class AssetCategory(models.Model):
+class AssetCategory(AccessControlledMixin, models.Model):
     """
     فئات الأصول – مشابهة لفئات Odoo (account.asset.category)
     """
@@ -200,7 +200,7 @@ class Asset(AccessControlledMixin, models.Model):
 # Asset Assignment
 # ============================================================
 
-class AssetAssignment(models.Model):
+class AssetAssignment(AccessControlledMixin, models.Model):
     """
     سجل الإسناد (تاريخ تسليم الأصول لموظفين)
     - يعكس سجل تغيّر المالك كما في Odoo (ir.attachment / asset.log)

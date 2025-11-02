@@ -72,14 +72,18 @@ class TaskInline(admin.TabularInline):
 # -------- Objective --------
 @admin.register(Objective)
 class ObjectiveAdmin(AppAdmin):
-    list_display = ("id","company","code","title","date_start","date_end","status",
-                    "weight_pct","progress_pct","score_pct","active",
-                    "created_at","updated_at","created_by","updated_by")
-    list_filter  = ("company","status","active","date_start","date_end","created_at","updated_at")
+    list_display = ("id", "company", "code", "title", "date_start", "date_end", "status",
+                    "target_kind", "target_department", "target_employee",
+                    "weight_pct", "progress_pct", "score_pct", "active",
+                    "created_at", "updated_at", "created_by", "updated_by")
+    list_filter = ("company", "status", "target_kind", "active", "date_start", "date_end", "created_at", "updated_at")
     search_fields = ("code","title","description")
     ordering = ("-id",)
-    if USE_AUTOCOMPLETE: autocomplete_fields = ["company","reviewer"]
-    else:                 raw_id_fields = ["company","reviewer"]
+    if USE_AUTOCOMPLETE:
+        autocomplete_fields = ["company", "reviewer", "target_department", "target_employee"]
+    else:
+        raw_id_fields = ["company", "reviewer", "target_department", "target_employee"]
+
     readonly_fields = ("created_at","updated_at","created_by","updated_by")
     inlines = [ObjectACLInline, ObjectiveDepartmentAssignmentInline, ObjectiveEmployeeAssignmentInline, ObjectiveParticipantInline, KPIInline, TaskInline]
 

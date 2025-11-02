@@ -1,8 +1,10 @@
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.contrib.contenttypes.models import ContentType
-
 from .services import follow
+from django.contrib.auth import get_user_model
+USER_MODEL = get_user_model()
+
 
 # أدوات مساعدة عامة
 def _safe_getattr(obj, name, default=None):
@@ -14,22 +16,19 @@ def _safe_getattr(obj, name, default=None):
 def _auto_follow_for_target(target, *actors):
     """
     يحاول إضافة هؤلاء كمتابعين للسجل الهدف (User/Employee),
-    يتجاهل أي قيمة None بأمان.
+    يتجاهل أي قيمة None بأمان ويستخدم isinstance مع USER_MODEL.
     """
     for actor in actors:
         if not actor:
             continue
-        if actor.__class__.__name__ == "User":
-            try:
+        try:
+            if isinstance(actor, USER_MODEL):
                 follow(target, user=actor)
-            except Exception:
-                pass
-        else:
-            # نفترض Employee
-            try:
+            else:
                 follow(target, employee=actor)
-            except Exception:
-                pass
+        except Exception:
+            # نتجاهل أي فشل فردي كي لا نكسر التدفق
+            pass
 
 
 # -------- Performance: Task / Objective / Evaluation --------

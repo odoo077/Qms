@@ -49,7 +49,7 @@ class ChatterMessage(models.Model):
 
     # الهدف العام (أي موديل)
     content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE, related_name="chatter_messages")
-    object_id = models.PositiveIntegerField()
+    object_id = models.PositiveBigIntegerField()
     target = GenericForeignKey("content_type", "object_id")
 
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
@@ -71,11 +71,24 @@ class ChatterMessage(models.Model):
                 name="chat_msg_body_not_empty",
                 check=~models.Q(body=""),
             ),
+            models.CheckConstraint(
+                name="chat_msg_has_actor",
+                check=models.Q(author_user__isnull=False) | models.Q(author_employee__isnull=False),
+            ),
         ]
 
     def clean(self):
         from django.core.exceptions import ValidationError
         super().clean()
+
+        errors = {}
+
+        # يجب تحديد صاحب الرسالة: إمّا مستخدم أو موظف
+        if not (getattr(self, "author_user_id", None) or getattr(self, "author_employee_id", None)):
+            errors["author_user"] = "Author (user or employee) is required."
+
+        if errors:
+            raise ValidationError(errors)
 
         # ضمان وجود هدف/Body
         if not self.content_type_id or not self.object_id:
@@ -151,7 +164,7 @@ class ChatterFollower(models.Model):
 
     # الهدف العام
     content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE, related_name="chatter_followers")
-    object_id = models.PositiveIntegerField()
+    object_id = models.PositiveBigIntegerField()
     target = GenericForeignKey("content_type", "object_id")
 
     created_at = models.DateTimeField(auto_now_add=True)

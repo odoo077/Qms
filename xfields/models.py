@@ -125,7 +125,7 @@ class XValue(models.Model):
 
     # الهدف (أي موديل)
     content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE, related_name="xf_values")
-    object_id = models.PositiveIntegerField()
+    object_id = models.PositiveBigIntegerField()
     target = GenericForeignKey("content_type", "object_id")
 
     # تخزين متعدد الأنواع
@@ -166,6 +166,7 @@ class XValue(models.Model):
             else:
                 if (self.value is None) or (self.value == ""):
                     raise ValidationError({"value": _("This field is required.")})
+
 
         # تحقق من خيارات الحقول للأنواع choice/multi_choice
         if self.field.field_type in (XField.FIELD_CHOICE, XField.FIELD_MULTI) and self.json_value:

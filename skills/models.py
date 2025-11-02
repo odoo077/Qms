@@ -298,7 +298,7 @@ class ResumeLineType(TimeUserStampedMixin):
 # Resume Line (Odoo: hr.resume.line)
 # ============================================================
 
-class ResumeLine(TimeUserStampedMixin):
+class ResumeLine(TimeUserStampedMixin, AccessControlledMixin):
     """
     سطر السيرة الذاتية للموظف:
     - يَجمع نوع السطر + نص/تفاصيل + فترة من/إلى + مرفقات اختيارية.

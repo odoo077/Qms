@@ -140,6 +140,15 @@ def _asset_auto_assignment_on_holder_change(sender, instance: m.Asset, created: 
             )
 
 
+@receiver(post_save, sender=m.Asset)
+def _auto_archive_on_retired(sender, instance: m.Asset, **kwargs):
+    """
+    عند انتقال الأصل إلى الحالة Retired، يتم تعطيله تلقائيًا (active=False)
+    لمحاكاة منطق Odoo في أرشفة الأصول المتقاعدة.
+    """
+    if instance.status == m.Asset.Status.RETIRED and instance.active:
+        instance.active = False
+        instance.save(update_fields=["active"])
 
 @receiver(pre_save, sender=m.AssetAssignment)
 def _ensure_assignment_company_consistency(sender, instance: m.AssetAssignment, **kwargs):
