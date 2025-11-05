@@ -10,6 +10,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.db import transaction
 from django.db.models import QuerySet
 from .models import XField, XValue
+from base.acl_service import has_perm as acl_has_perm
 
 
 # ------------------------------------------------------------
@@ -32,13 +33,13 @@ def _get_field(ct: ContentType, code: str, company_id: int | None = None) -> XFi
 # API: set/get
 # ------------------------------------------------------------
 @transaction.atomic
-def set_value(obj, code: str, value, company_id: int | None = None) -> XValue:
+def set_value(obj, code: str, value, *, user, company_id: int | None = None) -> XValue:
     """
-    يكتب قيمة الحقل (ينشئ أو يحدث).
-    - obj: السجل الهدف (مثل Employee instance)
-    - code: الاسم التقني للحقل
-    - value: القيمة
+    يكتب قيمة الحقل (ينشئ أو يحدث) بشرط امتلاك المستخدم change على الكائن الهدف.
     """
+    if not user or not acl_has_perm(obj, user, "change"):
+        raise PermissionError("You don't have permission to modify this object.")
+
     ct = _ct_for(obj)
     xf = _get_field(ct, code, company_id)
     if not xf:
@@ -51,7 +52,14 @@ def set_value(obj, code: str, value, company_id: int | None = None) -> XValue:
     return xv
 
 
-def get_value(obj, code: str, default=None, company_id: int | None = None):
+
+def get_value(obj, code: str, *, user, default=None, company_id: int | None = None):
+    """
+    يقرأ قيمة الحقل بشرط امتلاك المستخدم view على الكائن الهدف.
+    """
+    if not user or not acl_has_perm(obj, user, "view"):
+        return default
+
     ct = _ct_for(obj)
     xf = _get_field(ct, code, company_id)
     if not xf:
@@ -61,6 +69,7 @@ def get_value(obj, code: str, default=None, company_id: int | None = None):
         return xv.value
     except XValue.DoesNotExist:
         return default
+
 
 
 # ------------------------------------------------------------

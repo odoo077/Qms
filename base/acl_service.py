@@ -300,3 +300,59 @@ def grant_bulk(objs: Iterable, *, user=None, group=None, perms: Iterable[str] | 
 
     for obj in objs:
         grant_access(obj, user=user, group=group, extras=extras, **core_kwargs)
+
+
+
+# === DEFAULT GLOBAL POLICY (company-wide) ====================================
+from django.contrib.auth.models import Group, Permission
+from django.contrib.contenttypes.models import ContentType
+
+def apply_default_acl(obj):
+    """
+    يطبّق السياسة الافتراضية للعناصر (Global) بدون الاعتماد على اسم أي مجموعة:
+      - المالك (created_by): view/change/delete/approve/assign/share
+      - HR Manager (أي مجموعة تحمل permission: hr.manage_all_hr):
+            view/change/delete/approve/assign/share
+      - مدير القسم (إن وُجد على السجل الحالي):
+            view/change/approve/assign
+    ملاحظة: هذه الدالة idempotent (تعيد ضبط/إنشاء ACE حسب الحاجة).
+    """
+    # 0) سلامة: لا نعمل على كائن بلا PK
+    if not getattr(obj, "pk", None):
+        return
+
+    # 1) مالك السجل (created_by)
+    owner = getattr(obj, "created_by", None)
+    if owner:
+        grant_access(
+            obj,
+            user=owner,
+            view=True, change=True, delete=True, approve=True, assign=True, share=True,
+        )
+
+    # 2) HR Manager: أي مجموعة لديها permission codename = manage_all_hr (app_label=hr)
+    try:
+        perm = Permission.objects.get(
+            content_type__app_label="hr",
+            codename="manage_all_hr",
+        )
+        hr_groups = Group.objects.filter(permissions=perm)
+        for g in hr_groups:
+            grant_access(
+                obj,
+                group=g,
+                view=True, change=True, delete=True, approve=True, assign=True, share=True,
+            )
+    except Permission.DoesNotExist:
+        # لو الصلاحية غير موجودة بعد، نتجاوز بهدوء (لا نكسر الحفظ)
+        pass
+
+    # 3) مدير القسم (HR): إن كان للكائن 'department' وله 'manager' مرتبط بمستخدم
+    #    - هذا يخص نماذج HR (مثل Employee) التي تحتوي field department → manager
+    dept = getattr(obj, "department", None)
+    if dept and getattr(dept, "manager_id", None) and getattr(dept.manager, "user_id", None):
+        grant_access(
+            obj,
+            user=dept.manager.user,  # مستخدم مدير القسم
+            view=True, change=True, approve=True, assign=True,
+        )

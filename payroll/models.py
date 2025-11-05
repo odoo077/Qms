@@ -4,6 +4,8 @@ from decimal import Decimal
 from django.db import models
 from django.core.exceptions import ValidationError
 from django.db.models import Sum
+
+from base.acl import ACLManager
 from base.models import TimeStampedMixin, CompanyScopeManager
 
 # ------------------------------------------------------------
@@ -56,7 +58,7 @@ class PayrollPeriod(TimeStampedMixin):
     STATE = [("open", "Open"), ("closed", "Closed")]
     state = models.CharField(max_length=10, choices=STATE, default="open")
 
-    objects = CompanyScopeManager()
+    objects = ACLManager()
 
     class Meta:
         db_table = "payroll_period"
@@ -110,7 +112,7 @@ class Payslip(TimeStampedMixin):
 
     note = models.CharField(max_length=255, blank=True)
 
-    objects = CompanyScopeManager()
+    objects = ACLManager()
 
     class Meta:
         db_table = "payroll_payslip"
@@ -193,7 +195,7 @@ class EmployeeSalary(TimeStampedMixin):
 
     note = models.CharField(max_length=255, blank=True)
 
-    objects = CompanyScopeManager()
+    objects = ACLManager()
 
     class Meta:
         db_table = "payroll_employee_salary"

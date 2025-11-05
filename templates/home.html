@@ -15,11 +15,6 @@
   {% endif %}
 {% endblock %}
 
-{% block page_actions %}
-  <a href="{% url 'base:company_switch' %}" class="btn btn-outline btn-sm md:btn-md">Select company</a>
-  <a href="{% url 'base:partner_create' %}" class="btn btn-primary btn-sm md:btn-md">+ New partner</a>
-{% endblock %}
-
 {% block content %}
 <div class="space-y-8">
 
@@ -130,35 +125,6 @@
           </div>
         {% endif %}
       </div>
-    </div>
-  </section>
-
-  <!-- Allowed companies -->
-  <section class="rounded-2xl bg-base-100/70 ring-1 ring-base-300/70 shadow-xl overflow-hidden">
-    <header class="px-5 py-4 border-b border-base-300/70 flex items-center justify-between">
-      <h3 class="text-lg font-semibold">Allowed companies</h3>
-      <a href="{% url 'base:company_switch' %}" class="btn btn-sm btn-outline">Manage</a>
-    </header>
-    <div class="p-5">
-      {% if recent_companies %}
-        <ul class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-          {% for c in recent_companies %}
-            <li class="rounded-2xl bg-base-100/80 border border-base-300/70 p-4 flex items-center justify-between transition hover:shadow-xl hover:border-base-300">
-              <div class="min-w-0">
-                <div class="font-medium truncate">{{ c.name }}</div>
-                <div class="text-xs text-base-content/60">{{ c.currency.code|default:"—" }}</div>
-              </div>
-              {% if current_company and c.id == current_company.id %}
-                <span class="badge badge-primary badge-outline">Current</span>
-              {% else %}
-                <a href="{% url 'base:company_switch' %}" class="btn btn-xs btn-outline">Switch</a>
-              {% endif %}
-            </li>
-          {% endfor %}
-        </ul>
-      {% else %}
-        <p class="text-sm text-base-content/70">No companies available for your account.</p>
-      {% endif %}
     </div>
   </section>
 

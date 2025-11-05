@@ -6,10 +6,14 @@ from django.db.models.functions import Lower
 from django.utils import timezone
 from django.db.models import Q
 from django.core.exceptions import ValidationError
+
+from base.acl import ACLManager
 from base.company_context import get_company_id, get_allowed_company_ids
 from django.utils.translation import gettext_lazy as _
 from django.contrib.auth.base_user import BaseUserManager
 from django.apps import apps
+from base.acl import ACLManager
+
 
 # الربط مع كيانات المشروع الجديد
 # ملاحظة: نستخدم سلاسل لتفادي الدوران، لأن models تُحمَّل مبكرًا
@@ -214,6 +218,9 @@ class Company(UserStampedMixin,TimeStampedMixin, ActivableMixin):
 
     # Partner is the single source of truth for identity/address fields.
     # Keep only fields truly owned by Company (e.g., name). Colors/logo remain Company-owned.
+
+    objects = ACLManager()
+
     SYNCED_WITH_PARTNER_FIELDS = ("name",)
 
     name = models.CharField(max_length=255, unique=True)
@@ -469,6 +476,7 @@ class User(TimeStampedMixin, ActivableMixin, AbstractUser):
     - حقول إضافية من QMS: email_verified, email_verified_at, avatar, last_session_key
     - فهارس وقيود لأداء ونظافة البيانات
     """
+
     # هوية
     email = models.EmailField(unique=True, db_index=True)
     avatar = models.ImageField(upload_to="users/avatar/", blank=True, null=True)
@@ -501,6 +509,7 @@ class User(TimeStampedMixin, ActivableMixin, AbstractUser):
 
     # مدير
     objects = UserManager()
+    acl_objects = ACLManager()
 
     # تسجيل الدخول بالبريد
     USERNAME_FIELD = "email"
@@ -645,6 +654,9 @@ class UserSettings(TimeStampedMixin, models.Model):
     - الشركة الافتراضية في الواجهة
     - إعدادات واجهة عامة
     """
+
+    objects = ACLManager()
+
     user = models.OneToOneField("base.User", on_delete=models.CASCADE, related_name="settings")
     default_company = models.ForeignKey("base.Company", null=True, blank=True,
                                         on_delete=models.SET_NULL, related_name="defaulted_users")
@@ -734,6 +746,8 @@ class Partner(CompanyOwnedMixin, UserStampedMixin, TimeStampedMixin, ActivableMi
     - commercial_partner (computed-like property)
     """
 
+    objects = ACLManager()
+
     TYPE_CHOICES = [
         ("contact", "Contact"),
         ("invoice", "Invoice"),
@@ -793,9 +807,6 @@ class Partner(CompanyOwnedMixin, UserStampedMixin, TimeStampedMixin, ActivableMi
     # وغالبًا تكون لكل منهما شركة مختلفة. لذلك لا نفرض تطابق الشركة لعلاقة parent.
     company_dependent_relations: tuple[str, ...] = ()
     COMPANY_SCOPE_IGNORE_RELATIONS = {"parent"}
-
-    # Manager مقيَّد بسياق الشركة (Odoo-like)
-    objects = CompanyScopeManager()
 
     class Meta:
         db_table = "partner"

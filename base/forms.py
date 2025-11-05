@@ -133,3 +133,17 @@ class PartnerForm(forms.ModelForm):
             "email", "phone", "website", "vat", "company_registry", "categories",
             "street", "street2", "zip", "city", "state", "country",
         )
+
+# ----- user forms -----------
+
+class UserForm(forms.ModelForm):
+    class Meta:
+        model = User
+        fields = ("first_name", "last_name", "email", "company", "partner")
+
+# ----- Company forms -----------
+
+class CompanyForm(forms.ModelForm):
+    class Meta:
+        model = Company
+        fields = ("name", "parent", "partner")

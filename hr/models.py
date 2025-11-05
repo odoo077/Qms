@@ -22,7 +22,7 @@ from base.models import (
 )
 
 # ACL (صلاحيات كائنية) — نطبّقها على Employee تحديدًا
-from base.acl import AccessControlledMixin
+from base.acl import AccessControlledMixin, ACLManager
 
 
 # ------------------------------------------------------------
@@ -604,6 +604,9 @@ class Employee(AccessControlledMixin, CompanyOwnedMixin, ActivableMixin, TimeSta
     - work_contact: بطاقة Partner وظيفية إجبارية (تُدار بالإشارات)
     - إن كان مرتبطًا بمستخدم: work_contact = partner الخاص بالمستخدم
     """
+
+    objects = ACLManager()  # ACL-aware manager
+
     company = models.ForeignKey(
         "base.Company",
         on_delete=models.PROTECT,
@@ -758,6 +761,9 @@ class Employee(AccessControlledMixin, CompanyOwnedMixin, ActivableMixin, TimeSta
         permissions = [
             ("approve_employee", "Can approve employee record"),
             ("view_private_fields", "Can view employee private fields"),
+            # NEW – ثابتة وتُستخدم كمفتاح بدلاً من اسم المجموعة
+            ("manage_all_hr", "Can manage all HR records (company-wide)"),
+            ("manage_department_hr", "Can manage HR records for own departments"),
         ]
 
     # --------- خصائص مُساعدة ----------

@@ -7,7 +7,8 @@ from .views import (
     PartnerListView, PartnerDetailView, PartnerCreateView, PartnerUpdateView,
     register_view, activate_view, activation_sent_view, activation_failed_view, resend_activation_view,
     login_view, logout_view, profile_view, edit_profile_view,
-    password_change_view, password_change_done_view, HomeView,
+    password_change_view, password_change_done_view, HomeView, UserDetailView, UserListView, UserUpdateView,
+    CompanyDetailView, CompanyCreateView, CompanyListView, CompanyUpdateView,
 )
 
 
@@ -21,8 +22,8 @@ urlpatterns = [
     path("company/switch/",   CompanySwitchView.as_view(),   name="company_switch"),
 
     # Partners
-    path("partners/",               PartnerListView.as_view(),   name="partner_list"),
-    path("partners/create/",        PartnerCreateView.as_view(), name="partner_create"),
+    path("partners/", PartnerListView.as_view(),   name="partner_list"),
+    path("partners/new/", PartnerCreateView.as_view(), name="partner_create"),
     path("partners/<int:pk>/",      PartnerDetailView.as_view(), name="partner_detail"),
     path("partners/<int:pk>/edit/", PartnerUpdateView.as_view(), name="partner_edit"),
 
@@ -77,4 +78,17 @@ urlpatterns = [
         ),
         name="password_reset_complete",
     ),
+
+    # Users
+    path("users/", UserListView.as_view(), name="user_list"),
+    path("users/<int:pk>/", UserDetailView.as_view(), name="user_detail"),
+    path("users/<int:pk>/edit/", UserUpdateView.as_view(), name="user_edit"),
+
+    # Companies
+    path("companies/", CompanyListView.as_view(), name="company_list"),
+    path("companies/new/", CompanyCreateView.as_view(), name="company_create"),
+    path("companies/<int:pk>/", CompanyDetailView.as_view(), name="company_detail"),
+    path("companies/<int:pk>/edit/", CompanyUpdateView.as_view(), name="company_edit"),
+
+
 ]

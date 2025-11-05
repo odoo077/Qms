@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% load widget_tweaks %}
+{% block title %}Edit User · 360 Manager{% endblock %}
+{% block content %}
+<div class="px-4 py-6">
+  <nav class="text-sm breadcrumbs mb-4">
+    <ul><li><a href="{% url 'base:user_list' %}">Users</a></li><li class="font-semibold">Edit</li></ul>
+  </nav>
+
+  <h1 class="text-2xl font-bold mb-3">Edit User</h1>
+
+  <form method="post" class="grid gap-4 md:grid-cols-2">
+    {% csrf_token %}
+    <div class="md:col-span-2 card bg-base-100 border border-base-300">
+      <div class="card-body p-5 grid gap-4 md:grid-cols-2">
+        <div class="form-control">
+          <label class="label"><span class="label-text">First name</span></label>
+          {{ form.first_name|add_class:"input input-bordered w-full" }}
+        </div>
+        <div class="form-control">
+          <label class="label"><span class="label-text">Last name</span></label>
+          {{ form.last_name|add_class:"input input-bordered w-full" }}
+        </div>
+        <div class="form-control">
+          <label class="label"><span class="label-text">Email</span></label>
+          {{ form.email|add_class:"input input-bordered w-full" }}
+        </div>
+        <div class="form-control">
+          <label class="label"><span class="label-text">Company</span></label>
+          {{ form.company|add_class:"select select-bordered w-full" }}
+        </div>
+        <div class="form-control">
+          <label class="label"><span class="label-text">Partner</span></label>
+          {{ form.partner|add_class:"select select-bordered w-full" }}
+        </div>
+      </div>
+    </div>
+
+    <div class="md:col-span-2 flex items-center gap-2">
+      <button class="btn btn-primary">Save</button>
+      <a href="{% url 'base:user_list' %}" class="btn btn-ghost">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

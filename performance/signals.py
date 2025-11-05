@@ -11,7 +11,7 @@ from typing import Optional
 
 from django.db.models.signals import post_save, post_delete, post_migrate
 from django.dispatch import receiver
-from base.acl_service import grant_access
+from base.acl_service import grant_access, apply_default_acl
 from django.contrib.auth.models import Group, Permission
 from django.contrib.contenttypes.models import ContentType
 
@@ -136,3 +136,16 @@ def grant_owner_perms_param_result(sender, instance, created, **kwargs):
             extras=["rate_parameter_result"],  # من باب التوافق إن رغبت بالاسم القديم أيضًا
         )
 
+
+# لضمان صلاحيات أولية تلقائية لكل سجل جديد (حتى لو لم يُنشأ من الـ services):
+# Default ACLs for key models
+@receiver(post_save, sender=Objective)
+@receiver(post_save, sender=KPI)
+@receiver(post_save, sender=Task)
+@receiver(post_save, sender=EvaluationTemplate)
+@receiver(post_save, sender=EvaluationParameter)
+@receiver(post_save, sender=Evaluation)
+@receiver(post_save, sender=EvaluationParameterResult)
+def _apply_default_acl_performance(sender, instance, created, **kwargs):
+    if created:
+        apply_default_acl(instance)

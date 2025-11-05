@@ -349,3 +349,25 @@ def _autoset_userstamped(sender, instance, **kwargs):
 
     if hasattr(instance, "updated_by_id"):
         instance.updated_by_id = uid
+
+# ==========================================================
+# Default ACL for base objects (Company / Partner)
+# ==========================================================
+from base.acl_service import apply_default_acl
+
+@receiver(post_save, sender=Partner)
+def _partner_default_acl(sender, instance, created, **kwargs):
+    """يطبّق الصلاحيات الافتراضية عند إنشاء Partner جديد."""
+    if created:
+        apply_default_acl(instance)
+
+@receiver(post_save, sender=Company)
+def _company_default_acl(sender, instance, created, **kwargs):
+    """يطبّق الصلاحيات الافتراضية عند إنشاء Company جديدة."""
+    if created:
+        apply_default_acl(instance)
+
+@receiver(post_save, sender=User)
+def _user_default_acl(sender, instance, created, **kwargs):
+    if created:
+        apply_default_acl(instance)

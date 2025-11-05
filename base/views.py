@@ -1,4 +1,5 @@
-from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
+from django.db.models import Q
 from django.views.generic import TemplateView, FormView, CreateView, DetailView, UpdateView
 from django.apps import apps
 from urllib.parse import urljoin
@@ -13,9 +14,10 @@ from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
-from base.forms import CompanySwitchForm, RegisterForm, PartnerForm, LoginForm, ProfileEditForm
+from base.forms import CompanySwitchForm, RegisterForm, PartnerForm, LoginForm, ProfileEditForm, UserForm, CompanyForm
 from base.tokens import account_activation_token
-from .models import Partner
+from .company_context import get_company_id
+from .models import Partner, Company
 from django.views.generic import ListView, DetailView, CreateView, UpdateView
 
 User = get_user_model()
@@ -221,12 +223,17 @@ class HomeView(LoginRequiredMixin, TemplateView):
         # الشركات المسموح بها = الشركات المربوطة بالمستخدم (Odoo-like Allowed Companies)
         allowed_companies = self.request.user.companies.all()
 
-        # لا داعي لتصفية إضافية هنا؛ Partner.objects و User.objects مُقيَّدان تلقائيًا بالنطاق
+        _pks = Partner.objects.with_acl("view").values("pk")
         partners_qs = (
-            Partner.objects
+            Partner.objects.filter(pk__in=_pks)
             .select_related("company", "parent")
         )
-        users_qs = User.objects.all()  # إن كان User CompanyOwned؛ المدير سيُقيّدها تلقائياً
+
+        _u_pks = User.acl_objects.with_acl("view").values("pk")
+        users_qs = (
+            User.objects.filter(pk__in=_u_pks)
+            .select_related("company", "partner")
+        )
 
         ctx.update({
             "companies_count": allowed_companies.count(),
@@ -290,21 +297,21 @@ class PartnerListView(LoginRequiredMixin, ListView):
     template_name = "base/partner_list.html"
 
     def get_queryset(self):
-        # لم نعد نقرأ من session. مدير CompanyOwnedMixin يطبق التصفية تلقائياً
-        return (
-            super()
-            .get_queryset()
+        base_qs = super().get_queryset()
+        _pks = base_qs.with_acl("view").values("pk")
+        qs = (
+            base_qs.model.objects.filter(pk__in=_pks)
             .select_related("company", "parent")
             .order_by("name")
         )
-
-
-class PartnerCreateView(LoginRequiredMixin, CreateView):
-    model = Partner
-    form_class = PartnerForm
-    template_name = "base/partner_form.html"
-    success_url = reverse_lazy("base:partner_list")
-
+        q = (self.request.GET.get("q") or "").strip()
+        if q:
+            qs = qs.filter(
+                Q(name__icontains=q) |
+                Q(email__icontains=q) |
+                Q(phone__icontains=q)
+            )
+        return qs
 
 class PartnerUpdateView(LoginRequiredMixin, UpdateView):
     model = Partner
@@ -312,18 +319,117 @@ class PartnerUpdateView(LoginRequiredMixin, UpdateView):
     template_name = "base/partner_form.html"
     success_url = reverse_lazy("base:partner_list")
 
+    def get_queryset(self):
+        base_qs = super().get_queryset()
+        _pks = base_qs.with_acl("change").values("pk")
+        return base_qs.model.objects.filter(pk__in=_pks).select_related("company", "parent")
+
+class PartnerCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+    model = Partner
+    form_class = PartnerForm
+    template_name = "base/partner_form.html"
+    success_url = reverse_lazy("base:partner_list")
+    permission_required = "base.add_partner"
+
+    def get_initial(self):
+        init = super().get_initial()
+        # اضبط الشركة الحالية افتراضيًا
+        if not init.get("company"):
+            cid = get_company_id()
+            if cid:
+                init["company"] = cid
+        return init
 
 class PartnerDetailView(LoginRequiredMixin, DetailView):
     model = Partner
     template_name = "base/partner_detail.html"
 
-    # إضافة جديدة
     def get_queryset(self):
+        base_qs = super().get_queryset()
+        _pks = base_qs.with_acl("view").values("pk")
+        return base_qs.model.objects.filter(pk__in=_pks).select_related("company", "parent")
+
+
+# --- Users ---
+class UserListView(LoginRequiredMixin, ListView):
+    model = User
+    template_name = "base/users/user_list.html"
+    paginate_by = 24
+
+    def get_queryset(self):
+        # ملاحظة: نستخدم acl_objects لأن User.objects هو UserManager (خاص بالـ auth)
+        _pks = User.acl_objects.with_acl("view").values("pk")
+        qs = (
+            User.objects.filter(pk__in=_pks)
+            .select_related("company", "partner")
+            .order_by("date_joined")
+        )
+        q = (self.request.GET.get("q") or "").strip()
+        if q:
+            qs = qs.filter(
+                Q(username__icontains=q) |
+                Q(email__icontains=q) |
+                Q(partner__name__icontains=q)
+            )
+        return qs
+
+class UserDetailView(LoginRequiredMixin, DetailView):
+    model = User
+    template_name = "base/users/user_detail.html"
+
+    def get_queryset(self):
+        _pks = User.acl_objects.with_acl("view").values("pk")
+        return User.objects.filter(pk__in=_pks).select_related("company", "partner")
+
+class UserUpdateView(LoginRequiredMixin, UpdateView):
+    model = User
+    form_class = UserForm
+    template_name = "base/users/user_form.html"
+    success_url = reverse_lazy("base:user_list")
+
+    def get_queryset(self):
+        _pks = User.acl_objects.with_acl("change").values("pk")
+        return User.objects.filter(pk__in=_pks).select_related("company", "partner")
+
+
+# --- Companies ---
+class CompanyListView(LoginRequiredMixin, ListView):
+    model = Company
+    template_name = "base/company_list.html"
+    paginate_by = 24
+
+    def get_queryset(self):
+        base_qs = super().get_queryset()
+        _pks = base_qs.with_acl("view").values("pk")
         return (
-            super()
-            .get_queryset()
-            .select_related("company", "parent")
+            Company.objects.filter(pk__in=_pks)
+            .order_by("name")
         )
 
+class CompanyDetailView(LoginRequiredMixin, DetailView):
+    model = Company
+    template_name = "base/company_detail.html"
 
+    def get_queryset(self):
+        base_qs = super().get_queryset()
+        _pks = base_qs.with_acl("view").values("pk")
+        return Company.objects.filter(pk__in=_pks)
+
+class CompanyUpdateView(LoginRequiredMixin, UpdateView):
+    model = Company
+    form_class = CompanyForm            # سنضيفه بالخطوة 2
+    template_name = "base/company_form.html"
+    success_url = reverse_lazy("base:company_list")
+
+    def get_queryset(self):
+        base_qs = super().get_queryset()
+        _pks = base_qs.with_acl("change").values("pk")
+        return Company.objects.filter(pk__in=_pks)
+
+class CompanyCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+    model = Company
+    form_class = CompanyForm
+    template_name = "base/company_form.html"
+    success_url = reverse_lazy("base:company_list")
+    permission_required = "base.add_company"
 

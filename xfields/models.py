@@ -152,6 +152,7 @@ class XValue(models.Model):
         ]
 
     def clean(self):
+        from django.core.exceptions import ValidationError
         super().clean()
 
         # إذا لم تُحدد content_type بعد (داخل Inline قبل الحفظ) → تخطّ الفحص
@@ -167,6 +168,13 @@ class XValue(models.Model):
                 if (self.value is None) or (self.value == ""):
                     raise ValidationError({"value": _("This field is required.")})
 
+        # ✅ اتساق الشركة (اختياري مُفعّل): إن كان للـ XField شركة، والهدف لديه company_id
+        xf_company = getattr(self.field, "company_id", None)
+        # target متاح عادةً عبر GenericForeignKey (يُتوقع وجوده بعد content_type/object_id)
+        target_obj = getattr(self, "target", None)
+        t_company = getattr(target_obj, "company_id", None)
+        if xf_company and t_company and xf_company != t_company:
+            raise ValidationError(_("XField company must match target object's company."))
 
         # تحقق من خيارات الحقول للأنواع choice/multi_choice
         if self.field.field_type in (XField.FIELD_CHOICE, XField.FIELD_MULTI) and self.json_value:

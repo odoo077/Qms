@@ -9,7 +9,7 @@
 from django.db import models, transaction
 from django.core.exceptions import ValidationError
 from django.utils import timezone
-from base.acl import AccessControlledMixin
+from base.acl import AccessControlledMixin, ACLManager
 
 # مكسينات أساسية موحّدة في المشروع
 from base.models import (
@@ -57,7 +57,7 @@ class Task(AccessControlledMixin,TimeStampedMixin, UserStampedMixin, ActivableMi
     # 0..100; تُستخدم لتجميع تقدّم الـ Objective
     percent_complete = models.PositiveIntegerField(default=0)
 
-    objects = CompanyScopeManager()
+    objects = ACLManager()
 
     class Meta:
         db_table = "perf_task"
@@ -134,7 +134,7 @@ class KPI(AccessControlledMixin, TimeStampedMixin, UserStampedMixin, ActivableMi
     attainment_pct = models.PositiveIntegerField(default=0, help_text="0..100% of target achieved", db_index=True)
     score_pct      = models.PositiveIntegerField(default=0, help_text="0..100 normalized score")
 
-    objects = CompanyScopeManager()
+    objects = ACLManager()
 
     class Meta:
         db_table = "perf_kpi"
@@ -254,7 +254,7 @@ class Objective(AccessControlledMixin, CompanyOwnedMixin, TimeStampedMixin, User
     progress_pct = models.PositiveIntegerField(default=0, help_text="Aggregated from Tasks (0..100)", db_index=True)
     score_pct    = models.PositiveIntegerField(default=0, help_text="Aggregated from KPIs (0..100)")
 
-    objects = CompanyScopeManager()
+    objects = ACLManager()
 
     class Meta:
         db_table = "perf_objective"
@@ -551,7 +551,7 @@ class EvaluationTemplate(AccessControlledMixin, TimeStampedMixin, UserStampedMix
     def total_weight_pct(self) -> int:
         return sum(p.weight_pct or 0 for p in self.parameters.all())
 
-    objects = CompanyScopeManager()
+    objects = ACLManager()
 
     class Meta:
         db_table = "perf_evaluation_template"
@@ -571,6 +571,9 @@ class EvaluationParameter(AccessControlledMixin, TimeStampedMixin, UserStampedMi
     صف/معامل داخل القالب.
     يدعم مصادر متعددة: Objective/KPI/Tasks/External/Manual.
     """
+
+    objects = ACLManager()
+
     class SourceKind(models.TextChoices):
         OBJECTIVE_SCORE   = "objective_score", "Objective Score (score_pct)"
         OBJECTIVE_PROGRESS = "objective_progress", "Objective Progress (progress_pct)"
@@ -649,6 +652,9 @@ class EvaluationParameterResult(AccessControlledMixin, TimeStampedMixin, UserSta
     - raw_value: قيمة المصدر (رقم/JSON)
     - score_pct: قيمة 0..100 بعد القصّ
     """
+
+    objects = ACLManager()
+
     evaluation = models.ForeignKey("performance.Evaluation",        on_delete=models.CASCADE, related_name="parameter_results")
     parameter  = models.ForeignKey("performance.EvaluationParameter", on_delete=models.CASCADE, related_name="results")
 
@@ -728,7 +734,7 @@ class Evaluation(AccessControlledMixin, CompanyOwnedMixin, TimeStampedMixin, Use
     def is_locked(self) -> bool:
         return self.state in ("approved", "locked") or bool(self.locked_at)
 
-    objects = CompanyScopeManager()
+    objects = ACLManager()
 
     class Meta:
         db_table = "perf_evaluation"

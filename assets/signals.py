@@ -10,6 +10,7 @@ from django.dispatch import receiver
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 
+from base.acl_service import apply_default_acl
 from . import models as m
 from . import services as s
 
@@ -159,3 +160,16 @@ def _ensure_assignment_company_consistency(sender, instance: m.AssetAssignment, 
     """
     if instance.asset_id and instance.asset.company_id:
         instance.company_id = instance.asset.company_id
+
+
+# لضمان صلاحيات أولية تلقائية لكل سجل جديد (حتى لو لم يُنشأ من الـ services):
+
+@receiver(post_save, sender=m.Asset)
+def _asset_default_acl(sender, instance, created, **kwargs):
+    if created:
+        apply_default_acl(instance)
+
+@receiver(post_save, sender=m.AssetAssignment)
+def _assetassignment_default_acl(sender, instance, created, **kwargs):
+    if created:
+        apply_default_acl(instance)

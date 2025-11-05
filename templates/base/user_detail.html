@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}User · {{ object.username }} · 360 Manager{% endblock %}
+{% block content %}
+<div class="px-4 py-6">
+  <nav class="text-sm breadcrumbs mb-4">
+    <ul><li><a href="{% url 'base:user_list' %}">Users</a></li><li class="font-semibold">{{ object.username }}</li></ul>
+  </nav>
+
+  <div class="mb-4 flex items-start justify-between gap-3">
+    <div>
+      <h1 class="text-2xl font-bold">{{ object.get_full_name|default:object.username }}</h1>
+      <p class="text-base-content/60 text-sm">{{ object.company|default:"—" }}</p>
+    </div>
+    <div class="flex items-center gap-2">
+      <a href="{% url 'base:user_edit' object.pk %}" class="btn btn-outline btn-sm">Edit</a>
+      <a href="{% url 'base:user_list' %}" class="btn btn-sm">Back</a>
+    </div>
+  </div>
+
+  <div class="card bg-base-100 border border-base-300">
+    <div class="card-body p-5 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+      <div><div class="text-base-content/60">Username</div><div class="font-medium">{{ object.username }}</div></div>
+      <div><div class="text-base-content/60">Email</div><div class="font-medium">{{ object.email|default:"—" }}</div></div>
+      <div><div class="text-base-content/60">Partner</div><div class="font-medium">{{ object.partner|default:"—" }}</div></div>
+      <div><div class="text-base-content/60">Joined</div><div class="font-medium">{{ object.date_joined }}</div></div>
+      <div><div class="text-base-content/60">Active</div><div class="font-medium">{{ object.is_active|yesno:"Yes,No" }}</div></div>
+    </div>
+  </div>
+</div>
+{% endblock %}

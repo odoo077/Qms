@@ -7,7 +7,7 @@
 from django.db import models
 from django.conf import settings
 from django.utils.translation import gettext_lazy as _
-from base.acl import AccessControlledMixin
+from base.acl import AccessControlledMixin, ACLManager
 from base.models import CompanyScopeManager
 
 COMPANY_MODEL = "base.Company"
@@ -78,6 +78,9 @@ class Asset(AccessControlledMixin, models.Model):
     """
     الأصول – يمثل الأصل الرئيسي كما في Odoo
     """
+
+    objects = ACLManager()
+
     class Status(models.TextChoices):
         AVAILABLE = "available", _("Available")
         ASSIGNED = "assigned", _("Assigned")
@@ -205,6 +208,9 @@ class AssetAssignment(AccessControlledMixin, models.Model):
     سجل الإسناد (تاريخ تسليم الأصول لموظفين)
     - يعكس سجل تغيّر المالك كما في Odoo (ir.attachment / asset.log)
     """
+
+    objects = ACLManager()
+
     asset = models.ForeignKey(Asset, on_delete=models.CASCADE, related_name="assignments", verbose_name=_("Asset"))
     employee = models.ForeignKey(
         EMPLOYEE_MODEL, on_delete=models.CASCADE,

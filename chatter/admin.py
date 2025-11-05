@@ -1,9 +1,10 @@
 from django.contrib import admin
-from django.utils.html import format_html
 from .models import ChatterMessage, ChatterAttachment, ChatterFollower
+from base.admin_mixins import AppAdmin
+
 
 @admin.register(ChatterMessage)
-class ChatterMessageAdmin(admin.ModelAdmin):
+class ChatterMessageAdmin(AppAdmin):
     list_display = ("id", "company", "target_ref", "author_user", "author_employee", "short_body", "created_at")
     list_filter = ("company", "content_type", "created_at")
     search_fields = ("body", "author_user__username", "author_employee__name")
@@ -18,13 +19,13 @@ class ChatterMessageAdmin(admin.ModelAdmin):
         return txt + ("…" if len(obj.body or "") > 80 else "")
 
 @admin.register(ChatterAttachment)
-class ChatterAttachmentAdmin(admin.ModelAdmin):
+class ChatterAttachmentAdmin(AppAdmin):
     list_display = ("id", "message", "filename", "size")
     search_fields = ("filename",)
     list_select_related = ("message",)
 
 @admin.register(ChatterFollower)
-class ChatterFollowerAdmin(admin.ModelAdmin):
+class ChatterFollowerAdmin(AppAdmin):
     list_display = ("id", "company", "target_ref", "user", "employee", "created_at")
     list_filter = ("company", "content_type")
     search_fields = ("user__username", "employee__name")

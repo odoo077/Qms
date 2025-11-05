@@ -12,7 +12,7 @@ from typing import Optional
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 
-from base.acl_service import grant_access, revoke_access
+from base.acl_service import grant_access, revoke_access, apply_default_acl
 
 from . import models
 
@@ -202,3 +202,15 @@ def _resumeline_assign_object_perms(sender, instance: models.ResumeLine, created
         _remove_many(emp_user_old, ["view"], instance)
         _grant_many(emp_user_new, ["view"], instance)
 
+
+# لضمان صلاحيات أولية تلقائية لكل سجل جديد (حتى لو لم يُنشأ من الـ services):
+
+@receiver(post_save, sender=models.EmployeeSkill)
+def _employeeskill_default_acl(sender, instance, created, **kwargs):
+    if created:
+        apply_default_acl(instance)
+
+@receiver(post_save, sender=models.ResumeLine)
+def _resumeline_default_acl(sender, instance, created, **kwargs):
+    if created:
+        apply_default_acl(instance)

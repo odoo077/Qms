@@ -3,24 +3,18 @@ from typing import Iterable, Sequence
 from django.contrib.contenttypes.models import ContentType
 from django.db import transaction
 from django.core.exceptions import PermissionDenied
-from django.conf import settings
+from base.acl_service import has_perm as acl_has_perm
 
 from .models import ChatterMessage, ChatterFollower, ChatterAttachment
 
-# محاولة استخدام ACL لديك إن وُجدت على الموديل الهدف
+# النتيجة: الرسائل تُقرأ/تُنشر فقط إذا كان لدى المستخدم حق الوصول الكائني على الهدف (view/change)، بدون أي تساهل.
 def _can_read(obj, user) -> bool:
-    fn = getattr(obj, "can_read", None)
-    if callable(fn):
-        return bool(fn(user))
-    # fallback متساهل: اسمح بالقراءة إن لم يعرّف الموديل حارسًا
-    return True
+    # اقرأ فقط إن كان يملك view على السجل الهدف
+    return bool(user and acl_has_perm(obj, user, "view"))
 
 def _can_post(obj, user) -> bool:
-    fn = getattr(obj, "can_write", None)
-    if callable(fn):
-        return bool(fn(user))
-    # إن لم يكن هناك حارس، اسمح بالكتابة لمستخدم مصدّق
-    return bool(user and user.is_authenticated)
+    # الكتابة مشروطة بـ change على الهدف أو صلاحية نشر عامة على الشاتِر
+    return bool(user and (acl_has_perm(obj, user, "change") or user.has_perm("chatter.post_chatter_message")))
 
 
 def _ct_and_id(target):

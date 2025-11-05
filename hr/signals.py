@@ -18,7 +18,7 @@ from django.db import transaction
 from django.db.models.signals import post_migrate, pre_save, post_save, post_delete
 from django.dispatch import receiver
 
-from base.acl_service import grant_access
+from base.acl_service import grant_access, apply_default_acl, revoke_access
 
 
 # ------------------------------
@@ -174,21 +174,33 @@ def ensure_employee_work_contact(sender, instance, created: bool, **kwargs):
 @receiver(post_save, sender=_get_model("hr", "Employee"))
 def grant_owner_perms_employee(sender, instance, created: bool, **kwargs):
     """
-    عند إنشاء موظف بواسطة مستخدم معيّن (created_by):
-      - امنحه صلاحيات كائنية عبر نظام ACL: view + change + delete + approve.
-        (approve هنا صلاحية كائنية من نظامنا، مختلفة عن صلاحية الموديل.)
+    طبّق السياسة الافتراضية المركزية (مالك + HR-Manager + مدير القسم).
     """
-    if created and getattr(instance, "created_by", None):
-        user = instance.created_by
-        # نداء واحد يضبط الأعلام المطلوبة على ACE
-        grant_access(
-            instance,
-            user=user,
-            view=True,
-            change=True,
-            delete=True,
-            approve=True,  # متاحة في ACL الجديد
-        )
+    apply_default_acl(instance)
+
+
+
+@receiver(post_save, sender=_get_model("hr", "Employee"))
+def _employee_fix_acl_on_department_change(sender, instance, created, **kwargs):
+    """
+    لو تغيّر القسم، اسحب صلاحيات المدير القديم من هذا السجل فقط.
+    ثم طبّق السياسة الافتراضية (ستمنح المدير الجديد تلقائيًا).
+    """
+    old_dept_id = getattr(instance, "_old_department_id", None)
+    new_dept_id = getattr(instance, "department_id", None)
+
+    if old_dept_id and old_dept_id != new_dept_id:
+        # مدير القسم القديم → user
+        Department = _get_model("hr", "Department")
+        old_dept = Department._base_manager.only("manager_id").filter(pk=old_dept_id).first()
+        if old_dept and getattr(old_dept, "manager_id", None):
+            old_mgr_emp = old_dept.manager
+            if getattr(old_mgr_emp, "user_id", None):
+                # اسحب الصلاحيات من المستخدم القديم فقط
+                revoke_access(instance, user=old_mgr_emp.user)
+
+    # ثم ضمّن أن السياسة الافتراضية مفعّلة بعد أي تغيير
+    apply_default_acl(instance)
 
 
 # ============================================================
@@ -225,11 +237,14 @@ def _employee_capture_old_vals(sender, instance, **kwargs):
     """
     if instance.pk:
         try:
-            old = sender.objects.only("job_id", "active", "user_id", "work_contact_id").get(pk=instance.pk)
+            old = sender.objects.only(
+                "job_id", "active", "user_id", "work_contact_id", "department_id"
+            ).get(pk=instance.pk)
             instance._old_job_id = old.job_id
             instance._old_active = old.active
             instance._old_user_id = old.user_id
             instance._old_work_contact_id = old.work_contact_id
+            instance._old_department_id = old.department_id  # NEW
         except sender.DoesNotExist:
             instance._old_job_id = instance._old_active = instance._old_user_id = instance._old_work_contact_id = None
     else:

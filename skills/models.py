@@ -15,7 +15,7 @@ from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Q, UniqueConstraint, CheckConstraint
 from django.utils.translation import gettext_lazy as _
-from base.acl import AccessControlledMixin
+from base.acl import AccessControlledMixin, ACLManager
 
 # ------------------------------------------------------------
 # روابط للتطبيقات الأساسية (حسب مشروعك)
@@ -179,6 +179,9 @@ class EmployeeSkill(TimeUserStampedMixin, AccessControlledMixin):
     - company (denorm) لتمكين نطاق الشركة والفلترة السريعة (منطق Odoo).
     - التحقق: skill & level يجب أن ينتميا لنفس skill_type المختار.
     """
+
+    objects = ACLManager()
+
     employee = models.ForeignKey(
         Employee, on_delete=models.CASCADE, related_name="skills", db_index=True
     )
@@ -304,6 +307,9 @@ class ResumeLine(TimeUserStampedMixin, AccessControlledMixin):
     - يَجمع نوع السطر + نص/تفاصيل + فترة من/إلى + مرفقات اختيارية.
     - company denorm من employee (كما في Odoo عبر السياق).
     """
+
+    objects = ACLManager()
+
     employee = models.ForeignKey(
         Employee, on_delete=models.CASCADE, related_name="resume_lines", db_index=True
     )
