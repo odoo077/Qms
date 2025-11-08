@@ -51,6 +51,7 @@ class AssetCategory(AccessControlledMixin, models.Model):
             })
 
     objects = CompanyScopeManager()
+    acl_objects = ACLManager()
 
     class Meta:
         db_table = "assets_category"

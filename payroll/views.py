@@ -181,7 +181,13 @@ class PayrollPeriodListView(LoginRequiredMixin, BaseScopedListView, ListView):
     paginate_by = 24
 
     def get_queryset(self):
-        qs = _with_acl_or_all(m.PayrollPeriod.objects).select_related("company").order_by("-year", "-month")
+        base = _with_acl_or_all(m.PayrollPeriod.objects)
+        qs = (
+            m.PayrollPeriod.objects
+            .filter(pk__in=base.values("pk"))
+            .select_related("company")
+            .order_by("-year", "-month")
+        )
         qs = apply_search_filters(
             self.request, qs,
             search_fields=["company__name", "year", "month", "state"]
@@ -222,8 +228,10 @@ class PayslipListView(LoginRequiredMixin, BaseScopedListView, ListView):
     paginate_by = 24
 
     def get_queryset(self):
+        base = _with_acl_or_all(m.Payslip.objects)
         qs = (
-            _with_acl_or_all(m.Payslip.objects)
+            m.Payslip.objects
+            .filter(pk__in=base.values("pk"))
             .select_related("company", "employee", "period", "department", "job", "struct")
             .order_by("-period__year", "-period__month", "employee__name")
         )
@@ -273,7 +281,13 @@ class EmployeeSalaryListView(LoginRequiredMixin, BaseScopedListView, ListView):
     paginate_by = 24
 
     def get_queryset(self):
-        qs = _with_acl_or_all(m.EmployeeSalary.objects).select_related("company", "employee").order_by("-date_start")
+        base = _with_acl_or_all(m.EmployeeSalary.objects)
+        qs = (
+            m.EmployeeSalary.objects
+            .filter(pk__in=base.values("pk"))
+            .select_related("company", "employee")
+            .order_by("-date_start")
+        )
         qs = apply_search_filters(
             self.request, qs,
             search_fields=["employee__name", "company__name", "date_start", "date_end"]

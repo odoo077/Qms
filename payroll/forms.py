@@ -22,10 +22,11 @@ class _ScopedModelForm(forms.ModelForm):
         if "company" in self.fields:
             self.fields["company"].queryset = allowed_companies
 
-        cur = get_current_company(self.request)
-        if cur and "company" in self.fields and allowed_companies.filter(pk=cur.pk).exists():
+        cur_id = get_current_company(self.request)  # returns an integer id
+        if cur_id and "company" in self.fields and allowed_companies.filter(pk=cur_id).exists():
             if not getattr(self.instance, "pk", None):
-                self.fields["company"].initial = cur
+                # initial can be a pk
+                self.fields["company"].initial = cur_id
 
     def _filter_by_company(self, field_name: str, qs):
         if field_name not in self.fields:

@@ -17,7 +17,8 @@ class AssetCategoryListView(LoginRequiredMixin, BaseScopedListView, ListView):
     paginate_by = 24
 
     def get_queryset(self):
-        qs = m.AssetCategory.acl_objects.with_acl("view").select_related("company", "parent")
+        base = m.AssetCategory.acl_objects.with_acl("view")
+        qs = m.AssetCategory.objects.filter(pk__in=base.values("pk")).select_related("company", "parent")
         qs = apply_search_filters(self.request, qs, search_fields=["name", "parent__name"])
         return qs
 
@@ -47,10 +48,11 @@ class AssetCategoryUpdateView(LoginRequiredMixin, UpdateView):
     template_name = "assets/category_form.html"
     success_url = reverse_lazy("assets:category_list")
 
-    def get_form_kwargs(self):
-        kw = super().get_form_kwargs()
-        kw["request"] = self.request
-        return kw
+    def get_queryset(self):
+        base = m.AssetCategory.acl_objects.with_acl("change")
+        return (m.AssetCategory.objects
+                .filter(pk__in=base.values("pk"))
+                .select_related("company", "parent"))
 
 
 class AssetCategoryDetailView(LoginRequiredMixin, DetailView):
@@ -58,7 +60,10 @@ class AssetCategoryDetailView(LoginRequiredMixin, DetailView):
     template_name = "assets/category_detail.html"
 
     def get_queryset(self):
-        return m.AssetCategory.acl_objects.with_acl("view").select_related("company", "parent")
+        base = m.AssetCategory.acl_objects.with_acl("view")
+        return (m.AssetCategory.objects
+                .filter(pk__in=base.values("pk"))
+                .select_related("company", "parent"))
 
 
 # =======================
@@ -70,8 +75,9 @@ class AssetListView(LoginRequiredMixin, BaseScopedListView, ListView):
     paginate_by = 24
 
     def get_queryset(self):
+        base = m.Asset.acl_objects.with_acl("view")
         qs = (
-            m.Asset.acl_objects.with_acl("view")
+            m.Asset.objects.filter(pk__in=base.values("pk"))
             .select_related("company", "category", "department", "holder", "parent")
             .order_by("code", "name")
         )
@@ -108,10 +114,11 @@ class AssetUpdateView(LoginRequiredMixin, UpdateView):
     template_name = "assets/asset_form.html"
     success_url = reverse_lazy("assets:asset_list")
 
-    def get_form_kwargs(self):
-        kw = super().get_form_kwargs()
-        kw["request"] = self.request
-        return kw
+    def get_queryset(self):
+        base = m.Asset.acl_objects.with_acl("change")
+        return (m.Asset.objects
+                .filter(pk__in=base.values("pk"))
+                .select_related("company", "category", "department", "holder", "parent"))
 
 
 class AssetDetailView(LoginRequiredMixin, DetailView):
@@ -119,9 +126,10 @@ class AssetDetailView(LoginRequiredMixin, DetailView):
     template_name = "assets/asset_detail.html"
 
     def get_queryset(self):
-        return m.Asset.acl_objects.with_acl("view").select_related(
-            "company", "category", "department", "holder", "parent"
-        )
+        base = m.Asset.acl_objects.with_acl("view")
+        return (m.Asset.objects
+                .filter(pk__in=base.values("pk"))
+                .select_related("company", "category", "department", "holder", "parent"))
 
 
 # =======================
@@ -133,8 +141,9 @@ class AssetAssignmentListView(LoginRequiredMixin, BaseScopedListView, ListView):
     paginate_by = 24
 
     def get_queryset(self):
+        base = m.AssetAssignment.acl_objects.with_acl("view")
         qs = (
-            m.AssetAssignment.acl_objects.with_acl("view")
+            m.AssetAssignment.objects.filter(pk__in=base.values("pk"))
             .select_related("asset", "employee", "company")
             .order_by("-id")
         )
@@ -171,10 +180,11 @@ class AssetAssignmentUpdateView(LoginRequiredMixin, UpdateView):
     template_name = "assets/assignment_form.html"
     success_url = reverse_lazy("assets:assignment_list")
 
-    def get_form_kwargs(self):
-        kw = super().get_form_kwargs()
-        kw["request"] = self.request
-        return kw
+    def get_queryset(self):
+        base = m.AssetAssignment.acl_objects.with_acl("change")
+        return (m.AssetAssignment.objects
+                .filter(pk__in=base.values("pk"))
+                .select_related("asset", "employee", "company"))
 
 
 class AssetAssignmentDetailView(LoginRequiredMixin, DetailView):
@@ -182,4 +192,7 @@ class AssetAssignmentDetailView(LoginRequiredMixin, DetailView):
     template_name = "assets/assignment_detail.html"
 
     def get_queryset(self):
-        return m.AssetAssignment.acl_objects.with_acl("view").select_related("asset", "employee", "company")
+        base = m.AssetAssignment.acl_objects.with_acl("view")
+        return (m.AssetAssignment.objects
+                .filter(pk__in=base.values("pk"))
+                .select_related("asset", "employee", "company"))

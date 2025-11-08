@@ -201,7 +201,7 @@ class TaskListView(LoginRequiredMixin, BaseScopedListView):
     paginate_by = 24
 
     def get_queryset(self):
-        qs = m.Task.objects.with_acl("view").select_related("assignee").order_by("-start_date")
+        qs = m.Task.objects.with_acl("view").select_related("assignee").order_by("-due_date")
         qs = apply_search_filters(self.request, qs, search_fields=["name", "assignee__name", "status"])
         return qs
 

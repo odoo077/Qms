@@ -608,7 +608,8 @@ class Employee(AccessControlledMixin, CompanyOwnedMixin, ActivableMixin, TimeSta
     - إن كان مرتبطًا بمستخدم: work_contact = partner الخاص بالمستخدم
     """
 
-    objects = ACLManager()  # ACL-aware manager
+    objects = CompanyScopeManager()
+    acl_objects = ACLManager()
 
     company = models.ForeignKey(
         "base.Company",

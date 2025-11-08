@@ -15,17 +15,12 @@ class DepartmentListView(LoginRequiredMixin, BaseScopedListView):
     paginate_by = 24
 
     def get_queryset(self):
-        qs = (
-            Department.acl_objects.with_acl("view")
-            .select_related("company", "parent", "manager")
-            .order_by("complete_name", "name")
-        )
-        # نص حر + فلترة الشركة من الـSearch Panel (نفس نمط base)
-        qs = apply_search_filters(
-            self.request,
-            qs,
-            search_fields=["name", "complete_name", "manager__name", "parent__name"],
-        )
+        ids = Department.acl_objects.with_acl("view").values("id")
+        qs = (Department.objects.filter(id__in=ids)
+              .select_related("company", "parent", "manager")
+              .order_by("complete_name", "name"))
+        qs = apply_search_filters(self.request, qs,
+                                  search_fields=["name", "complete_name", "manager__name", "parent__name"])
         return qs
 
     def get_context_data(self, **kwargs):
@@ -35,13 +30,13 @@ class DepartmentListView(LoginRequiredMixin, BaseScopedListView):
         ctx["dept_change_ids"] = set(change_ids)
         return ctx
 
-class DepartmentCreateView(LoginRequiredMixin, BaseScopedListView, CreateView):
+class DepartmentCreateView(LoginRequiredMixin, CreateView):
     model = Department
     form_class = DepartmentForm
     template_name = "hr/department_form.html"
     success_url = reverse_lazy("hr:department_list")
 
-class DepartmentUpdateView(LoginRequiredMixin, BaseScopedListView, UpdateView):
+class DepartmentUpdateView(LoginRequiredMixin, UpdateView):
     model = Department
     form_class = DepartmentForm
     template_name = "hr/department_form.html"
@@ -52,10 +47,8 @@ class DepartmentDetailView(LoginRequiredMixin, DetailView):
     template_name = "hr/department_detail.html"
 
     def get_queryset(self):
-        return (
-            Department.acl_objects.with_acl("view")
-            .select_related("company", "parent", "manager")
-        )
+        ids = Department.acl_objects.with_acl("view").values("id")
+        return Department.objects.filter(id__in=ids).select_related("company", "parent", "manager")
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -72,11 +65,10 @@ class JobListView(LoginRequiredMixin, BaseScopedListView):
     paginate_by = 24
 
     def get_queryset(self):
-        qs = (
-            Job.acl_objects.with_acl("view")
-            .select_related("company", "department")
-            .order_by("name")
-        )
+        ids = Job.acl_objects.with_acl("view").values("id")
+        qs = (Job.objects.filter(id__in=ids)
+              .select_related("company", "department")
+              .order_by("name"))
         qs = apply_search_filters(self.request, qs, search_fields=["name", "department__name"])
         return qs
 
@@ -87,13 +79,13 @@ class JobListView(LoginRequiredMixin, BaseScopedListView):
         ctx["job_change_ids"] = set(change_ids)
         return ctx
 
-class JobCreateView(LoginRequiredMixin, BaseScopedListView, CreateView):
+class JobCreateView(LoginRequiredMixin, CreateView):
     model = Job
     form_class = JobForm
     template_name = "hr/job_form.html"
     success_url = reverse_lazy("hr:job_list")
 
-class JobUpdateView(LoginRequiredMixin, BaseScopedListView, UpdateView):
+class JobUpdateView(LoginRequiredMixin, UpdateView):
     model = Job
     form_class = JobForm
     template_name = "hr/job_form.html"
@@ -104,7 +96,8 @@ class JobDetailView(LoginRequiredMixin, DetailView):
     template_name = "hr/job_detail.html"
 
     def get_queryset(self):
-        return Job.acl_objects.with_acl("view").select_related("company", "department")
+        ids = Job.acl_objects.with_acl("view").values("id")
+        return Job.objects.filter(id__in=ids).select_related("company", "department")
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -121,16 +114,12 @@ class EmployeeListView(LoginRequiredMixin, BaseScopedListView):
     paginate_by = 24
 
     def get_queryset(self):
-        qs = (
-            Employee.acl_objects.with_acl("view")
-            .select_related("company", "department", "job")
-            .order_by("name")
-        )
-        qs = apply_search_filters(
-            self.request,
-            qs,
-            search_fields=["name", "department__name", "job__name", "work_email", "work_phone"],
-        )
+        ids = Employee.acl_objects.with_acl("view").values("id")
+        qs = (Employee.objects.filter(id__in=ids)
+              .select_related("company", "department", "job")
+              .order_by("name"))
+        qs = apply_search_filters(self.request, qs,
+                                  search_fields=["name", "department__name", "job__name", "work_email", "work_phone"])
         return qs
 
     def get_context_data(self, **kwargs):
@@ -140,13 +129,13 @@ class EmployeeListView(LoginRequiredMixin, BaseScopedListView):
         ctx["emp_change_ids"] = set(change_ids)
         return ctx
 
-class EmployeeCreateView(LoginRequiredMixin, BaseScopedListView, CreateView):
+class EmployeeCreateView(LoginRequiredMixin, CreateView):
     model = Employee
     form_class = EmployeeForm
     template_name = "hr/employee_form.html"
     success_url = reverse_lazy("hr:employee_list")
 
-class EmployeeUpdateView(LoginRequiredMixin, BaseScopedListView, UpdateView):
+class EmployeeUpdateView(LoginRequiredMixin, UpdateView):
     model = Employee
     form_class = EmployeeForm
     template_name = "hr/employee_form.html"
@@ -157,7 +146,8 @@ class EmployeeDetailView(LoginRequiredMixin, DetailView):
     template_name = "hr/employee_detail.html"
 
     def get_queryset(self):
-        return Employee.acl_objects.with_acl("view").select_related("company", "department", "job")
+        ids = Employee.acl_objects.with_acl("view").values("id")
+        return Employee.objects.filter(id__in=ids).select_related("company", "department", "job")
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)

@@ -2,8 +2,6 @@
 {% load static %}
 
 {% block title %}Dashboard · 360 Manager{% endblock %}
-
-{# العنوان الذي يظهر في breadcrumb #}
 {% block page_title %}Dashboard{% endblock %}
 
 {% block header_title %}Welcome back{% endblock %}
@@ -18,62 +16,98 @@
 {% block content %}
 <div class="space-y-8">
 
-{# templates/home.html — Hero / quick overview section #}
-<section class="rounded-2xl bg-base-100/70 ring-1 ring-base-300/60 shadow-xl overflow-hidden">
-  <div class="relative p-6 sm:p-8">
-    <div aria-hidden="true" class="pointer-events-none absolute inset-0">
-      <div class="absolute -top-36 -left-32 w-[28rem] h-[28rem] rounded-full blur-3xl bg-gradient-to-tr from-primary/15 via-secondary/15 to-accent/15"></div>
-      <div class="absolute -bottom-40 -right-40 w-[30rem] h-[30rem] rounded-full blur-3xl bg-gradient-to-tr from-accent/15 via-primary/15 to-secondary/15"></div>
-    </div>
-
-    <div class="relative grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <!-- Copy -->
-      <div class="lg:col-span-2">
-        <h2 class="text-2xl sm:text-3xl font-bold leading-tight">Your organization at a glance</h2>
-
-        <!-- Quick actions -->
-        <div class="mt-6 flex flex-wrap gap-2">
-          <a href="{% url 'base:partner_list' %}" class="btn btn-ghost btn-sm">All partners</a>
-          <a href="{% url 'base:user_list' %}" class="btn btn-ghost btn-sm">All users</a>
-          <a href="{% url 'base:company_list' %}" class="btn btn-ghost btn-sm">All companies</a>
-
-          {% if perms.base.add_partner %}
-            <a href="{% url 'base:partner_create' %}" class="btn btn-primary btn-sm">+ New partner</a>
-          {% endif %}
-          {% if perms.base.add_user %}
-            <a href="{% url 'base:user_create' %}" class="btn btn-primary btn-sm">+ New user</a>
-          {% endif %}
-          {% if perms.base.add_company %}
-            <a href="{% url 'base:company_create' %}" class="btn btn-primary btn-sm">+ New company</a>
-          {% endif %}
-        </div>
+  <!-- ===== Hero / quick overview ===== -->
+  <section class="rounded-2xl bg-base-100/70 ring-1 ring-base-300/60 shadow-xl overflow-hidden">
+    <div class="relative p-6 sm:p-8">
+      <div aria-hidden="true" class="pointer-events-none absolute inset-0">
+        <div class="absolute -top-36 -left-32 w-[28rem] h-[28rem] rounded-full blur-3xl bg-gradient-to-tr from-primary/15 via-secondary/15 to-accent/15"></div>
+        <div class="absolute -bottom-40 -right-40 w-[30rem] h-[30rem] rounded-full blur-3xl bg-gradient-to-tr from-accent/15 via-primary/15 to-secondary/15"></div>
       </div>
 
-      <!-- Compact stats -->
-      <div class="grid grid-cols-3 gap-3">
-        <div class="stat bg-base-200 rounded-box">
-          <div class="stat-title">Companies</div>
-          <div class="stat-value text-primary">{{ companies_count }}</div>
-          <div class="stat-desc">allowed</div>
+      <div class="relative grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Copy + Quick actions -->
+        <div class="lg:col-span-2">
+          <h2 class="text-2xl sm:text-3xl font-bold leading-tight">Your organization at a glance</h2>
+
+          <!-- Quick actions: main hubs -->
+          <div class="mt-6 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2">
+            <div class="join join-horizontal">
+              <a href="{% url 'base:partner_list' %}" class="join-item btn btn-ghost btn-sm">Partners</a>
+              <a href="{% url 'base:user_list' %}" class="join-item btn btn-ghost btn-sm">Users</a>
+              <a href="{% url 'base:company_list' %}" class="join-item btn btn-ghost btn-sm">Companies</a>
+            </div>
+
+            <div class="join join-horizontal">
+              <a href="{% url 'hr:department_list' %}" class="join-item btn btn-ghost btn-sm">Departments</a>
+              <a href="{% url 'hr:job_list' %}" class="join-item btn btn-ghost btn-sm">Jobs</a>
+              <a href="{% url 'hr:employee_list' %}" class="join-item btn btn-ghost btn-sm">Employees</a>
+            </div>
+
+            <div class="join join-horizontal">
+              <a href="{% url 'assets:asset_list' %}" class="join-item btn btn-ghost btn-sm">Assets</a>
+              <a href="{% url 'skills:skill_list' %}" class="join-item btn btn-ghost btn-sm">Skills</a>
+              <a href="{% url 'performance:template_list' %}" class="join-item btn btn-ghost btn-sm">Performance</a>
+            </div>
+
+            <div class="join join-horizontal">
+              <a href="{% url 'payroll:payslip_list' %}" class="join-item btn btn-ghost btn-sm">Payslips</a>
+              <a href="{% url 'payroll:period_list' %}" class="join-item btn btn-ghost btn-sm">Periods</a>
+              <a href="{% url 'payroll:structure_list' %}" class="join-item btn btn-ghost btn-sm">Structures</a>
+            </div>
+
+            <!-- Create shortcuts (permission-aware) -->
+            <div class="join join-horizontal">
+              {% if perms.base.add_partner %}
+                <a href="{% url 'base:partner_create' %}" class="join-item btn btn-primary btn-sm">+ Partner</a>
+              {% endif %}
+              {% if perms.base.add_user %}
+                <a href="{% url 'base:user_create' %}" class="join-item btn btn-primary btn-sm">+ User</a>
+              {% endif %}
+              {% if perms.base.add_company %}
+                <a href="{% url 'base:company_create' %}" class="join-item btn btn-primary btn-sm">+ Company</a>
+              {% endif %}
+            </div>
+
+            <div class="join join-horizontal">
+              {% if perms.assets.add_asset %}
+                <a href="{% url 'assets:asset_create' %}" class="join-item btn btn-outline btn-sm">+ Asset</a>
+              {% endif %}
+              {% if perms.hr.add_employee %}
+                <a href="{% url 'hr:employee_create' %}" class="join-item btn btn-outline btn-sm">+ Employee</a>
+              {% endif %}
+              {% if perms.payroll.add_payslip %}
+                <a href="{% url 'payroll:payslip_create' %}" class="join-item btn btn-outline btn-sm">+ Payslip</a>
+              {% endif %}
+            </div>
+          </div>
         </div>
-        <div class="stat bg-base-200 rounded-box">
-          <div class="stat-title">Partners</div>
-          <div class="stat-value text-secondary">{{ partners_count }}</div>
-          <div class="stat-desc">{% if current_company %}{{ current_company.name }}{% else %}all{% endif %}</div>
-        </div>
-        <div class="stat bg-base-200 rounded-box">
-          <div class="stat-title">Users</div>
-          <div class="stat-value text-accent">{{ users_count }}</div>
-          <div class="stat-desc">active</div>
+
+        <!-- KPI mini cards -->
+        <div class="grid grid-cols-3 gap-3">
+          <div class="stat bg-base-200 rounded-box">
+            <div class="stat-title">Companies</div>
+            <div class="stat-value text-primary">{{ companies_count|default:"–" }}</div>
+            <div class="stat-desc">allowed</div>
+          </div>
+          <div class="stat bg-base-200 rounded-box">
+            <div class="stat-title">Partners</div>
+            <div class="stat-value text-secondary">{{ partners_count|default:"–" }}</div>
+            <div class="stat-desc">{% if current_company %}{{ current_company.name }}{% else %}all{% endif %}</div>
+          </div>
+          <div class="stat bg-base-200 rounded-box">
+            <div class="stat-title">Users</div>
+            <div class="stat-value text-accent">{{ users_count|default:"–" }}</div>
+            <div class="stat-desc">active</div>
+          </div>
         </div>
       </div>
     </div>
-  </div>
-</section>
+  </section>
 
-
-  <!-- Two columns: recent partners / users -->
+  <!-- ===== Two columns: Recent panels ===== -->
   <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+    <!-- Recent partners -->
     <div class="rounded-2xl bg-base-100/70 ring-1 ring-base-300/70 shadow-xl overflow-hidden">
       <header class="px-5 py-4 border-b border-base-300/70 flex items-center justify-between">
         <h3 class="text-lg font-semibold">Recent partners{% if current_company %} — {{ current_company.name }}{% endif %}</h3>
@@ -107,9 +141,11 @@
       </div>
     </div>
 
+    <!-- Recent users -->
     <div class="rounded-2xl bg-base-100/70 ring-1 ring-base-300/70 shadow-xl overflow-hidden">
-      <header class="px-5 py-4 border-b border-base-300/70">
+      <header class="px-5 py-4 border-b border-base-300/70 flex items-center justify-between">
         <h3 class="text-lg font-semibold">Recent users</h3>
+        <a href="{% url 'base:user_list' %}" class="btn btn-xs btn-outline">View all</a>
       </header>
       <div class="p-5">
         {% if recent_users %}
@@ -136,6 +172,144 @@
           </div>
         {% endif %}
       </div>
+    </div>
+
+  </section>
+
+  <!-- ===== Optional cross-app recents (render only if provided) ===== -->
+  <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+    <!-- Assets -->
+    <div class="rounded-2xl bg-base-100/70 ring-1 ring-base-300/70 shadow-xl overflow-hidden">
+      <header class="px-5 py-4 border-b border-base-300/70 flex items-center justify-between">
+        <h3 class="text-lg font-semibold">Recent assets</h3>
+        <a href="{% url 'assets:asset_list' %}" class="btn btn-xs btn-outline">All assets</a>
+      </header>
+      <div class="p-5">
+        {% if recent_assets %}
+          <ul class="divide-y divide-base-300/70">
+            {% for a in recent_assets %}
+              <li class="py-3 flex items-center justify-between gap-3">
+                <div class="min-w-0">
+                  <div class="font-medium truncate">{{ a.code }} — {{ a.name }}</div>
+                  <div class="text-xs text-base-content/70 truncate">
+                    {{ a.get_status_display }}{% if a.holder %} • holder: {{ a.holder }}{% endif %}
+                  </div>
+                </div>
+                <a href="{% url 'assets:asset_edit' a.id %}" class="btn btn-xs btn-ghost">Open</a>
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <div class="text-sm text-base-content/70">No assets to show.</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- HR Employees -->
+    <div class="rounded-2xl bg-base-100/70 ring-1 ring-base-300/70 shadow-xl overflow-hidden">
+      <header class="px-5 py-4 border-b border-base-300/70 flex items-center justify-between">
+        <h3 class="text-lg font-semibold">Recent employees</h3>
+        <a href="{% url 'hr:employee_list' %}" class="btn btn-xs btn-outline">All employees</a>
+      </header>
+      <div class="p-5">
+        {% if recent_employees %}
+          <ul class="divide-y divide-base-300/70">
+            {% for e in recent_employees %}
+              <li class="py-3 flex items-center justify-between gap-3">
+                <div class="min-w-0">
+                  <div class="font-medium truncate">{{ e.name }}</div>
+                  <div class="text-xs text-base-content/70 truncate">
+                    {% if e.job %}{{ e.job }} • {% endif %}{% if e.department %}{{ e.department }}{% endif %}
+                  </div>
+                </div>
+                <a href="{% url 'hr:employee_edit' e.id %}" class="btn btn-xs btn-ghost">Open</a>
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <div class="text-sm text-base-content/70">No employees to show.</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Performance tasks / evaluations -->
+    <div class="rounded-2xl bg-base-100/70 ring-1 ring-base-300/70 shadow-xl overflow-hidden">
+      <header class="px-5 py-4 border-b border-base-300/70 flex items-center justify-between">
+        <h3 class="text-lg font-semibold">Performance</h3>
+        <a href="{% url 'performance:task_list' %}" class="btn btn-xs btn-outline">Tasks</a>
+      </header>
+      <div class="p-5">
+        {% if recent_tasks %}
+          <ul class="divide-y divide-base-300/70">
+            {% for t in recent_tasks %}
+              <li class="py-3 flex items-center justify-between gap-3">
+                <div class="min-w-0">
+                  <div class="font-medium truncate">{{ t.title|default:t.name }}</div>
+                  <div class="text-xs text-base-content/70 truncate">
+                    {% if t.employee %}{{ t.employee }} • {% endif %}{{ t.status|default:t.state }}
+                  </div>
+                </div>
+                <a href="{% url 'performance:task_edit' t.id %}" class="btn btn-xs btn-ghost">Open</a>
+              </li>
+            {% endfor %}
+          </ul>
+        {% elif recent_evaluations %}
+          <ul class="divide-y divide-base-300/70">
+            {% for ev in recent_evaluations %}
+              <li class="py-3 flex items-center justify-between gap-3">
+                <div class="min-w-0">
+                  <div class="font-medium truncate">{{ ev.name }}</div>
+                  <div class="text-xs text-base-content/70 truncate">
+                    {{ ev.employee }} • {{ ev.state }}
+                  </div>
+                </div>
+                <a href="{% url 'performance:evaluation_edit' ev.id %}" class="btn btn-xs btn-ghost">Open</a>
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <div class="text-sm text-base-content/70">No performance items to show.</div>
+        {% endif %}
+      </div>
+    </div>
+
+  </section>
+
+  <!-- ===== Payroll spotlight (optional) ===== -->
+  <section class="rounded-2xl bg-base-100/70 ring-1 ring-base-300/70 shadow-xl overflow-hidden">
+    <header class="px-5 py-4 border-b border-base-300/70 flex items-center justify-between">
+      <h3 class="text-lg font-semibold">Payroll spotlight</h3>
+      <div class="flex gap-2">
+        <a href="{% url 'payroll:payslip_list' %}" class="btn btn-xs btn-outline">Payslips</a>
+        <a href="{% url 'payroll:period_list' %}" class="btn btn-xs btn-outline">Periods</a>
+      </div>
+    </header>
+    <div class="p-5">
+      {% if recent_payslips %}
+        <div class="overflow-x-auto">
+          <table class="table table-sm">
+            <thead>
+              <tr>
+                <th>Employee</th><th>Period</th><th>Net</th><th>Status</th><th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for ps in recent_payslips %}
+              <tr>
+                <td class="truncate">{{ ps.employee }}</td>
+                <td>{{ ps.period.year }}-{{ ps.period.month|stringformat:"02d" }}</td>
+                <td>{{ ps.net }}</td>
+                <td><span class="badge">{{ ps.state }}</span></td>
+                <td><a href="{% url 'payroll:payslip_detail' ps.id %}" class="btn btn-ghost btn-xs">Open</a></td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="text-sm text-base-content/70">No payslips yet.</div>
+      {% endif %}
     </div>
   </section>
 

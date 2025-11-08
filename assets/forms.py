@@ -26,10 +26,11 @@ class _ScopedModelForm(forms.ModelForm):
         self.fields.get("company", forms.Field()).queryset = allowed_companies
 
         # اجعل الشركة الحالية افتراضية إن كانت ضمن المسموح
-        cur = get_current_company(self.request)
-        if cur and "company" in self.fields and allowed_companies.filter(pk=cur.pk).exists():
-            if not self.instance.pk:
-                self.fields["company"].initial = cur
+        cur_id = get_current_company(self.request)  # returns an integer id
+        if cur_id and "company" in self.fields and allowed_companies.filter(pk=cur_id).exists():
+            if not getattr(self.instance, "pk", None):
+                # initial can be a pk
+                self.fields["company"].initial = cur_id
 
     def _filter_by_company(self, field_name: str, model_qs):
         if field_name not in self.fields:

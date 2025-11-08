@@ -641,15 +641,12 @@ class UserListView(LoginRequiredMixin, BaseScopedListView):
     paginate_by = 24
 
     def get_queryset(self):
-        # ملاحظة: نستخدم acl_objects بدل objects لموديل User تحديدًا
-        qs = (
-            User.acl_objects.with_acl("view")
-            .select_related("company", "partner")
-            .order_by("date_joined")
-        )
-        # فرض نطاق الشركات النشطة عبر الميكسن (لأننا لم نستدعِ super هنا)
-        qs = self._enforce_company_on_queryset(qs)
-        qs = apply_search_filters(self.request, qs, search_fields=["username", "email", "partner__name"])
+        base = self.model.acl_objects.with_acl("view")
+        qs = (self.model.objects
+              .filter(pk__in=base.values("pk"))
+              .select_related("company")
+              .prefetch_related("companies")
+              .order_by("email"))
         return qs
 
     def get_context_data(self, **kwargs):
@@ -664,7 +661,7 @@ class UserListView(LoginRequiredMixin, BaseScopedListView):
 
 class UserDetailView(LoginRequiredMixin, BaseScopedDetailView):
     model = User
-    template_name = "base/users/user_detail.html"
+    template_name = "base/user_detail.html"
 
     def get_queryset(self):
         _pks = User.acl_objects.with_acl("view").values("pk")

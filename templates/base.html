@@ -1,4 +1,5 @@
 {% load static %}
+<!DOCTYPE html>
 <html lang="en" dir="ltr" class="no-transitions" data-theme="{{ request.COOKIES.theme|default:'corporate' }}">
 <head>
   <meta charset="utf-8" />
@@ -6,7 +7,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="color-scheme" content="light dark" />
 
-  {# Early theme hydrate: set on <html> AND <body> before CSS loads #}
   <script>
     (function () {
       var html = document.documentElement;
@@ -16,7 +16,6 @@
       }
       var t = getCookie("theme") || localStorage.getItem("theme") || html.getAttribute("data-theme") || "corporate";
       html.setAttribute("data-theme", t);
-      // we’ll also mirror it to <body> as soon as it exists
       document.addEventListener("DOMContentLoaded", function(){
         document.body && document.body.setAttribute("data-theme", t);
       });
@@ -25,146 +24,188 @@
 
   <link href="{% static 'css/dist/styles.css' %}" rel="stylesheet" />
   <link rel="icon" href="{% static 'images/favicon.ico' %}" />
-
   <style>
-    .no-transitions *, .no-transitions *::before, .no-transitions *::after { transition: none !important; animation: none !important; }
+    .no-transitions *, .no-transitions *::before, .no-transitions *::after { transition: none!important; animation: none!important; }
     html[data-theme="corporate"], body[data-theme="corporate"] { background:#f6f7fb; }
     html[data-theme="business"],  body[data-theme="business"]  { background:#0b1220; }
     body { min-height: 100vh; }
+    /* عندما يكون الـdrawer مُثبَّت */
+    .drawer-pinned #app-drawer { display:none; } /* إخفاء التوجّل عندما يكون مُثبّت */
+    .drawer-pinned .drawer-toggle:checked ~ .drawer-side { translate: 0 0 !important; }
+    .drawer-pinned .content-with-sidebar { margin-left: 20rem; } /* عرض الـsidebar */
+    @media (max-width: 1023px){ .drawer-pinned .content-with-sidebar { margin-left: 0; } }
   </style>
 
   {% block head_extra %}{% endblock %}
- </head>
+</head>
 <body class="bg-base-200 text-base-content min-h-screen selection:bg-primary/20 selection:text-primary" data-theme="{{ request.COOKIES.theme|default:'corporate' }}">
-
-<!-- ================= Drawer Layout ================= -->
 <div class="drawer">
+  <!-- تفعيل الحالة من LocalStorage (تثبيت/عدم تثبيت) -->
+  <script>
+    (function(){
+      const pinned = localStorage.getItem("drawer:pinned") === "1";
+      if (pinned) document.documentElement.classList.add("drawer-pinned");
+    })();
+  </script>
+
   <input id="app-drawer" type="checkbox" class="drawer-toggle" />
   <div class="drawer-content flex min-h-screen flex-col">
 
-    <!-- Navbar -->
-    <header class="navbar bg-base-100/80 backdrop-blur border-b border-base-200 sticky top-0 z-50">
-      <div class="w-full max-w-7xl mx-auto px-4 sm:px-6">
-        <div class="flex items-center justify-between gap-2">
-          <div class="flex items-center gap-2">
-            <label for="app-drawer" class="btn btn-ghost btn-square" aria-label="Open menu">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M3 6h18v2H3zM3 11h18v2H3zM3 16h18v2H3z"/>
+    <!-- NAVBAR بعرض الشاشة بالكامل -->
+    <header class="navbar bg-base-100/80 backdrop-blur border-b border-base-200 sticky top-0 z-50 px-3 lg:px-4">
+      <div class="flex w-full items-center justify-between gap-2">
+        <!-- يسار: زر فتح القائمة + الشعار + قائمة التطبيقات المنسدلة -->
+        <div class="flex items-center gap-2">
+          <label for="app-drawer" class="btn btn-ghost btn-square" aria-label="Open menu">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M3 6h18v2H3zM3 11h18v2H3zM3 16h18v2H3z"/>
+            </svg>
+          </label>
+
+          <a href="{% url 'base:home' %}" class="btn btn-ghost px-0 text-xl font-extrabold tracking-tight">
+            <span class="text-primary">360</span><span class="text-error"> Manager</span>
+          </a>
+
+          {# شريط التطبيقات مع قوائم منسدلة #}
+          {% with ns=request.resolver_match.namespace|default:'' %}
+          <nav class="hidden md:flex items-center gap-1 ml-1">
+            <!-- Base -->
+            <div class="dropdown dropdown-hover">
+              <label tabindex="0" class="btn btn-ghost btn-sm {% if ns == '' or ns == 'base' %}btn-active{% endif %}">Base</label>
+              <ul tabindex="0" class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-56">
+                <li><a href="{% url 'base:partner_list' %}">Partners</a></li>
+                <li><a href="{% url 'base:user_list' %}">Users</a></li>
+                <li><a href="{% url 'base:company_list' %}">Companies</a></li>
+              </ul>
+            </div>
+
+            <!-- Assets -->
+            <div class="dropdown dropdown-hover">
+              <label tabindex="0" class="btn btn-ghost btn-sm {% if ns == 'assets' %}btn-active{% endif %}">Assets</label>
+              <ul tabindex="0" class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-56">
+                <li><a href="{% url 'assets:asset_list' %}">Assets</a></li>
+                <li><a href="{% url 'assets:category_list' %}">Categories</a></li>
+                <li><a href="{% url 'assets:assignment_list' %}">Assignments</a></li>
+              </ul>
+            </div>
+
+            <!-- HR -->
+            <div class="dropdown dropdown-hover">
+              <label tabindex="0" class="btn btn-ghost btn-sm {% if ns == 'hr' %}btn-active{% endif %}">HR</label>
+              <ul tabindex="0" class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-56">
+                <li><a href="{% url 'hr:department_list' %}">Departments</a></li>
+                <li><a href="{% url 'hr:job_list' %}">Jobs</a></li>
+                <li><a href="{% url 'hr:employee_list' %}">Employees</a></li>
+              </ul>
+            </div>
+
+            <!-- Skills -->
+            <div class="dropdown dropdown-hover">
+              <label tabindex="0" class="btn btn-ghost btn-sm {% if ns == 'skills' %}btn-active{% endif %}">Skills</label>
+              <ul tabindex="0" class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-56">
+                <li><a href="{% url 'skills:skill_list' %}">Skills</a></li>
+                <li><a href="{% url 'skills:skilltype_list' %}">Types</a></li>
+                <li><a href="{% url 'skills:skilllevel_list' %}">Levels</a></li>
+              </ul>
+            </div>
+
+            <!-- Performance -->
+            <div class="dropdown dropdown-hover">
+              <label tabindex="0" class="btn btn-ghost btn-sm {% if ns == 'performance' %}btn-active{% endif %}">Performance</label>
+              <ul tabindex="0" class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-64">
+                <li><a href="{% url 'performance:parameter_list' %}">Parameters</a></li>
+                <li><a href="{% url 'performance:template_list' %}">Templates</a></li>
+                <li><a href="{% url 'performance:evaluation_list' %}">Evaluations</a></li>
+                <li><a href="{% url 'performance:objective_list' %}">Objectives</a></li>
+                <li><a href="{% url 'performance:kpi_list' %}">KPIs</a></li>
+                <li><a href="{% url 'performance:task_list' %}">Tasks</a></li>
+              </ul>
+            </div>
+
+            <!-- Payroll -->
+            <div class="dropdown dropdown-hover">
+              <label tabindex="0" class="btn btn-ghost btn-sm {% if ns == 'payroll' %}btn-active{% endif %}">Payroll</label>
+              <ul tabindex="0" class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-64">
+                <li><a href="{% url 'payroll:payslip_list' %}">Payslips</a></li>
+                <li><a href="{% url 'payroll:period_list' %}">Periods</a></li>
+                <li><a href="{% url 'payroll:structure_list' %}">Structures</a></li>
+                <li><a href="{% url 'payroll:salary_rule_list' %}">Salary Rules</a></li>
+                <li><a href="{% url 'payroll:rule_parameter_list' %}">Rule Parameters</a></li>
+                <li><a href="{% url 'payroll:input_type_list' %}">Input Types</a></li>
+                <li><a href="{% url 'payroll:employee_salary_list' %}">Employee Salaries</a></li>
+              </ul>
+            </div>
+          </nav>
+          {% endwith %}
+        </div>
+
+        <!-- يمين: مبدّل الشركة + الثيم + حساب المستخدم + زر تثبيت الـDrawer -->
+        <div class="flex items-center gap-2">
+          {% if allowed_companies %}
+          <div class="dropdown dropdown-end">
+            <label tabindex="0" class="btn btn-outline btn-xs sm:btn-sm gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 sm:w-5 sm:h-5" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M3 7h18v2H3zm0 4h12v2H3zm0 4h18v2H3z"/>
               </svg>
+              {{ current_company.name }}
             </label>
-            <a href="{% url 'base:home' %}" class="btn btn-ghost px-0 text-xl font-extrabold tracking-tight">
-              <span class="text-primary">360</span><span class="text-error">Manager</span>
-            </a>
-
-            {# --- Apps navbar: insert here (between logo block and the right-side controls) --- #}
-{% with ns=request.resolver_match.namespace|default:'' %}
-<nav class="hidden md:flex items-center gap-1 mx-2">
-  <a href="{% url 'base:partner_list' %}"
-     class="btn btn-ghost btn-sm {% if ns == '' or ns == 'base' %}btn-active{% endif %}">
-    Base
-  </a>
-
-  <a href="{% url 'assets:asset_list' %}"
-     class="btn btn-ghost btn-sm {% if ns == 'assets' %}btn-active{% endif %}">
-    Assets
-  </a>
-
-  <a href="{% url 'hr:department_list' %}"
-     class="btn btn-ghost btn-sm {% if ns == 'hr' %}btn-active{% endif %}">
-    HR
-  </a>
-
-  <a href="{% url 'skills:skill_list' %}"
-     class="btn btn-ghost btn-sm {% if ns == 'skills' %}btn-active{% endif %}">
-    Skills
-  </a>
-
-  <a href="{% url 'performance:template_list' %}"
-     class="btn btn-ghost btn-sm {% if ns == 'performance' %}btn-active{% endif %}">
-    Performance
-  </a>
-
-  {# Payroll: استعمل رابط مباشر لتفادي NoReverseMatch إن لم تُعرّف أسماء المسارات بعد #}
-  <a href="/payroll/"
-     class="btn btn-ghost btn-sm {% if ns == 'payroll' %}btn-active{% endif %}">
-    Payroll
-  </a>
-</nav>
-{% endwith %}
-{# --- /Apps navbar --- #}
-
+            <form method="post" action="{% url 'base:company_switch' %}" class="dropdown-content mt-1 z-[1] p-3 shadow bg-base-100 rounded-box w-64">
+              {% csrf_token %}
+              <div class="mb-2 text-xs font-semibold opacity-70">Active Companies</div>
+              <ul class="menu menu-sm max-h-56 overflow-y-auto mb-2">
+                {% for c in allowed_companies %}
+                <li>
+                  <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" name="active_companies" value="{{ c.id }}" class="checkbox checkbox-xs"
+                           {% if c.id in active_ids %}checked{% endif %}>
+                    <span class="truncate">{{ c.name }}</span>
+                    {% if c.id == current_company.id %}
+                    <span class="badge badge-primary badge-xs ml-1">Current</span>
+                    {% endif %}
+                  </label>
+                </li>
+                {% endfor %}
+              </ul>
+              <button type="submit" class="btn btn-primary btn-sm w-full">Apply</button>
+            </form>
           </div>
-
-          <div class="flex items-center gap-2">
-{% if allowed_companies %}
-<div class="dropdown dropdown-end">
-  <label tabindex="0" class="btn btn-outline btn-xs sm:btn-sm gap-2">
-    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 sm:w-5 sm:h-5" viewBox="0 0 24 24" fill="currentColor">
-      <path d="M3 7h18v2H3zm0 4h12v2H3zm0 4h18v2H3z"/>
-    </svg>
-    {{ current_company.name }}
-  </label>
-
-  <form method="post" action="{% url 'base:company_switch' %}" class="dropdown-content mt-1 z-[1] p-3 shadow bg-base-100 rounded-box w-64">
-    {% csrf_token %}
-
-    <div class="mb-2 text-xs font-semibold opacity-70">Active Companies</div>
-    <ul class="menu menu-sm max-h-56 overflow-y-auto mb-2">
-      {% for c in allowed_companies %}
-      <li>
-        <label class="flex items-center gap-2 cursor-pointer">
-          <input type="checkbox" name="active_companies" value="{{ c.id }}" class="checkbox checkbox-xs"
-                 {% if c.id in active_ids %}checked{% endif %}>
-          <span class="truncate">{{ c.name }}</span>
-          {% if c.id == current_company.id %}
-            <span class="badge badge-primary badge-xs ml-1">Current</span>
           {% endif %}
-        </label>
-      </li>
-      {% endfor %}
-    </ul>
 
-    <button type="submit" class="btn btn-primary btn-sm w-full">Apply</button>
-  </form>
-</div>
-{% endif %}
+          <!-- زر التثبيت -->
+          <button id="pin-drawer" class="btn btn-ghost btn-sm" type="button" title="Pin sidebar">
+            <svg xmlns="http://www.w3.org/2000/svg" class="size-5" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2l8 8-2 2-3-3-5 5v3l-2 2v-5l5-5-3-3z"/></svg>
+          </button>
 
+          <!-- Theme -->
+          <button id="theme-toggle" class="btn btn-ghost btn-sm" type="button" aria-label="Toggle theme">
+            <svg id="icon-sun" xmlns="http://www.w3.org/2000/svg" class="size-5 hidden" viewBox="0 0 24 24" fill="currentColor"><path d="M6.76 4.84 5.34 3.42 3.92 4.84l1.42 1.42 1.42-1.42Zm10.48 14.32 1.42 1.42 1.42-1.42-1.42-1.42-1.42 1.42ZM12 5a1 1 0 0 0 1-1V2h-2v2a1 1 0 0 0 1 1Zm0 14a1 1 0 0 0-1 1v2h2v-2a1 1 0 0 0-1-1ZM5 12a1 1 0 0 0-1-1H2v2h2a1 1 0 0 0 1-1Zm17-1h-2a1 1 0 1 0 0 2h2v-2Zm-3.34-6.58L17.24 4.84l1.42 1.42 1.42-1.42-1.42-1.42ZM4.84 17.24 3.42 18.66l1.42 1.42 1.42-1.42-1.42-1.42ZM12 7a5 5 0 1 1 0 10 5 5 0 0 1 0-10Z"/></svg>
+            <svg id="icon-moon" xmlns="http://www.w3.org/2000/svg" class="size-5" viewBox="0 0 24 24" fill="currentColor"><path d="M11.38 2.02a1 1 0 0 0-1.23 1.2A9 9 0 1 0 20.78 5.7a1 1 0 0 0-1.21-1.22A7 7 0 0 1 11.38 2.02Z"/></svg>
+          </button>
 
-
-
-            <!-- EXACT same IDs as auth_base.html -->
-            <button id="theme-toggle" class="btn btn-ghost btn-sm" type="button" aria-label="Toggle theme">
-              <svg id="icon-sun" xmlns="http://www.w3.org/2000/svg" class="size-5 hidden" viewBox="0 0 24 24" fill="currentColor"><path d="M6.76 4.84 5.34 3.42 3.92 4.84l1.42 1.42 1.42-1.42Zm10.48 14.32 1.42 1.42 1.42-1.42-1.42-1.42-1.42 1.42ZM12 5a1 1 0 0 0 1-1V2h-2v2a1 1 0 0 0 1 1Zm0 14a1 1 0 0 0-1 1v2h2v-2a1 1 0 0 0-1-1ZM5 12a1 1 0 0 0-1-1H2v2h2a1 1 0 0 0 1-1Zm17-1h-2a1 1 0 1 0 0 2h2v-2Zm-3.34-6.58L17.24 4.84l1.42 1.42 1.42-1.42-1.42-1.42ZM4.84 17.24 3.42 18.66l1.42 1.42 1.42-1.42-1.42-1.42ZM12 7a5 5 0 1 1 0 10 5 5 0 0 1 0-10Z"/></svg>
-              <svg id="icon-moon" xmlns="http://www.w3.org/2000/svg" class="size-5" viewBox="0 0 24 24" fill="currentColor"><path d="M11.38 2.02a1 1 0 0 0-1.23 1.2A9 9 0 1 0 20.78 5.7a1 1 0 0 0-1.21-1.22A7 7 0 0 1 11.38 2.02Z"/></svg>
-            </button>
-
-            {% if user.is_authenticated %}
-              <div class="hidden md:block text-sm text-base-content/70 mr-1">
-                Hi, {{ user.name|default:user.email }}
+          {% if user.is_authenticated %}
+          <div class="hidden md:block text-sm text-base-content/70 mr-1">Hi, {{ user.name|default:user.email }}</div>
+          <div class="dropdown dropdown-end">
+            <label tabindex="0" class="btn btn-ghost btn-circle avatar">
+              <div class="w-9 rounded-full">
+                <img src="https://api.dicebear.com/8.x/initials/svg?seed={{ user.name|default:user.email }}" alt="avatar"/>
               </div>
-              <div class="dropdown dropdown-end">
-                <label tabindex="0" class="btn btn-ghost btn-circle avatar">
-                  <div class="w-9 rounded-full">
-                    <img src="https://api.dicebear.com/8.x/initials/svg?seed={{ user.name|default:user.email }}" alt="avatar"/>
-                  </div>
-                </label>
-                <ul tabindex="0" class="menu menu-sm dropdown-content mt-3 z-[1] p-2 shadow bg-base-100 rounded-box w-48">
-                  <li><a href="{% url 'base:profile' %}">Profile</a></li>
-                  <li><a href="{% url 'base:edit_profile' %}">Edit profile</a></li>
-                  <li><a href="{% url 'base:password_change' %}">Change password</a></li>
-                  <li><a href="{% url 'base:logout' %}" class="text-error">Logout</a></li>
-                </ul>
-              </div>
-            {% else %}
-              <a href="{% url 'base:login' %}?next={{ request.path|urlencode }}" class="btn btn-primary btn-sm">Login</a>
-            {% endif %}
+            </label>
+            <ul tabindex="0" class="menu menu-sm dropdown-content mt-3 z-[1] p-2 shadow bg-base-100 rounded-box w-48">
+              <li><a href="{% url 'base:profile' %}">Profile</a></li>
+              <li><a href="{% url 'base:edit_profile' %}">Edit profile</a></li>
+              <li><a href="{% url 'base:password_change' %}">Change password</a></li>
+              <li><a href="{% url 'base:logout' %}" class="text-error">Logout</a></li>
+            </ul>
           </div>
+          {% else %}
+          <a href="{% url 'base:login' %}?next={{ request.path|urlencode }}" class="btn btn-primary btn-sm">Login</a>
+          {% endif %}
         </div>
       </div>
     </header>
 
-    <!-- Page header -->
-    <div class="w-full max-w-7xl mx-auto px-4 sm:px-6 py-6">
+    <!-- رأس الصفحة + إجراءات -->
+    <div class="content-with-sidebar px-4 sm:px-6 py-6">
       {% block breadcrumbs %}
       <div class="breadcrumbs text-sm">
         <ul>
@@ -186,78 +227,25 @@
     </div>
 
     {% if messages %}
-      <div class="w-full max-w-7xl mx-auto px-4 sm:px-6">
-        <div class="space-y-2">
-          {% for message in messages %}
-            <div class="alert {% if 'error' in message.tags %}alert-error{% elif 'success' in message.tags %}alert-success{% elif 'warning' in message.tags %}alert-warning{% else %}alert-info{% endif %}">
-              <span>{{ message }}</span>
-            </div>
-          {% endfor %}
+    <div class="content-with-sidebar px-4 sm:px-6">
+      <div class="space-y-2">
+        {% for message in messages %}
+        <div class="alert {% if 'error' in message.tags %}alert-error{% elif 'success' in message.tags %}alert-success{% elif 'warning' in message.tags %}alert-warning{% else %}alert-info{% endif %}">
+          <span>{{ message }}</span>
         </div>
+        {% endfor %}
       </div>
+    </div>
     {% endif %}
 
-    <!-- Main -->
-    <main class="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 py-6">
+    <!-- المحتوى الرئيسي -->
+    <main class="content-with-sidebar flex-1 px-4 sm:px-6 py-6 max-w-7xl mx-auto w-full">
       {% block content %}{% endblock %}
     </main>
 
-      <!-- SIDEBAR -->
-  <div class="drawer-side">
-    <label for="app-drawer" aria-label="close sidebar" class="drawer-overlay"></label>
-    <ul class="menu p-4 w-72 lg:w-80 bg-base-200 text-base-content gap-1">
-      {% with ns=request.resolver_match.namespace|default:'' %}
-      <li class="menu-title">Applications</li>
-
-      <li>
-        <a href="{% url 'base:partner_list' %}" class="{% if ns == '' or ns == 'base' %}active{% endif %}">
-          <span class="mr-2">🏠</span> Base
-        </a>
-      </li>
-
-      <li>
-        <a href="{% url 'assets:asset_list' %}" class="{% if ns == 'assets' %}active{% endif %}">
-          <span class="mr-2">🧳</span> Assets
-        </a>
-      </li>
-
-      <li>
-        <a href="{% url 'hr:department_list' %}" class="{% if ns == 'hr' %}active{% endif %}">
-          <span class="mr-2">👥</span> HR
-        </a>
-      </li>
-
-      <li>
-        <a href="{% url 'skills:skill_list' %}" class="{% if ns == 'skills' %}active{% endif %}">
-          <span class="mr-2">🎯</span> Skills
-        </a>
-      </li>
-
-      <li>
-        <a href="{% url 'performance:template_list' %}" class="{% if ns == 'performance' %}active{% endif %}">
-          <span class="mr-2">📈</span> Performance
-        </a>
-      </li>
-
-      <li>
-        <a href="/payroll/" class="{% if ns == 'payroll' %}active{% endif %}">
-          <span class="mr-2">💵</span> Payroll
-        </a>
-      </li>
-
-      <li class="menu-title mt-4">Company</li>
-      <li>
-        <a href="{% url 'base:company_switch' %}">
-          <span class="mr-2">🏢</span> Switch company
-        </a>
-      </li>
-      {% endwith %}
-    </ul>
-  </div>
-
-    <!-- Footer -->
+    <!-- FOOTER -->
     <footer class="bg-base-100 border-t mt-10">
-      <div class="w-full max-w-7xl mx-auto px-4 sm:px-6 py-6 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between text-sm text-base-content/70">
+      <div class="content-with-sidebar px-4 sm:px-6 py-6 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between text-sm text-base-content/70">
         <div>© {% now "Y" %} 360 Manager — All rights reserved.</div>
         <div class="flex flex-wrap items-center gap-3">
           <a class="link link-hover">Privacy</a>
@@ -270,11 +258,94 @@
     </footer>
   </div>
 
+  <!-- DRAWER / SIDEBAR -->
+  <div class="drawer-side">
+    <label for="app-drawer" aria-label="close sidebar" class="drawer-overlay"></label>
+    <ul class="menu p-4 w-80 bg-base-200 text-base-content gap-1">
+      {% with ns=request.resolver_match.namespace|default:'' %}
+      <li class="menu-title">Applications</li>
 
+      <li>
+        <details {% if ns == '' or ns == 'base' %}open{% endif %}>
+          <summary><span class="mr-2">🏠</span> Base</summary>
+          <ul>
+            <li><a href="{% url 'base:partner_list' %}">Partners</a></li>
+            <li><a href="{% url 'base:user_list' %}">Users</a></li>
+            <li><a href="{% url 'base:company_list' %}">Companies</a></li>
+          </ul>
+        </details>
+      </li>
 
+      <li>
+        <details {% if ns == 'assets' %}open{% endif %}>
+          <summary><span class="mr-2">🧳</span> Assets</summary>
+          <ul>
+            <li><a href="{% url 'assets:asset_list' %}">Assets</a></li>
+            <li><a href="{% url 'assets:category_list' %}">Categories</a></li>
+            <li><a href="{% url 'assets:assignment_list' %}">Assignments</a></li>
+          </ul>
+        </details>
+      </li>
+
+      <li>
+        <details {% if ns == 'hr' %}open{% endif %}>
+          <summary><span class="mr-2">👥</span> HR</summary>
+          <ul>
+            <li><a href="{% url 'hr:department_list' %}">Departments</a></li>
+            <li><a href="{% url 'hr:job_list' %}">Jobs</a></li>
+            <li><a href="{% url 'hr:employee_list' %}">Employees</a></li>
+          </ul>
+        </details>
+      </li>
+
+      <li>
+        <details {% if ns == 'skills' %}open{% endif %}>
+          <summary><span class="mr-2">🎯</span> Skills</summary>
+          <ul>
+            <li><a href="{% url 'skills:skill_list' %}">Skills</a></li>
+            <li><a href="{% url 'skills:skilltype_list' %}">Types</a></li>
+            <li><a href="{% url 'skills:skilllevel_list' %}">Levels</a></li>
+          </ul>
+        </details>
+      </li>
+
+      <li>
+        <details {% if ns == 'performance' %}open{% endif %}>
+          <summary><span class="mr-2">📈</span> Performance</summary>
+          <ul>
+            <li><a href="{% url 'performance:parameter_list' %}">Parameters</a></li>
+            <li><a href="{% url 'performance:template_list' %}">Templates</a></li>
+            <li><a href="{% url 'performance:evaluation_list' %}">Evaluations</a></li>
+            <li><a href="{% url 'performance:objective_list' %}">Objectives</a></li>
+            <li><a href="{% url 'performance:kpi_list' %}">KPIs</a></li>
+            <li><a href="{% url 'performance:task_list' %}">Tasks</a></li>
+          </ul>
+        </details>
+      </li>
+
+      <li>
+        <details {% if ns == 'payroll' %}open{% endif %}>
+          <summary><span class="mr-2">💵</span> Payroll</summary>
+          <ul>
+            <li><a href="{% url 'payroll:payslip_list' %}">Payslips</a></li>
+            <li><a href="{% url 'payroll:period_list' %}">Periods</a></li>
+            <li><a href="{% url 'payroll:structure_list' %}">Structures</a></li>
+            <li><a href="{% url 'payroll:salary_rule_list' %}">Salary Rules</a></li>
+            <li><a href="{% url 'payroll:rule_parameter_list' %}">Rule Parameters</a></li>
+            <li><a href="{% url 'payroll:input_type_list' %}">Input Types</a></li>
+            <li><a href="{% url 'payroll:employee_salary_list' %}">Employee Salaries</a></li>
+          </ul>
+        </details>
+      </li>
+
+      <li class="menu-title mt-4">Company</li>
+      <li><a href="{% url 'base:company_switch' %}"><span class="mr-2">🏢</span> Switch company</a></li>
+      {% endwith %}
+    </ul>
+  </div>
 </div>
 
-<!-- Theme switcher: update <html> + <body> -->
+<!-- Theme + Pin logic -->
 <script>
   (function () {
     const html = document.documentElement;
@@ -302,14 +373,19 @@
         moon.classList.toggle("hidden", isDark);
       }
     }
-
     const initial = getCookie("theme") || localStorage.getItem("theme") || html.getAttribute("data-theme") || "corporate";
     setTheme(initial);
-
     btn?.addEventListener("click", () => {
       const now  = html.getAttribute("data-theme") || "corporate";
       const next = (now === "corporate") ? "business" : "corporate";
       setTheme(next);
+    });
+
+    // تثبيت/إلغاء تثبيت الـDrawer
+    const pin = document.getElementById("pin-drawer");
+    pin?.addEventListener("click", () => {
+      const pinned = html.classList.toggle("drawer-pinned");
+      localStorage.setItem("drawer:pinned", pinned ? "1" : "0");
     });
 
     window.addEventListener("DOMContentLoaded", () => html.classList.remove("no-transitions"));
