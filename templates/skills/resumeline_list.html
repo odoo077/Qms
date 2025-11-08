@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block page_title %}Resume Lines{% endblock %}
+{% block page_actions %}
+  {% if can_add_resumeline %}
+    <a href="{% url 'skills:resumeline_create' %}" class="btn btn-primary btn-sm">+ New Resume Line</a>
+  {% endif %}
+{% endblock %}
+{% block content %}
+<div class="px-4 py-6">
+  {% include "base/includes/search_panel.html" %}
+  {% if object_list %}
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+    {% for rl in object_list %}
+    <div class="card bg-base-100 border border-base-300">
+      <div class="card-body p-4">
+        <h3 class="font-semibold text-lg">{{ rl.name }}</h3>
+        <p class="text-sm text-base-content/70">{{ rl.line_type }} — {{ rl.employee }}</p>
+        <div class="text-xs text-base-content/60">
+          {{ rl.date_start|date:"Y-m-d" }} → {{ rl.date_end|default:"Present" }}
+        </div>
+        {% if can_add_resumeline %}
+        <div class="card-actions mt-4">
+          <a href="{% url 'skills:resumeline_edit' rl.pk %}" class="btn btn-sm btn-outline">Edit</a>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="rounded-lg border border-dashed border-base-300 bg-base-100 p-10 text-center">
+    <p>No Resume Lines found.</p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

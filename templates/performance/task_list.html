@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Tasks · Performance{% endblock %}
+{% block page_title %}Tasks{% endblock %}
+
+{% block content %}
+<div class="px-4 py-6 space-y-6">
+
+  <div class="flex items-center justify-between">
+    <h1 class="text-2xl font-bold">Tasks</h1>
+    {% if can_add_task %}
+      <a href="{% url 'performance:task_create' %}" class="btn btn-primary btn-sm">+ New Task</a>
+    {% endif %}
+  </div>
+
+  {% include "base/includes/search_panel.html" %}
+
+  {% if object_list %}
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+      {% for t in object_list %}
+        <div class="card bg-base-100 border border-base-300 shadow-sm hover:shadow-lg transition">
+          <div class="card-body p-4">
+            <div class="flex items-start justify-between">
+              <div>
+                <h2 class="text-lg font-semibold">{{ t.name }}</h2>
+                <p class="text-sm text-base-content/60">
+                  Assigned to: {{ t.assignee|default:"—" }}
+                </p>
+              </div>
+            </div>
+
+            <div class="mt-2 text-xs text-base-content/70">
+              <p>Status: <span class="badge">{{ t.status|title }}</span></p>
+              <p>Priority: <span class="badge badge-outline">{{ t.priority|title }}</span></p>
+              <p>Progress: {{ t.progress }}%</p>
+            </div>
+
+            <div class="card-actions mt-4">
+              <a href="{% url 'performance:task_detail' t.pk %}" class="btn btn-sm">View</a>
+              {% if t.id in task_change_ids %}
+                <a href="{% url 'performance:task_edit' t.pk %}" class="btn btn-sm btn-outline">Edit</a>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="p-10 text-center text-sm text-base-content/60 border border-dashed rounded-lg">
+      No tasks available.
+    </div>
+  {% endif %}
+
+</div>
+{% endblock %}

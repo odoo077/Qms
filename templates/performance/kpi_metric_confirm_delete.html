@@ -1,0 +1,60 @@
+{# templates/performance/kpi_metric_confirm_delete.html #}
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Delete KPI Metric · {{ object.kpi.name }}{% endblock %}
+{% block page_title %}Delete KPI Metric{% endblock %}
+
+{% block content %}
+<div class="max-w-lg mx-auto px-4 py-10">
+  <div class="card bg-base-100 border border-error/40 shadow-lg">
+    <div class="card-body space-y-6">
+
+      <!-- Header -->
+      <div class="flex items-start justify-between flex-wrap gap-2">
+        <h2 class="text-2xl font-bold text-error">Confirm Deletion</h2>
+        <a href="{% url 'performance:kpi_metric_list' object.kpi.id %}" class="btn btn-ghost btn-sm">Cancel</a>
+      </div>
+
+      <div class="alert alert-warning shadow">
+        <span class="text-sm">
+          You are about to permanently delete this KPI metric record.
+          This action <strong>cannot be undone</strong>.
+        </span>
+      </div>
+
+      <!-- Metric Summary -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm border border-base-300 rounded-lg p-4 bg-base-200/40">
+        <div>
+          <div class="text-base-content/60">Date</div>
+          <div class="font-medium">{{ object.date|date:"Y-m-d" }}</div>
+        </div>
+        <div>
+          <div class="text-base-content/60">Period</div>
+          <div class="font-medium">{{ object.period|default:"—" }}</div>
+        </div>
+        <div>
+          <div class="text-base-content/60">Target</div>
+          <div class="font-medium">{{ object.target_value|default:"—" }}</div>
+        </div>
+        <div>
+          <div class="text-base-content/60">Actual</div>
+          <div class="font-medium">{{ object.actual_value|default:"—" }}</div>
+        </div>
+        <div class="sm:col-span-2">
+          <div class="text-base-content/60">Note</div>
+          <div class="font-medium">{{ object.note|default:"—" }}</div>
+        </div>
+      </div>
+
+      <!-- Delete Form -->
+      <form method="post" class="flex justify-end gap-3 mt-6">
+        {% csrf_token %}
+        <a href="{% url 'performance:kpi_metric_list' object.kpi.id %}" class="btn btn-ghost">Cancel</a>
+        <button type="submit" class="btn btn-error">Yes, Delete</button>
+      </form>
+
+    </div>
+  </div>
+</div>
+{% endblock %}

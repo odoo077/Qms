@@ -1,0 +1,20 @@
+<!-- templates/payroll/employee_salary_detail.html -->
+{% extends "base.html" %}
+{% block page_title %}Salary Detail{% endblock %}
+{% block title %}Payroll · Salary Detail{% endblock %}
+{% block content %}
+<div class="px-4 py-6">
+  <div class="rounded-2xl bg-base-100 ring-1 ring-base-300/70 shadow p-5">
+    <div class="flex items-center justify-between">
+      <div>
+        <h2 class="text-xl font-semibold">{{ object.employee }} — {{ object.amount }}</h2>
+        <p class="text-sm text-base-content/60">{{ object.company }} • {{ object.date_start }} → {{ object.date_end|default:"open" }}</p>
+      </div>
+      <a href="{% url 'payroll:employee_salary_edit' object.pk %}" class="btn btn-outline btn-sm">Edit</a>
+    </div>
+    {% if object.note %}
+    <div class="mt-4 text-sm">{{ object.note }}</div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,75 @@
+{# templates/performance/evaluationtemplate_form.html #}
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}
+  {% if object.pk %}Edit Evaluation Template · 360 Manager{% else %}New Evaluation Template · 360 Manager{% endif %}
+{% endblock %}
+
+{% block page_title %}
+  {% if object.pk %}Edit Evaluation Template{% else %}New Evaluation Template{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto px-4 py-6">
+  <div class="card bg-base-100 shadow-xl border border-base-300">
+    <div class="card-body">
+      <h2 class="card-title text-xl mb-2">
+        {% if object.pk %}
+          Edit Template — <span class="text-primary">{{ object.name }}</span>
+        {% else %}
+          Create New Evaluation Template
+        {% endif %}
+      </h2>
+      <p class="text-sm text-base-content/70 mb-4">
+        Templates define the structure and included parameters for performance evaluations.
+      </p>
+
+      <form method="post" class="space-y-4">
+        {% csrf_token %}
+        {{ form.non_field_errors }}
+
+        <!-- Form Fields -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="label"><span class="label-text font-medium">Name</span></label>
+            {{ form.name|add_class:"input input-bordered w-full" }}
+            {{ form.name.errors }}
+          </div>
+
+          <div>
+            <label class="label"><span class="label-text font-medium">Company</span></label>
+            {{ form.company|add_class:"select select-bordered w-full" }}
+            {{ form.company.errors }}
+          </div>
+        </div>
+
+        <div>
+          <label class="label"><span class="label-text font-medium">Parameters</span></label>
+          <div class="select select-bordered w-full h-auto">
+            {{ form.parameters }}
+          </div>
+          <p class="text-xs text-base-content/60 mt-1">
+            Hold <kbd>Ctrl</kbd> or <kbd>Cmd</kbd> to select multiple parameters.
+          </p>
+          {{ form.parameters.errors }}
+        </div>
+
+        <div>
+          <label class="label"><span class="label-text font-medium">Description</span></label>
+          {{ form.description|add_class:"textarea textarea-bordered w-full h-24" }}
+          {{ form.description.errors }}
+        </div>
+
+        <!-- Buttons -->
+        <div class="flex items-center justify-end gap-3 mt-6">
+          <a href="{% url 'performance:template_list' %}" class="btn btn-ghost">Cancel</a>
+          <button type="submit" class="btn btn-primary">
+            {% if object.pk %}Save Changes{% else %}Create Template{% endif %}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

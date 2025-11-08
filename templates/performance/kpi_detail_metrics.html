@@ -1,0 +1,131 @@
+{# templates/performance/kpi_detail_metrics.html #}
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}KPI Metrics · {{ object.name }}{% endblock %}
+{% block page_title %}KPI Performance History{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto px-4 py-10 space-y-8">
+
+  <!-- Header -->
+  <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div>
+      <h2 class="text-2xl font-bold">KPI Metrics — {{ object.name }}</h2>
+      <p class="text-sm text-base-content/70 mt-1">
+        Track KPI progress, trends, and historical performance.
+      </p>
+    </div>
+    <a href="{% url 'performance:kpi_detail' object.id %}" class="btn btn-ghost btn-sm">Back to Details</a>
+  </div>
+
+  <!-- KPI Summary -->
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div class="stat bg-base-200 rounded-box">
+      <div class="stat-title">Target Value</div>
+      <div class="stat-value text-primary">{{ object.target_value|default:"—" }}</div>
+    </div>
+    <div class="stat bg-base-200 rounded-box">
+      <div class="stat-title">Current Value</div>
+      <div class="stat-value text-secondary">{{ object.current_value|default:"—" }}</div>
+    </div>
+    <div class="stat bg-base-200 rounded-box">
+      <div class="stat-title">Progress</div>
+      <div class="stat-value text-accent">{{ object.progress|default:"0" }}%</div>
+    </div>
+  </div>
+
+  <!-- Chart Section -->
+  <div class="card bg-base-100 border border-base-300 shadow-xl">
+    <div class="card-body">
+      <h3 class="text-lg font-semibold mb-4">Performance Trend</h3>
+      <div class="h-72">
+        <canvas id="kpiChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Historical Data Table -->
+  <div class="card bg-base-100 border border-base-300 shadow-xl">
+    <div class="card-body overflow-x-auto">
+      <h3 class="text-lg font-semibold mb-4">Historical Records</h3>
+
+      {% if metrics %}
+      <table class="table table-sm">
+        <thead>
+          <tr class="bg-base-200 text-base-content/70">
+            <th>Date</th>
+            <th>Period</th>
+            <th>Target</th>
+            <th>Actual</th>
+            <th>Progress</th>
+            <th>Note</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for m in metrics %}
+          <tr>
+            <td>{{ m.date|date:"Y-m-d" }}</td>
+            <td>{{ m.period|default:"—" }}</td>
+            <td>{{ m.target_value|default:"—" }}</td>
+            <td>{{ m.actual_value|default:"—" }}</td>
+            <td>
+              <div class="flex items-center gap-2">
+                <progress class="progress progress-primary w-32" value="{{ m.progress|default:0 }}" max="100"></progress>
+                <span class="text-sm font-medium">{{ m.progress|default:0 }}%</span>
+              </div>
+            </td>
+            <td>{{ m.note|default:"—" }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+        <p class="text-sm text-base-content/70">No performance records found.</p>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+  const ctx = document.getElementById("kpiChart");
+  const data = {
+    labels: [{% for m in metrics %}"{{ m.date|date:'Y-m-d' }}",{% endfor %}],
+    datasets: [{
+      label: "Actual Performance",
+      data: [{% for m in metrics %}{{ m.actual_value|default:0 }},{% endfor %}],
+      borderColor: "#2563eb",
+      backgroundColor: "rgba(37, 99, 235, 0.2)",
+      tension: 0.3,
+      fill: true
+    }, {
+      label: "Target",
+      data: [{% for m in metrics %}{{ m.target_value|default:0 }},{% endfor %}],
+      borderColor: "#16a34a",
+      backgroundColor: "rgba(22, 163, 74, 0.15)",
+      tension: 0.3,
+      fill: true
+    }]
+  };
+
+  new Chart(ctx, {
+    type: "line",
+    data: data,
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { position: "bottom" }
+      },
+      scales: {
+        y: { beginAtZero: true }
+      }
+    }
+  });
+});
+</script>
+{% endblock %}
+{% endblock %}

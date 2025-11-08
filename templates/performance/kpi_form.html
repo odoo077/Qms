@@ -1,0 +1,105 @@
+{# templates/performance/kpi_form.html #}
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}
+  {% if object %}Edit KPI · {{ object.name }}{% else %}New KPI{% endif %}
+{% endblock %}
+
+{% block page_title %}
+  {% if object %}Edit KPI{% else %}Create KPI{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto px-4 py-10">
+  <div class="card bg-base-100 border border-base-300 shadow-xl">
+    <div class="card-body space-y-6">
+
+      <h2 class="text-2xl font-bold">
+        {% if object %}Edit KPI{% else %}New KPI{% endif %}
+      </h2>
+      <p class="text-sm text-base-content/70">
+        Define performance indicators with measurable metrics, weights, and responsible users.
+      </p>
+
+      <form method="post" novalidate>
+        {% csrf_token %}
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <!-- Name -->
+          <div class="form-control">
+            <label class="label"><span class="label-text font-semibold">Name</span></label>
+            {{ form.name }}
+            {% if form.name.errors %}
+              <p class="text-error text-xs mt-1">{{ form.name.errors.0 }}</p>
+            {% endif %}
+          </div>
+
+          <!-- Code -->
+          <div class="form-control">
+            <label class="label"><span class="label-text font-semibold">Code</span></label>
+            {{ form.code }}
+            {% if form.code.errors %}
+              <p class="text-error text-xs mt-1">{{ form.code.errors.0 }}</p>
+            {% endif %}
+          </div>
+
+          <!-- Company -->
+          <div class="form-control sm:col-span-2">
+            <label class="label"><span class="label-text font-semibold">Company</span></label>
+            {{ form.company }}
+            {% if form.company.errors %}
+              <p class="text-error text-xs mt-1">{{ form.company.errors.0 }}</p>
+            {% endif %}
+          </div>
+
+          <!-- Weight -->
+          <div class="form-control">
+            <label class="label"><span class="label-text font-semibold">Weight (%)</span></label>
+            {{ form.weight }}
+            {% if form.weight.errors %}
+              <p class="text-error text-xs mt-1">{{ form.weight.errors.0 }}</p>
+            {% endif %}
+          </div>
+
+          <!-- Target Value -->
+          <div class="form-control">
+            <label class="label"><span class="label-text font-semibold">Target Value</span></label>
+            {{ form.target_value }}
+            {% if form.target_value.errors %}
+              <p class="text-error text-xs mt-1">{{ form.target_value.errors.0 }}</p>
+            {% endif %}
+          </div>
+
+          <!-- Responsible Employee -->
+          <div class="form-control sm:col-span-2">
+            <label class="label"><span class="label-text font-semibold">Responsible Employee</span></label>
+            {{ form.responsible }}
+            {% if form.responsible.errors %}
+              <p class="text-error text-xs mt-1">{{ form.responsible.errors.0 }}</p>
+            {% endif %}
+          </div>
+
+          <!-- Description -->
+          <div class="form-control sm:col-span-2">
+            <label class="label"><span class="label-text font-semibold">Description</span></label>
+            {{ form.description }}
+            {% if form.description.errors %}
+              <p class="text-error text-xs mt-1">{{ form.description.errors.0 }}</p>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="flex justify-end gap-2 mt-8">
+          <a href="{% url 'performance:kpi_list' %}" class="btn btn-ghost">Cancel</a>
+          <button type="submit" class="btn btn-primary">
+            {% if object %}Save Changes{% else %}Create KPI{% endif %}
+          </button>
+        </div>
+      </form>
+
+    </div>
+  </div>
+</div>
+{% endblock %}

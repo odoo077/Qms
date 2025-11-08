@@ -19,8 +19,9 @@ class MultiCompanyMiddleware:
 
     def __call__(self, request):
         bootstrap_from_request(request)
-        request.company_id = get_company_id()
-        request.allowed_company_ids = get_allowed_company_ids()
+        request.company_id = get_company_id(request)
+        request.allowed_company_ids = get_allowed_company_ids(request)
+
         # ✅ مهم: ثبت المستخدم الحالي في السياق
         # بهذه الخطوة صار عندنا company + user في السياق، نستخدمهما لاحقًا في كويريات الـ ACL.
         set_current_user_id(getattr(request.user, "id", None))

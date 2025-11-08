@@ -1,0 +1,90 @@
+{# templates/performance/evaluation_form.html #}
+{% extends "base.html" %}
+{% load widget_tweaks %}
+{% load static %}
+
+{% block title %}
+  {% if object.pk %}Edit Evaluation{% else %}New Evaluation{% endif %} · 360 Manager
+{% endblock %}
+{% block page_title %}
+  {% if object.pk %}Edit Performance Evaluation{% else %}Create Performance Evaluation{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto px-4 py-8">
+  <nav class="text-sm breadcrumbs mb-4">
+    <ul>
+      <li><a href="{% url 'performance:evaluation_list' %}">Evaluations</a></li>
+      <li class="font-semibold">
+        {% if object.pk %}Edit{% else %}Create{% endif %}
+      </li>
+    </ul>
+  </nav>
+
+  <!-- Main card -->
+  <form method="post" class="card bg-base-100 border border-base-300 shadow-xl">
+    {% csrf_token %}
+    <div class="card-body grid grid-cols-1 md:grid-cols-2 gap-5">
+
+      <!-- Left column -->
+      <div class="space-y-4">
+        <div class="form-control">
+          <label class="label"><span class="label-text">Company</span></label>
+          {{ form.company|add_class:"select select-bordered w-full" }}
+        </div>
+
+        <div class="form-control">
+          <label class="label"><span class="label-text">Employee</span></label>
+          {{ form.employee|add_class:"select select-bordered w-full" }}
+        </div>
+
+        <div class="form-control">
+          <label class="label"><span class="label-text">Manager</span></label>
+          {{ form.manager|add_class:"select select-bordered w-full" }}
+        </div>
+
+        <div class="form-control">
+          <label class="label"><span class="label-text">Template</span></label>
+          {{ form.template|add_class:"select select-bordered w-full" }}
+        </div>
+      </div>
+
+      <!-- Right column -->
+      <div class="space-y-4">
+        <div class="form-control">
+          <label class="label"><span class="label-text">Period Start</span></label>
+          {{ form.period_start|add_class:"input input-bordered w-full" }}
+        </div>
+
+        <div class="form-control">
+          <label class="label"><span class="label-text">Period End</span></label>
+          {{ form.period_end|add_class:"input input-bordered w-full" }}
+        </div>
+
+        <div class="form-control">
+          <label class="label"><span class="label-text">Status</span></label>
+          {{ form.state|add_class:"select select-bordered w-full" }}
+        </div>
+
+        <div class="form-control">
+          <label class="label"><span class="label-text">Overall Score (%)</span></label>
+          {{ form.overall_score|add_class:"input input-bordered w-full" }}
+        </div>
+      </div>
+
+      <div class="md:col-span-2 form-control">
+        <label class="label"><span class="label-text">Notes</span></label>
+        {{ form.note|add_class:"textarea textarea-bordered w-full h-32" }}
+      </div>
+    </div>
+
+    <!-- Footer buttons -->
+    <div class="card-footer flex justify-end gap-3 p-5 border-t border-base-300 bg-base-200/40">
+      <a href="{% url 'performance:evaluation_list' %}" class="btn btn-ghost">Cancel</a>
+      <button type="submit" class="btn btn-primary">
+        {% if object.pk %}Save Changes{% else %}Create Evaluation{% endif %}
+      </button>
+    </div>
+  </form>
+</div>
+{% endblock %}

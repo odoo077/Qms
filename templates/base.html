@@ -55,15 +55,82 @@
             <a href="{% url 'base:home' %}" class="btn btn-ghost px-0 text-xl font-extrabold tracking-tight">
               <span class="text-primary">360</span><span class="text-error">Manager</span>
             </a>
+
+            {# --- Apps navbar: insert here (between logo block and the right-side controls) --- #}
+{% with ns=request.resolver_match.namespace|default:'' %}
+<nav class="hidden md:flex items-center gap-1 mx-2">
+  <a href="{% url 'base:partner_list' %}"
+     class="btn btn-ghost btn-sm {% if ns == '' or ns == 'base' %}btn-active{% endif %}">
+    Base
+  </a>
+
+  <a href="{% url 'assets:asset_list' %}"
+     class="btn btn-ghost btn-sm {% if ns == 'assets' %}btn-active{% endif %}">
+    Assets
+  </a>
+
+  <a href="{% url 'hr:department_list' %}"
+     class="btn btn-ghost btn-sm {% if ns == 'hr' %}btn-active{% endif %}">
+    HR
+  </a>
+
+  <a href="{% url 'skills:skill_list' %}"
+     class="btn btn-ghost btn-sm {% if ns == 'skills' %}btn-active{% endif %}">
+    Skills
+  </a>
+
+  <a href="{% url 'performance:template_list' %}"
+     class="btn btn-ghost btn-sm {% if ns == 'performance' %}btn-active{% endif %}">
+    Performance
+  </a>
+
+  {# Payroll: استعمل رابط مباشر لتفادي NoReverseMatch إن لم تُعرّف أسماء المسارات بعد #}
+  <a href="/payroll/"
+     class="btn btn-ghost btn-sm {% if ns == 'payroll' %}btn-active{% endif %}">
+    Payroll
+  </a>
+</nav>
+{% endwith %}
+{# --- /Apps navbar --- #}
+
           </div>
 
           <div class="flex items-center gap-2">
-            {% if current_company %}
-              <a href="{% url 'base:company_switch' %}" class="btn btn-outline btn-xs sm:btn-sm gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 sm:w-5 sm:h-5" viewBox="0 0 24 24" fill="currentColor"><path d="M3 7h18v2H3zm0 4h12v2H3zm0 4h18v2H3z"/></svg>
-                {{ current_company.name }}
-              </a>
-            {% endif %}
+{% if allowed_companies %}
+<div class="dropdown dropdown-end">
+  <label tabindex="0" class="btn btn-outline btn-xs sm:btn-sm gap-2">
+    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 sm:w-5 sm:h-5" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M3 7h18v2H3zm0 4h12v2H3zm0 4h18v2H3z"/>
+    </svg>
+    {{ current_company.name }}
+  </label>
+
+  <form method="post" action="{% url 'base:company_switch' %}" class="dropdown-content mt-1 z-[1] p-3 shadow bg-base-100 rounded-box w-64">
+    {% csrf_token %}
+
+    <div class="mb-2 text-xs font-semibold opacity-70">Active Companies</div>
+    <ul class="menu menu-sm max-h-56 overflow-y-auto mb-2">
+      {% for c in allowed_companies %}
+      <li>
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input type="checkbox" name="active_companies" value="{{ c.id }}" class="checkbox checkbox-xs"
+                 {% if c.id in active_ids %}checked{% endif %}>
+          <span class="truncate">{{ c.name }}</span>
+          {% if c.id == current_company.id %}
+            <span class="badge badge-primary badge-xs ml-1">Current</span>
+          {% endif %}
+        </label>
+      </li>
+      {% endfor %}
+    </ul>
+
+    <button type="submit" class="btn btn-primary btn-sm w-full">Apply</button>
+  </form>
+</div>
+{% endif %}
+
+
+
 
             <!-- EXACT same IDs as auth_base.html -->
             <button id="theme-toggle" class="btn btn-ghost btn-sm" type="button" aria-label="Toggle theme">
@@ -134,6 +201,59 @@
     <main class="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 py-6">
       {% block content %}{% endblock %}
     </main>
+
+      <!-- SIDEBAR -->
+  <div class="drawer-side">
+    <label for="app-drawer" aria-label="close sidebar" class="drawer-overlay"></label>
+    <ul class="menu p-4 w-72 lg:w-80 bg-base-200 text-base-content gap-1">
+      {% with ns=request.resolver_match.namespace|default:'' %}
+      <li class="menu-title">Applications</li>
+
+      <li>
+        <a href="{% url 'base:partner_list' %}" class="{% if ns == '' or ns == 'base' %}active{% endif %}">
+          <span class="mr-2">🏠</span> Base
+        </a>
+      </li>
+
+      <li>
+        <a href="{% url 'assets:asset_list' %}" class="{% if ns == 'assets' %}active{% endif %}">
+          <span class="mr-2">🧳</span> Assets
+        </a>
+      </li>
+
+      <li>
+        <a href="{% url 'hr:department_list' %}" class="{% if ns == 'hr' %}active{% endif %}">
+          <span class="mr-2">👥</span> HR
+        </a>
+      </li>
+
+      <li>
+        <a href="{% url 'skills:skill_list' %}" class="{% if ns == 'skills' %}active{% endif %}">
+          <span class="mr-2">🎯</span> Skills
+        </a>
+      </li>
+
+      <li>
+        <a href="{% url 'performance:template_list' %}" class="{% if ns == 'performance' %}active{% endif %}">
+          <span class="mr-2">📈</span> Performance
+        </a>
+      </li>
+
+      <li>
+        <a href="/payroll/" class="{% if ns == 'payroll' %}active{% endif %}">
+          <span class="mr-2">💵</span> Payroll
+        </a>
+      </li>
+
+      <li class="menu-title mt-4">Company</li>
+      <li>
+        <a href="{% url 'base:company_switch' %}">
+          <span class="mr-2">🏢</span> Switch company
+        </a>
+      </li>
+      {% endwith %}
+    </ul>
+  </div>
 
     <!-- Footer -->
     <footer class="bg-base-100 border-t mt-10">

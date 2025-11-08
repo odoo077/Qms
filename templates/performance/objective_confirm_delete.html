@@ -1,0 +1,45 @@
+{# templates/performance/objective_confirm_delete.html #}
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Delete Objective · {{ object.name }}{% endblock %}
+{% block page_title %}Confirm Delete{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto px-4 py-16">
+  <div class="card bg-base-100 border border-base-300 shadow-xl">
+    <div class="card-body text-center space-y-6">
+
+      <!-- Warning Icon -->
+      <div class="flex justify-center">
+        <div class="w-16 h-16 rounded-full bg-error/10 flex items-center justify-center">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-error" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M12 9v2m0 4h.01M4.293 4.293a1 1 0 011.414 0L12 10.586l6.293-6.293a1 1 0 111.414 1.414L13.414 12l6.293 6.293a1 1 0 01-1.414 1.414L12 13.414l-6.293 6.293a1 1 0 01-1.414-1.414L10.586 12 4.293 5.707a1 1 0 010-1.414z" />
+          </svg>
+        </div>
+      </div>
+
+      <!-- Title -->
+      <h2 class="text-2xl font-bold text-error">Are you sure?</h2>
+      <p class="text-base-content/70">
+        You’re about to permanently delete the objective:
+        <span class="font-semibold text-base-content">{{ object.name }}</span>
+      </p>
+
+      <!-- Info Box -->
+      <div class="bg-base-200 border border-base-300 rounded-lg p-4 text-sm text-base-content/70">
+        <p>This action <strong>cannot be undone</strong>.</p>
+        <p class="mt-1">All related records and progress data will be removed.</p>
+      </div>
+
+      <!-- Buttons -->
+      <form method="post" class="flex justify-center gap-3 pt-4">
+        {% csrf_token %}
+        <a href="{% url 'performance:objective_list' %}" class="btn btn-ghost">Cancel</a>
+        <button type="submit" class="btn btn-error">Yes, delete</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

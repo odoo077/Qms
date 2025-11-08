@@ -6,8 +6,6 @@ from django.db.models.functions import Lower
 from django.utils import timezone
 from django.db.models import Q
 from django.core.exceptions import ValidationError
-
-from base.acl import ACLManager
 from base.company_context import get_company_id, get_allowed_company_ids
 from django.utils.translation import gettext_lazy as _
 from django.contrib.auth.base_user import BaseUserManager
@@ -27,13 +25,14 @@ from base.acl import ACLManager
 
 class CompanyScopeQuerySet(models.QuerySet):
     def _apply_company_scope(self):
-        cid = get_company_id()
-        if cid is None:
-            return self
-        # فحص آمن لوجود الحقل بدون إثارة استثناء
-        has_company_field = any(f.name == "company" for f in self.model._meta.get_fields())
+        from base.company_context import get_allowed_company_ids
+        active_ids = get_allowed_company_ids()
+        if not active_ids:
+            return self.none()
+        # اسم حقل الـFK في Django يكون "company" (والعمود DB هو company_id)
+        has_company_field = any(getattr(f, "name", None) == "company" for f in self.model._meta.get_fields())
         if has_company_field:
-            return self.filter(company_id=cid)
+            return self.filter(company_id__in=active_ids)
         return self
 
     # تسهيلات شائعة
@@ -61,6 +60,15 @@ class CompanyScopeManager(models.Manager.from_queryset(CompanyScopeQuerySet)):
     def all_companies(self):
         return super().get_queryset()
 
+class ScopedACLManager(ACLManager):
+    def get_queryset(self):
+        qs = super().get_queryset()
+        # طبّق سكوب الشركة هنا أيضًا
+        if any(getattr(f, "name", None) == "company" for f in qs.model._meta.get_fields()):
+            from base.company_context import get_allowed_company_ids
+            active_ids = get_allowed_company_ids()
+            qs = qs.filter(company_id__in=active_ids) if active_ids else qs.none()
+        return qs
 
 # ------------ Mixins --------------
 
@@ -169,12 +177,15 @@ class CompanyOwnedMixin(models.Model):
                 raise ValidationError({rel_name: "Related record belongs to a different company."})
 
     def save(self, *args, **kwargs):
-        # اضبط company من سياق الجلسة إن لم تُملأ
-        if not self.company_id:
-            cid = get_company_id()
-            if cid:
-                self.company_id = cid
-        return super().save(*args, **kwargs)
+        from base.company_context import get_company_id
+        # في حال كانت الشركة فارغة: خذ current من السياق
+        if hasattr(self, "company_id") and not self.company_id:
+            current = get_company_id()
+            if current:
+                # إذا الحقل FK باسم "company"
+                if hasattr(self, "company"):
+                    self.company_id = current
+        super().save(*args, **kwargs)
 
 
 # ---------- تتبّع المستخدم (create_uid/write_uid على طريقة Odoo) ----------
@@ -510,6 +521,7 @@ class User(TimeStampedMixin, ActivableMixin, AbstractUser):
     # مدير
     objects = UserManager()
     acl_objects = ACLManager()
+    scoped_objects = ScopedACLManager()
 
     # تسجيل الدخول بالبريد
     USERNAME_FIELD = "email"
@@ -746,7 +758,7 @@ class Partner(CompanyOwnedMixin, UserStampedMixin, TimeStampedMixin, ActivableMi
     - commercial_partner (computed-like property)
     """
 
-    objects = ACLManager()
+    objects = ScopedACLManager()
 
     TYPE_CHOICES = [
         ("contact", "Contact"),

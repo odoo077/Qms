@@ -18,47 +18,58 @@
 {% block content %}
 <div class="space-y-8">
 
-  <!-- Hero / quick overview -->
-  <section class="rounded-2xl bg-base-100/70 ring-1 ring-base-300/60 shadow-xl overflow-hidden">
-    <div class="relative p-6 sm:p-8">
-      <div aria-hidden="true" class="pointer-events-none absolute inset-0">
-        <div class="absolute -top-36 -left-32 w-[28rem] h-[28rem] rounded-full blur-3xl bg-gradient-to-tr from-primary/15 via-secondary/15 to-accent/15"></div>
-        <div class="absolute -bottom-40 -right-40 w-[30rem] h-[30rem] rounded-full blur-3xl bg-gradient-to-tr from-accent/15 via-primary/15 to-secondary/15"></div>
+{# templates/home.html — Hero / quick overview section #}
+<section class="rounded-2xl bg-base-100/70 ring-1 ring-base-300/60 shadow-xl overflow-hidden">
+  <div class="relative p-6 sm:p-8">
+    <div aria-hidden="true" class="pointer-events-none absolute inset-0">
+      <div class="absolute -top-36 -left-32 w-[28rem] h-[28rem] rounded-full blur-3xl bg-gradient-to-tr from-primary/15 via-secondary/15 to-accent/15"></div>
+      <div class="absolute -bottom-40 -right-40 w-[30rem] h-[30rem] rounded-full blur-3xl bg-gradient-to-tr from-accent/15 via-primary/15 to-secondary/15"></div>
+    </div>
+
+    <div class="relative grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <!-- Copy -->
+      <div class="lg:col-span-2">
+        <h2 class="text-2xl sm:text-3xl font-bold leading-tight">Your organization at a glance</h2>
+
+        <!-- Quick actions -->
+        <div class="mt-6 flex flex-wrap gap-2">
+          <a href="{% url 'base:partner_list' %}" class="btn btn-ghost btn-sm">All partners</a>
+          <a href="{% url 'base:user_list' %}" class="btn btn-ghost btn-sm">All users</a>
+          <a href="{% url 'base:company_list' %}" class="btn btn-ghost btn-sm">All companies</a>
+
+          {% if perms.base.add_partner %}
+            <a href="{% url 'base:partner_create' %}" class="btn btn-primary btn-sm">+ New partner</a>
+          {% endif %}
+          {% if perms.base.add_user %}
+            <a href="{% url 'base:user_create' %}" class="btn btn-primary btn-sm">+ New user</a>
+          {% endif %}
+          {% if perms.base.add_company %}
+            <a href="{% url 'base:company_create' %}" class="btn btn-primary btn-sm">+ New company</a>
+          {% endif %}
+        </div>
       </div>
 
-      <div class="relative grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <!-- Copy -->
-        <div class="lg:col-span-2">
-          <h2 class="text-2xl sm:text-3xl font-bold leading-tight">Your organization at a glance</h2>
-          <p class="mt-2 text-sm text-base-content/70">
-            Clean cards, clear actions and a theme-aware layout. Everything you need to get going quickly.
-          </p>
-          <div class="mt-6 flex flex-wrap gap-2">
-            <a href="{% url 'base:partner_list' %}" class="btn btn-ghost btn-sm">All partners</a>
-          </div>
+      <!-- Compact stats -->
+      <div class="grid grid-cols-3 gap-3">
+        <div class="stat bg-base-200 rounded-box">
+          <div class="stat-title">Companies</div>
+          <div class="stat-value text-primary">{{ companies_count }}</div>
+          <div class="stat-desc">allowed</div>
         </div>
-
-        <!-- Compact stats -->
-        <div class="grid grid-cols-3 gap-3">
-          <div class="stat bg-base-200 rounded-box">
-            <div class="stat-title">Companies</div>
-            <div class="stat-value text-primary">{{ companies_count }}</div>
-            <div class="stat-desc">allowed</div>
-          </div>
-          <div class="stat bg-base-200 rounded-box">
-            <div class="stat-title">Partners</div>
-            <div class="stat-value text-secondary">{{ partners_count }}</div>
-            <div class="stat-desc">{% if current_company %}{{ current_company.name }}{% else %}all{% endif %}</div>
-          </div>
-          <div class="stat bg-base-200 rounded-box">
-            <div class="stat-title">Users</div>
-            <div class="stat-value text-accent">{{ users_count }}</div>
-            <div class="stat-desc">active</div>
-          </div>
+        <div class="stat bg-base-200 rounded-box">
+          <div class="stat-title">Partners</div>
+          <div class="stat-value text-secondary">{{ partners_count }}</div>
+          <div class="stat-desc">{% if current_company %}{{ current_company.name }}{% else %}all{% endif %}</div>
+        </div>
+        <div class="stat bg-base-200 rounded-box">
+          <div class="stat-title">Users</div>
+          <div class="stat-value text-accent">{{ users_count }}</div>
+          <div class="stat-desc">active</div>
         </div>
       </div>
     </div>
-  </section>
+  </div>
+</section>
 
 
   <!-- Two columns: recent partners / users -->

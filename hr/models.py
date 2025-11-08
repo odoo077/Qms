@@ -22,7 +22,7 @@ from base.models import (
 )
 
 # ACL (صلاحيات كائنية) — نطبّقها على Employee تحديدًا
-from base.acl import AccessControlledMixin, ACLManager
+from base.acl import AccessControlledMixin, ACLManager, ACLQuerySet
 
 
 # ------------------------------------------------------------
@@ -98,6 +98,7 @@ class Department(CompanyOwnedMixin, ActivableMixin, TimeStampedMixin, UserStampe
     color = models.IntegerField(default=0)
 
     objects = CompanyScopeManager()
+    acl_objects = ACLQuerySet.as_manager()
 
     class Meta:
         db_table = "hr_department"
@@ -195,6 +196,7 @@ class WorkLocation(CompanyOwnedMixin, ActivableMixin, TimeStampedMixin, UserStam
     company_dependent_relations = ("address",)
 
     objects = CompanyScopeManager()
+    acl_objects = ACLQuerySet.as_manager()
 
     def clean(self):
         super().clean()
@@ -358,6 +360,7 @@ class Job(CompanyOwnedMixin, ActivableMixin, TimeStampedMixin, UserStampedMixin,
     expected_employees = models.PositiveIntegerField(default=0, editable=False)
 
     objects = CompanyScopeManager()
+    acl_objects = ACLQuerySet.as_manager()
 
     class Meta:
         db_table = "hr_job"

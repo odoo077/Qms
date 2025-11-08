@@ -8,7 +8,7 @@ from .views import (
     register_view, activate_view, activation_sent_view, activation_failed_view, resend_activation_view,
     login_view, logout_view, profile_view, edit_profile_view,
     password_change_view, password_change_done_view, HomeView, UserDetailView, UserListView, UserUpdateView,
-    CompanyDetailView, CompanyCreateView, CompanyListView, CompanyUpdateView,
+    CompanyDetailView, CompanyCreateView, CompanyListView, CompanyUpdateView, UserCreateView,
 )
 
 
@@ -83,6 +83,8 @@ urlpatterns = [
     path("users/", UserListView.as_view(), name="user_list"),
     path("users/<int:pk>/", UserDetailView.as_view(), name="user_detail"),
     path("users/<int:pk>/edit/", UserUpdateView.as_view(), name="user_edit"),
+    path("users/new/", UserCreateView.as_view(), name="user_create"),
+
 
     # Companies
     path("companies/", CompanyListView.as_view(), name="company_list"),

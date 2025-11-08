@@ -1,0 +1,94 @@
+{# templates/performance/evaluationtemplate_detail.html #}
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Template — {{ object.name }} · 360 Manager{% endblock %}
+{% block page_title %}Evaluation Template{% endblock %}
+
+{% block page_actions %}
+  <a href="{% url 'performance:template_list' %}" class="btn btn-sm btn-ghost">← Back to list</a>
+  {% if object.id in template_change_ids %}
+    <a href="{% url 'performance:template_edit' object.id %}" class="btn btn-sm btn-primary">Edit</a>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto px-4 py-8">
+  <!-- Header Card -->
+  <div class="card bg-base-100 shadow-xl border border-base-300 mb-8">
+    <div class="card-body">
+      <h2 class="text-2xl font-bold text-primary mb-2">{{ object.name }}</h2>
+      <p class="text-sm text-base-content/70 mb-2">
+        Template for employee performance evaluations.
+      </p>
+      <div class="flex flex-wrap gap-2 text-sm">
+        <span class="badge badge-outline">Company: {{ object.company.name }}</span>
+        <span class="badge badge-secondary">{{ object.parameters.count }} Parameters</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Description -->
+  {% if object.description %}
+  <div class="rounded-2xl bg-base-100 ring-1 ring-base-300 shadow-md p-6 mb-8">
+    <h3 class="text-lg font-semibold border-b border-base-300 pb-2 mb-3">Description</h3>
+    <p class="whitespace-pre-wrap text-sm text-base-content/80">{{ object.description }}</p>
+  </div>
+  {% endif %}
+
+  <!-- Parameters Table -->
+  <div class="rounded-2xl bg-base-100 ring-1 ring-base-300 shadow-md p-6">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="text-lg font-semibold">Linked Parameters</h3>
+      {% if object.parameters.count > 0 %}
+        <span class="badge badge-outline">{{ object.parameters.count }} total</span>
+      {% endif %}
+    </div>
+
+    {% if object.parameters.all %}
+      <div class="overflow-x-auto">
+        <table class="table table-sm table-zebra w-full">
+          <thead>
+            <tr class="bg-base-200">
+              <th class="text-left">#</th>
+              <th>Name</th>
+              <th>Weight</th>
+              <th>Status</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for p in object.parameters.all %}
+              <tr>
+                <td>{{ forloop.counter }}</td>
+                <td class="font-medium">
+                  <a href="{% url 'performance:parameter_detail' p.id %}" class="hover:text-primary">
+                    {{ p.name }}
+                  </a>
+                </td>
+                <td>{{ p.weight|default:"—" }}</td>
+                <td>
+                  <span class="badge {% if p.active %}badge-success{% else %}badge-error{% endif %}">
+                    {% if p.active %}Active{% else %}Inactive{% endif %}
+                  </span>
+                </td>
+                <td class="max-w-[300px] truncate">{{ p.description|default:"—" }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="text-sm text-base-content/70">No parameters linked to this template yet.</p>
+    {% endif %}
+  </div>
+
+  <!-- Actions -->
+  <div class="flex justify-end gap-3 mt-6">
+    <a href="{% url 'performance:template_list' %}" class="btn btn-ghost">Back</a>
+    {% if object.id in template_change_ids %}
+      <a href="{% url 'performance:template_edit' object.id %}" class="btn btn-primary">Edit</a>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

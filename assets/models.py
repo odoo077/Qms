@@ -9,6 +9,7 @@ from django.conf import settings
 from django.utils.translation import gettext_lazy as _
 from base.acl import AccessControlledMixin, ACLManager
 from base.models import CompanyScopeManager
+from base.acl import ACLQuerySet
 
 COMPANY_MODEL = "base.Company"
 EMPLOYEE_MODEL = "hr.Employee"
@@ -172,6 +173,7 @@ class Asset(AccessControlledMixin, models.Model):
             raise ValidationError(errors)
 
     objects = CompanyScopeManager()
+    acl_objects = ACLQuerySet.as_manager()
 
     class Meta:
         db_table = "assets_asset"
@@ -246,6 +248,7 @@ class AssetAssignment(AccessControlledMixin, models.Model):
 
 
     objects = CompanyScopeManager()
+    acl_objects = ACLQuerySet.as_manager()
 
     class Meta:
         db_table = "assets_assignment"

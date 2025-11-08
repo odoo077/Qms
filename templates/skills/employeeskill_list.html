@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block page_title %}Employee Skills{% endblock %}
+{% block page_actions %}
+  {% if can_add_employeeskill %}
+    <a href="{% url 'skills:employeeskill_create' %}" class="btn btn-primary btn-sm">+ New Employee Skill</a>
+  {% endif %}
+{% endblock %}
+{% block content %}
+<div class="px-4 py-6">
+  {% include "base/includes/search_panel.html" %}
+  {% if object_list %}
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+    {% for es in object_list %}
+    <div class="card bg-base-100 border border-base-300">
+      <div class="card-body p-4">
+        <h3 class="font-semibold text-lg">{{ es.employee }}</h3>
+        <p class="text-sm text-base-content/70">
+          {{ es.skill_type }} — {{ es.skill }} ({{ es.skill_level }})
+        </p>
+        <div class="text-xs text-base-content/60">
+          Valid: {{ es.valid_from|date:"Y-m-d" }} → {{ es.valid_to|default:"∞" }}
+        </div>
+        {% if can_add_employeeskill %}
+        <div class="card-actions mt-4">
+          <a href="{% url 'skills:employeeskill_edit' es.pk %}" class="btn btn-sm btn-outline">Edit</a>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="rounded-lg border border-dashed border-base-300 bg-base-100 p-10 text-center">
+    <p>No Employee Skills found.</p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

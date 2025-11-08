@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Task · {{ object.name }}{% endblock %}
+{% block page_title %}Task Detail{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 py-10">
+  <div class="card bg-base-100 border border-base-300 shadow-xl">
+    <div class="card-body space-y-4">
+      <div class="flex items-start justify-between">
+        <h2 class="text-2xl font-bold">{{ object.name }}</h2>
+        {% if can_edit %}
+          <a href="{% url 'performance:task_edit' object.pk %}" class="btn btn-sm btn-outline">Edit</a>
+        {% endif %}
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+        <div>
+          <div class="text-base-content/60">Assignee</div>
+          <div class="font-medium">{{ object.assignee|default:"—" }}</div>
+        </div>
+        <div>
+          <div class="text-base-content/60">Company</div>
+          <div class="font-medium">{{ object.company|default:"—" }}</div>
+        </div>
+        <div>
+          <div class="text-base-content/60">Status</div>
+          <div class="font-medium">{{ object.status|title }}</div>
+        </div>
+        <div>
+          <div class="text-base-content/60">Priority</div>
+          <div class="font-medium">{{ object.priority|title }}</div>
+        </div>
+        <div class="col-span-2">
+          <div class="text-base-content/60">Description</div>
+          <div class="font-medium">{{ object.description|default:"—" }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

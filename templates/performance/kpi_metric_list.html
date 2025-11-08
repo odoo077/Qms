@@ -1,0 +1,98 @@
+{# templates/performance/kpi_metric_list.html #}
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}KPI Metrics · {{ kpi.name }}{% endblock %}
+{% block page_title %}KPI Metrics{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto px-4 py-10 space-y-8">
+
+  <!-- Header -->
+  <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+    <div>
+      <h2 class="text-2xl font-bold">
+        KPI Metrics — {{ kpi.name }}
+      </h2>
+      <p class="text-sm text-base-content/70 mt-1">
+        Review all recorded performance data for this KPI.
+      </p>
+    </div>
+
+    <div class="flex gap-2">
+      <a href="{% url 'performance:kpi_detail' kpi.id %}" class="btn btn-ghost btn-sm">Back</a>
+      {% if perms.performance.add_kpimetric %}
+        <a href="{% url 'performance:kpi_metric_create' kpi.id %}" class="btn btn-primary btn-sm">+ Add Metric</a>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <form method="get" action="" class="flex flex-wrap gap-2 items-center mt-4">
+    <input type="text" name="q" value="{{ request.GET.q }}" placeholder="Search by period or note…"
+           class="input input-bordered input-sm w-64" />
+    <select name="year" class="select select-bordered select-sm w-28">
+      <option value="">Year</option>
+      {% for y in years %}
+        <option value="{{ y }}" {% if request.GET.year == y|stringformat:"s" %}selected{% endif %}>{{ y }}</option>
+      {% endfor %}
+    </select>
+    <button class="btn btn-sm btn-primary">Filter</button>
+    {% if request.GET.q or request.GET.year %}
+      <a href="{% url 'performance:kpi_metric_list' kpi.id %}" class="btn btn-sm btn-ghost">Reset</a>
+    {% endif %}
+  </form>
+
+  <!-- Metrics Table -->
+  <div class="card bg-base-100 border border-base-300 shadow-xl mt-4">
+    <div class="card-body overflow-x-auto">
+      {% if metrics %}
+        <table class="table table-sm">
+          <thead>
+            <tr class="bg-base-200 text-base-content/70">
+              <th>Date</th>
+              <th>Period</th>
+              <th>Target</th>
+              <th>Actual</th>
+              <th>Progress</th>
+              <th>Note</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for m in metrics %}
+            <tr>
+              <td>{{ m.date|date:"Y-m-d" }}</td>
+              <td>{{ m.period|default:"—" }}</td>
+              <td>{{ m.target_value|default:"—" }}</td>
+              <td>{{ m.actual_value|default:"—" }}</td>
+              <td>
+                <div class="flex items-center gap-2">
+                  <progress class="progress progress-primary w-24" value="{{ m.progress|default:0 }}" max="100"></progress>
+                  <span class="text-xs font-medium">{{ m.progress|default:0 }}%</span>
+                </div>
+              </td>
+              <td class="max-w-xs truncate" title="{{ m.note|default:'—' }}">{{ m.note|default:"—" }}</td>
+              <td class="text-right">
+                <div class="join">
+                  <a href="{% url 'performance:kpi_metric_edit' kpi.id m.id %}" class="btn btn-xs btn-outline join-item">Edit</a>
+                  <a href="{% url 'performance:kpi_metric_delete' kpi.id m.id %}" class="btn btn-xs btn-error join-item">Delete</a>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <div class="py-10 text-center text-sm text-base-content/70">
+          No metrics recorded yet.
+          {% if perms.performance.add_kpimetric %}
+            <a href="{% url 'performance:kpi_metric_create' kpi.id %}" class="link text-primary ml-1">Add your first record</a>.
+          {% endif %}
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,33 @@
+<!-- templates/payroll/rule_parameter_list.html -->
+{% extends "base.html" %}
+{% block page_title %}Rule Parameters{% endblock %}
+{% block page_actions %}{% if can_add %}<a href="{% url 'payroll:rule_parameter_create' %}" class="btn btn-primary btn-sm">+ New parameter</a>{% endif %}{% endblock %}
+{% block title %}Payroll · Rule Parameters{% endblock %}
+{% block content %}
+<div class="px-4 py-6">
+  <div class="mb-5">
+    {% include "base/includes/search_panel.html" %}
+    <p class="text-sm text-base-content/60">{{ page_obj.paginator.count }} result{{ page_obj.paginator.count|pluralize }}</p>
+  </div>
+  {% if object_list %}
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+    {% for p in object_list %}
+    <div class="card bg-base-100 border border-base-300">
+      <div class="card-body p-5">
+        <div class="flex items-start justify-between">
+          <div>
+            <div class="text-lg font-semibold">{{ p.code }}</div>
+            <p class="text-sm text-base-content/60">{{ p.company }} • {{ p.value }}</p>
+          </div>
+          <a href="{% url 'payroll:rule_parameter_edit' p.pk %}" class="btn btn-xs btn-outline">Edit</a>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% include "base/includes/pagination.html" %}
+  {% else %}
+  <div class="rounded-lg border border-dashed border-base-300 bg-base-100 p-10 text-center">No parameters.</div>
+  {% endif %}
+</div>
+{% endblock %}

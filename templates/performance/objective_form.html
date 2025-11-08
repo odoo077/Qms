@@ -1,0 +1,101 @@
+{# templates/performance/objective_form.html #}
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}
+  {% if object %}Edit Objective · {{ object.name }}{% else %}New Objective{% endif %} · 360 Manager
+{% endblock %}
+{% block page_title %}
+  {% if object %}Edit Objective{% else %}New Objective{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto px-4 py-10">
+  <div class="card bg-base-100 border border-base-300 shadow-xl">
+    <form method="post" class="card-body space-y-6">
+      {% csrf_token %}
+
+      <!-- General info -->
+      <div>
+        <h2 class="text-lg font-semibold mb-3">Basic Information</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="label-text font-medium">Name</label>
+            {{ form.name }}
+          </div>
+          <div>
+            <label class="label-text font-medium">Company</label>
+            {{ form.company }}
+          </div>
+        </div>
+      </div>
+
+      <!-- Assignment -->
+      <div>
+        <h2 class="text-lg font-semibold mb-3">Responsibility</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="label-text font-medium">Employee</label>
+            {{ form.employee }}
+          </div>
+          <div>
+            <label class="label-text font-medium">Owner</label>
+            {{ form.owner }}
+          </div>
+        </div>
+      </div>
+
+      <!-- Dates and status -->
+      <div>
+        <h2 class="text-lg font-semibold mb-3">Timeline & Status</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label class="label-text font-medium">Start Date</label>
+            {{ form.start_date }}
+          </div>
+          <div>
+            <label class="label-text font-medium">End Date</label>
+            {{ form.end_date }}
+          </div>
+          <div>
+            <label class="label-text font-medium">Status</label>
+            {{ form.status }}
+          </div>
+        </div>
+      </div>
+
+      <!-- Progress -->
+      <div>
+        <h2 class="text-lg font-semibold mb-3">Progress Tracking</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="label-text font-medium">Progress (%)</label>
+            {{ form.progress }}
+          </div>
+          <div>
+            <label class="label-text font-medium">Description</label>
+            {{ form.description }}
+          </div>
+        </div>
+      </div>
+
+      <!-- Buttons -->
+      <div class="flex justify-end gap-3 mt-8">
+        <a href="{% url 'performance:objective_list' %}" class="btn btn-ghost">Cancel</a>
+        <button type="submit" class="btn btn-primary">
+          {% if object %}Save Changes{% else %}Create Objective{% endif %}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<style>
+  select, input, textarea {
+    @apply input input-bordered input-sm w-full;
+  }
+  textarea {
+    @apply min-h-[5rem];
+  }
+</style>
+{% endblock %}

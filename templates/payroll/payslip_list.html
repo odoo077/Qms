@@ -1,0 +1,38 @@
+<!-- templates/payroll/payslip_list.html -->
+{% extends "base.html" %}
+{% block page_title %}Payslips{% endblock %}
+{% block page_actions %}{% if can_add %}<a href="{% url 'payroll:payslip_create' %}" class="btn btn-primary btn-sm">+ New payslip</a>{% endif %}{% endblock %}
+{% block title %}Payroll · Payslips{% endblock %}
+{% block content %}
+<div class="px-4 py-6">
+  <div class="mb-5">
+    {% include "base/includes/search_panel.html" %}
+    <p class="text-sm text-base-content/60">{{ page_obj.paginator.count }} result{{ page_obj.paginator.count|pluralize }}</p>
+  </div>
+  {% if object_list %}
+  <div class="space-y-3">
+    {% for ps in object_list %}
+    <div class="card bg-base-100 border border-base-300">
+      <div class="card-body p-4">
+        <div class="flex items-center justify-between">
+          <div class="min-w-0">
+            <a href="{% url 'payroll:payslip_detail' ps.pk %}" class="font-semibold hover:text-primary">
+              {{ ps.employee }} — {{ ps.period.year }}-{{ ps.period.month|stringformat:"02d" }}
+            </a>
+            <div class="text-sm text-base-content/60 truncate">
+              {{ ps.company }}{% if ps.department %} • {{ ps.department }}{% endif %}{% if ps.job %} • {{ ps.job }}{% endif %}
+              • State: {{ ps.state|capfirst }}
+            </div>
+          </div>
+          <a href="{% url 'payroll:payslip_edit' ps.pk %}" class="btn btn-xs btn-outline">Edit</a>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% include "base/includes/pagination.html" %}
+  {% else %}
+  <div class="rounded-lg border border-dashed border-base-300 bg-base-100 p-10 text-center">No payslips.</div>
+  {% endif %}
+</div>
+{% endblock %}

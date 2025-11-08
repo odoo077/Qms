@@ -1,5 +1,6 @@
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.db.models import Q
+from django.views import View
 from django.views.generic import TemplateView, FormView, CreateView, DetailView, UpdateView
 from django.apps import apps
 from urllib.parse import urljoin
@@ -14,11 +15,19 @@ from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
-from base.forms import CompanySwitchForm, RegisterForm, PartnerForm, LoginForm, ProfileEditForm, UserForm, CompanyForm
+from base.forms import CompanySwitchForm, RegisterForm, PartnerForm, LoginForm, ProfileEditForm, UserForm, CompanyForm, \
+    UserCreateForm
 from base.tokens import account_activation_token
-from .company_context import get_company_id
+from .company_context import get_company_id, get_allowed_company_ids
 from .models import Partner, Company
 from django.views.generic import ListView, DetailView, CreateView, UpdateView
+from django.core.exceptions import PermissionDenied
+from django.http import Http404
+from django.views.generic import ListView, DetailView, CreateView, UpdateView
+from base.company_context import get_allowed_company_ids, get_company_id
+from django.utils.timezone import now
+from datetime import timedelta
+
 
 User = get_user_model()
 
@@ -222,16 +231,21 @@ class HomeView(LoginRequiredMixin, TemplateView):
 
         # الشركات المسموح بها = الشركات المربوطة بالمستخدم (Odoo-like Allowed Companies)
         allowed_companies = self.request.user.companies.all()
+        # الشركات النشطة (من الميدلوير) مع fallback للمسموح بها
+        active_ids = getattr(self.request, "allowed_company_ids", None) or list(
+            allowed_companies.values_list("id", flat=True))
 
         _pks = Partner.objects.with_acl("view").values("pk")
         partners_qs = (
-            Partner.objects.filter(pk__in=_pks)
+            Partner.objects
+            .filter(pk__in=_pks, company_id__in=active_ids)  # ✅ تقييد بالشركات النشطة
             .select_related("company", "parent")
         )
 
         _u_pks = User.acl_objects.with_acl("view").values("pk")
         users_qs = (
-            User.objects.filter(pk__in=_u_pks)
+            User.objects
+            .filter(pk__in=_u_pks, company_id__in=active_ids)  # ✅ تقييد بالشركات النشطة
             .select_related("company", "partner")
         )
 
@@ -249,71 +263,335 @@ class HomeView(LoginRequiredMixin, TemplateView):
 
 #------- company views ---------
 
-class CompanySwitchView(LoginRequiredMixin, FormView):
-    template_name = "base/company_switch.html"
-    form_class = CompanySwitchForm
-    success_url = reverse_lazy("base:home")  # يوجّه إلى templates/home.html
+class CompanySwitchView(LoginRequiredMixin, View):
+    def post(self, request, *args, **kwargs):
+        user = request.user
+        # المسموح بها للمستخدم
+        allowed_ids = set(user.companies.values_list("id", flat=True))
+        is_super = bool(getattr(user, "is_superuser", False))
 
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        kwargs["user"] = self.request.user
-        # مرّر قائمة الشركات المفعّلة حاليًا ليتم اختيارها افتراضيًا
-        current_ids = self.request.session.get("active_company_ids")
-        if not current_ids:
-            default_id = getattr(self.request.user, "company_id", None)
-            current_ids = [default_id] if default_id else []
-        kwargs["current_ids"] = current_ids
-        return kwargs
+        # الشركات المحددة من الـNavbar
+        selected = request.POST.getlist("active_companies")
+        try:
+            selected = [int(x) for x in selected]
+        except Exception:
+            selected = []
+
+        # قيدها بالمسموح (إلا السوبر)
+        if not is_super:
+            selected = [cid for cid in selected if cid in allowed_ids]
+
+        # fallback: لو ما اختار شيء → الشركة الافتراضية
+        if not selected:
+            default_id = getattr(user, "company_id", None)
+            if default_id:
+                selected = [default_id]
+            else:
+                messages.error(request, "You must select at least one company.")
+                return redirect(request.META.get("HTTP_REFERER", reverse("base:home")))
+
+        # الشركة الحالية القادمة من الـNavbar أو أول واحدة
+        current_company = request.POST.get("current_company")
+        try:
+            current_company = int(current_company) if current_company else selected[0]
+        except Exception:
+            current_company = selected[0]
+
+        # تأكد أن current ضمن النشطة
+        if current_company not in selected:
+            selected.insert(0, current_company)
+
+        # خزّن في الجلسة
+        request.session["active_company_ids"] = selected
+        request.session["current_company_id"] = current_company
+
+        messages.success(request, "Active companies updated.")
+        return redirect(request.META.get("HTTP_REFERER", reverse("base:home")))
+
+    # GET غير مستخدم (نرجع للصفحة الرئيسية)
+    def get(self, request, *args, **kwargs):
+        return redirect(reverse("base:home"))
+
+
+#------- BaseScopedListView ---------
+
+class CompanyScopeAclMixin:
+    """
+    يطبّق:
+    - ACL per-record/per-model عبر with_acl('<perm>')
+    - Company Scope عبر active_company_ids (مثل Odoo)
+    - فلترة الحقول العلائقية في النماذج حسب الشركة المفعّلة
+    """
+
+    # اسم حقل الشركة على الموديل
+    company_field_name = "company_id"
+
+    # الصلاحية المطلوبة (list: view, detail: view, forms: change)
+    required_acl_perm = "view"
+
+    # -------- أدوات مشتركة --------
+    def _active_company_ids(self):
+        return get_allowed_company_ids(self.request)
+
+    def _enforce_company_on_queryset(self, qs):
+        active_ids = self._active_company_ids()
+        if not active_ids:
+            return qs.none()
+
+        # Normalize to ORM FK name (e.g., "company_id" -> "company")
+        orm_field = self.company_field_name[:-3] if self.company_field_name.endswith("_id") else self.company_field_name
+
+        has_company = any(
+            (getattr(f, "name", None) == orm_field) or (getattr(f, "attname", None) == f"{orm_field}_id")
+            for f in qs.model._meta.get_fields()
+        )
+        if has_company:
+            return qs.filter(**{f"{orm_field}__in": active_ids})
+        return qs
+
+    def _apply_acl_on_queryset(self, qs, perm=None):
+        """
+        أعد دائمًا QuerySet قابلًا للتصفية حتى لو كانت with_acl تُنشئ combined query.
+        نأخذ Pks من with_acl ثم نفلتر عليها (pk__in) لتفادي union().
+        """
+        perm = perm or self.required_acl_perm
+
+        # حالة: with_acl على الـ manager
+        if hasattr(qs.model, "objects") and hasattr(qs.model.objects, "with_acl"):
+            acl_qs = qs.model.objects.with_acl(perm)
+            return qs.model.objects.filter(pk__in=acl_qs.values("pk"))
+
+        # حالة: with_acl على الـ queryset نفسه
+        if hasattr(qs, "with_acl"):
+            acl_qs = qs.with_acl(perm)
+            return qs.model.objects.filter(pk__in=acl_qs.values("pk"))
+
+        return qs
+
+    def _enforce_object_scope_or_404(self, obj):
+        # فحص الشركة
+        active_ids = self._active_company_ids()
+        if hasattr(obj, self.company_field_name):
+            comp_id = getattr(obj, self.company_field_name + "_id", None) or getattr(obj, self.company_field_name, None)
+            comp_id = getattr(comp_id, "pk", comp_id)
+            if active_ids and comp_id not in active_ids:
+                raise Http404("Not found.")  # مثل Odoo يخفي السجل من خارج النطاق
+
+        # فحص ACL per-record (إن وُجدت)
+        if hasattr(obj, "check_acl"):
+            if not obj.check_acl(self.request.user, self.required_acl_perm):
+                raise PermissionDenied("Access denied.")
+        return obj
+
+    # -------- فلترة الحقول في النماذج --------
+    def _filter_form_related_fields_by_company(self, form):
+        """
+        لأي Field فيه queryset وموديله يحتوي company_id → فلتره على الشركات المفعّلة.
+        """
+        active_ids = self._active_company_ids()
+        if not active_ids:
+            return
+
+        for name, field in form.fields.items():
+            qs = getattr(field, "queryset", None)
+            if qs is None:
+                continue
+            model = getattr(qs, "model", None)
+            if not model:
+                continue
+            if any(f.name == self.company_field_name for f in model._meta.get_fields()):
+                field.queryset = qs.filter(**{f"{self.company_field_name}__in": active_ids})
+
+    # -------- Defaults في الإنشاء --------
+    def _set_default_company_on_create(self, form):
+        """
+        إذا كان الموديل يحتوي company_id ولم تُضبط، اضبطها على current_company_id.
+        """
+        if hasattr(form.instance, self.company_field_name) and not getattr(form.instance, self.company_field_name + "_id", None):
+            current_id = get_company_id(self.request)
+            if current_id:
+                setattr(form.instance, self.company_field_name + "_id", current_id)
+
+
+class BaseScopedListView(CompanyScopeAclMixin, ListView):
+    required_acl_perm = "view"
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        qs = self._apply_acl_on_queryset(qs, perm="view")
+        qs = self._enforce_company_on_queryset(qs)
+        return qs
+
+
+class BaseScopedDetailView(CompanyScopeAclMixin, DetailView):
+    required_acl_perm = "view"
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        qs = self._apply_acl_on_queryset(qs, perm="view")
+        qs = self._enforce_company_on_queryset(qs)
+        return qs
+
+    def get_object(self, queryset=None):
+        obj = super().get_object(queryset=queryset)
+        return self._enforce_object_scope_or_404(obj)
+
+
+class BaseScopedCreateView(CompanyScopeAclMixin, CreateView):
+    required_acl_perm = "change"
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        qs = self._apply_acl_on_queryset(qs, perm="change")
+        qs = self._enforce_company_on_queryset(qs)
+        return qs
+
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        self._filter_form_related_fields_by_company(form)
+        return form
 
     def form_valid(self, form):
-        companies_qs = form.cleaned_data["companies"]
-        ids = list(companies_qs.values_list("id", flat=True))
-
-        # لا توجد شركات مختارة → أعد نفس الصفحة مع رسالة خطأ (Odoo-like guard)
-        if not ids:
-            form.add_error("companies", "Please select at least one company.")
-            from django.contrib import messages
-            messages.error(self.request, "You must select at least one company.")
-            return self.form_invalid(form)
-
-        # خزّن الكل + شركة نشطة (الأولى)
-        self.request.session["active_company_ids"] = ids
-        self.request.session["current_company_id"] = ids[0]
-
-        from django.contrib import messages
-        messages.success(self.request, "Active companies updated.")
+        # ACL على الموديل (change) قبل الحفظ
+        qs = self._apply_acl_on_queryset(self.model.objects.all(), perm="change")
+        # ضبط الشركة الافتراضية
+        self._set_default_company_on_create(form)
+        # تأكيد أن الشركة ضمن النطاق
+        if hasattr(form.instance, self.company_field_name):
+            comp_id = getattr(form.instance, self.company_field_name + "_id", None)
+            if comp_id and comp_id not in self._active_company_ids():
+                raise PermissionDenied("Company is outside active scope.")
         return super().form_valid(form)
 
-    def get_success_url(self):
-        # يدعم next في GET أو POST
-        next_url = self.request.GET.get("next") or self.request.POST.get("next")
-        return next_url if next_url else reverse("base:home")
+
+class BaseScopedUpdateView(CompanyScopeAclMixin, UpdateView):
+    required_acl_perm = "change"
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        qs = self._apply_acl_on_queryset(qs, perm="change")
+        qs = self._enforce_company_on_queryset(qs)
+        return qs
+
+    def get_object(self, queryset=None):
+        obj = super().get_object(queryset=queryset)
+        # تحقق ACL per-record + company
+        return self._enforce_object_scope_or_404(obj)
+
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        self._filter_form_related_fields_by_company(form)
+        return form
+
+    def form_valid(self, form):
+        # تأكيد أن الشركة بقيت ضمن النطاق
+        if hasattr(form.instance, self.company_field_name):
+            comp_id = getattr(form.instance, self.company_field_name + "_id", None)
+            if comp_id and comp_id not in self._active_company_ids():
+                raise PermissionDenied("Company is outside active scope.")
+        # تحقق ACL per-record بعد أي تعديل
+        if hasattr(form.instance, "check_acl"):
+            if not form.instance.check_acl(self.request.user, "change"):
+                raise PermissionDenied("Access denied.")
+        return super().form_valid(form)
+
+
+def _model_has_field(model, name: str) -> bool:
+    return any(getattr(f, "name", None) == name or getattr(f, "attname", None) == name for f in model._meta.get_fields())
+
+def _first_existing_field(model, candidates):
+    for name in candidates:
+        if _model_has_field(model, name):
+            return name
+    return None
+
+def apply_search_filters(request, qs, search_fields=None):
+    model = qs.model
+
+    # ---- نص البحث ----
+    q = (request.GET.get("q") or "").strip()
+    if q and search_fields:
+        cond = Q()
+        for f in search_fields:
+            cond |= Q(**{f"{f}__icontains": q})
+        qs = qs.filter(cond)
+
+    # ---- الشركة ----
+    company_id = (request.GET.get("company") or "").strip()
+    if company_id:
+        # التعامل مع company أو company_id
+        field = "company" if _model_has_field(model, "company_id") else ("company_id" if _model_has_field(model, "company_id") else None)
+        if field:
+            qs = qs.filter(**{field: company_id})
+
+    # ---- Quick range ----
+    rng = (request.GET.get("range") or "").strip()
+    date_field = _first_existing_field(model, ("created_at", "date_joined"))
+    if rng and date_field:
+        today = now().date()
+        if rng == "today":
+            qs = qs.filter(**{f"{date_field}__date": today})
+        elif rng == "week":
+            start = today - timedelta(days=today.weekday())
+            qs = qs.filter(**{f"{date_field}__date__gte": start})
+        elif rng == "month":
+            qs = qs.filter(**{f"{date_field}__year": today.year, f"{date_field}__month": today.month})
+        elif rng == "year":
+            qs = qs.filter(**{f"{date_field}__year": today.year})
+
+    # ---- Active (عام) ----
+    active = (request.GET.get("active") or "").strip()
+    # يدعم active أو is_active تلقائيًا
+    active_field = _first_existing_field(model, ("active", "is_active"))
+    if active in ("0", "1") and active_field:
+        qs = qs.filter(**{active_field: active == "1"})
+
+    # ---- Kind (Partner فقط) ----
+    kind = (request.GET.get("kind") or "").strip()
+    if model._meta.model_name == "partner" and kind in ("company", "person"):
+        qs = qs.filter(company_type=kind)
+
+    # ---- Date from/to (على created_at أو date_joined) ----
+    date_from = (request.GET.get("date_from") or "").strip()
+    date_to   = (request.GET.get("date_to") or "").strip()
+    if date_field and (date_from or date_to):
+        if date_from:
+            qs = qs.filter(**{f"{date_field}__date__gte": date_from})
+        if date_to:
+            qs = qs.filter(**{f"{date_field}__date__lte": date_to})
+
+    return qs
+
 
 #------- partner views ---------
 
-class PartnerListView(LoginRequiredMixin, ListView):
+class PartnerListView(LoginRequiredMixin, BaseScopedListView):
     model = Partner
     paginate_by = 20
     template_name = "base/partner_list.html"
 
     def get_queryset(self):
+        # super() يطبق: with_acl("view") + نطاق الشركات عبر الميكسن
         base_qs = super().get_queryset()
-        _pks = base_qs.with_acl("view").values("pk")
         qs = (
-            base_qs.model.objects.filter(pk__in=_pks)
+            base_qs
             .select_related("company", "parent")
             .order_by("name")
         )
-        q = (self.request.GET.get("q") or "").strip()
-        if q:
-            qs = qs.filter(
-                Q(name__icontains=q) |
-                Q(email__icontains=q) |
-                Q(phone__icontains=q)
-            )
+        qs = apply_search_filters(self.request, qs, search_fields=["name", "email", "phone"])
         return qs
 
-class PartnerUpdateView(LoginRequiredMixin, UpdateView):
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["list_model"] = self.model._meta.model_name  # مهم للـKind filter
+        # زر +New Partner (perms Django)
+        ctx["can_add_partner"] = self.request.user.has_perm("base.add_partner")
+        # أزرار Edit حسب ACL per-record
+        change_ids = self.model.objects.with_acl("change").values_list("id", flat=True)
+        ctx["partner_change_ids"] = set(change_ids)
+        return ctx
+
+class PartnerUpdateView(LoginRequiredMixin, BaseScopedUpdateView):
     model = Partner
     form_class = PartnerForm
     template_name = "base/partner_form.html"
@@ -324,7 +602,7 @@ class PartnerUpdateView(LoginRequiredMixin, UpdateView):
         _pks = base_qs.with_acl("change").values("pk")
         return base_qs.model.objects.filter(pk__in=_pks).select_related("company", "parent")
 
-class PartnerCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+class PartnerCreateView(LoginRequiredMixin, PermissionRequiredMixin, BaseScopedCreateView):
     model = Partner
     form_class = PartnerForm
     template_name = "base/partner_form.html"
@@ -340,40 +618,51 @@ class PartnerCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView)
                 init["company"] = cid
         return init
 
-class PartnerDetailView(LoginRequiredMixin, DetailView):
+class PartnerDetailView(LoginRequiredMixin, BaseScopedDetailView):
     model = Partner
     template_name = "base/partner_detail.html"
 
     def get_queryset(self):
-        base_qs = super().get_queryset()
-        _pks = base_qs.with_acl("view").values("pk")
-        return base_qs.model.objects.filter(pk__in=_pks).select_related("company", "parent")
+        # super() يطبق ACL + Company Scope بعد تعديل _apply_acl_on_queryset
+        return super().get_queryset().select_related("company", "parent")
+
+    def get_context_data(self, **kwargs):
+        from base.acl_service import has_perm
+        ctx = super().get_context_data(**kwargs)
+        obj = ctx.get("object")
+        ctx["can_edit_object"] = bool(obj and has_perm(self.request.user, obj, "change"))
+        return ctx
 
 
 # --- Users ---
-class UserListView(LoginRequiredMixin, ListView):
+class UserListView(LoginRequiredMixin, BaseScopedListView):
     model = User
-    template_name = "base/users/user_list.html"
+    template_name = "base/user_list.html"
     paginate_by = 24
 
     def get_queryset(self):
-        # ملاحظة: نستخدم acl_objects لأن User.objects هو UserManager (خاص بالـ auth)
-        _pks = User.acl_objects.with_acl("view").values("pk")
+        # ملاحظة: نستخدم acl_objects بدل objects لموديل User تحديدًا
         qs = (
-            User.objects.filter(pk__in=_pks)
+            User.acl_objects.with_acl("view")
             .select_related("company", "partner")
             .order_by("date_joined")
         )
-        q = (self.request.GET.get("q") or "").strip()
-        if q:
-            qs = qs.filter(
-                Q(username__icontains=q) |
-                Q(email__icontains=q) |
-                Q(partner__name__icontains=q)
-            )
+        # فرض نطاق الشركات النشطة عبر الميكسن (لأننا لم نستدعِ super هنا)
+        qs = self._enforce_company_on_queryset(qs)
+        qs = apply_search_filters(self.request, qs, search_fields=["username", "email", "partner__name"])
         return qs
 
-class UserDetailView(LoginRequiredMixin, DetailView):
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["list_model"] = self.model._meta.model_name  # مهم للـKind filter
+        from django.contrib.auth import get_user_model
+        UserModel = get_user_model()
+        ctx["can_add_user"] = self.request.user.has_perm(f"{UserModel._meta.app_label}.add_{UserModel._meta.model_name}")
+        change_ids = User.acl_objects.with_acl("change").values_list("id", flat=True)
+        ctx["user_change_ids"] = set(change_ids)
+        return ctx
+
+class UserDetailView(LoginRequiredMixin, BaseScopedDetailView):
     model = User
     template_name = "base/users/user_detail.html"
 
@@ -381,7 +670,14 @@ class UserDetailView(LoginRequiredMixin, DetailView):
         _pks = User.acl_objects.with_acl("view").values("pk")
         return User.objects.filter(pk__in=_pks).select_related("company", "partner")
 
-class UserUpdateView(LoginRequiredMixin, UpdateView):
+    def get_context_data(self, **kwargs):
+        from base.acl_service import has_perm
+        ctx = super().get_context_data(**kwargs)
+        obj = ctx.get("object")
+        ctx["can_edit_object"] = bool(obj and has_perm(self.request.user, obj, "change"))
+        return ctx
+
+class UserUpdateView(LoginRequiredMixin, BaseScopedUpdateView):
     model = User
     form_class = UserForm
     template_name = "base/users/user_form.html"
@@ -391,22 +687,44 @@ class UserUpdateView(LoginRequiredMixin, UpdateView):
         _pks = User.acl_objects.with_acl("change").values("pk")
         return User.objects.filter(pk__in=_pks).select_related("company", "partner")
 
+class UserCreateView(LoginRequiredMixin, PermissionRequiredMixin, BaseScopedCreateView):
+    model = User
+    form_class = UserCreateForm          # موجود عندك في forms.py
+    template_name = "base/user_form.html"
+    success_url = reverse_lazy("base:user_list")
+    permission_required = "base.add_user"
+
+    def get_initial(self):
+        init = super().get_initial()
+        # اضبط الشركة الحالية افتراضيًا (إن توفرت)
+        from .company_context import get_company_id
+        cid = get_company_id(self.request)
+        if cid and "company" in self.form_class().fields:
+            init["company"] = cid
+        return init
 
 # --- Companies ---
-class CompanyListView(LoginRequiredMixin, ListView):
+class CompanyListView(LoginRequiredMixin, BaseScopedListView):
     model = Company
     template_name = "base/company_list.html"
     paginate_by = 24
 
     def get_queryset(self):
+        # super() يطبق with_acl("view") + نطاق الشركات
         base_qs = super().get_queryset()
-        _pks = base_qs.with_acl("view").values("pk")
-        return (
-            Company.objects.filter(pk__in=_pks)
-            .order_by("name")
-        )
+        qs = base_qs.order_by("name")
+        qs = apply_search_filters(self.request, qs, search_fields=["name"])
+        return qs
 
-class CompanyDetailView(LoginRequiredMixin, DetailView):
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["list_model"] = self.model._meta.model_name  # مهم للـKind filter
+        ctx["can_add_company"] = self.request.user.has_perm("base.add_company")
+        change_ids = self.model.objects.with_acl("change").values_list("id", flat=True)
+        ctx["company_change_ids"] = set(change_ids)
+        return ctx
+
+class CompanyDetailView(LoginRequiredMixin, BaseScopedDetailView):
     model = Company
     template_name = "base/company_detail.html"
 
@@ -415,7 +733,14 @@ class CompanyDetailView(LoginRequiredMixin, DetailView):
         _pks = base_qs.with_acl("view").values("pk")
         return Company.objects.filter(pk__in=_pks)
 
-class CompanyUpdateView(LoginRequiredMixin, UpdateView):
+    def get_context_data(self, **kwargs):
+        from base.acl_service import has_perm
+        ctx = super().get_context_data(**kwargs)
+        obj = ctx.get("object")
+        ctx["can_edit_object"] = bool(obj and has_perm(self.request.user, obj, "change"))
+        return ctx
+
+class CompanyUpdateView(LoginRequiredMixin, BaseScopedUpdateView):
     model = Company
     form_class = CompanyForm            # سنضيفه بالخطوة 2
     template_name = "base/company_form.html"
@@ -426,7 +751,7 @@ class CompanyUpdateView(LoginRequiredMixin, UpdateView):
         _pks = base_qs.with_acl("change").values("pk")
         return Company.objects.filter(pk__in=_pks)
 
-class CompanyCreateView(LoginRequiredMixin, PermissionRequiredMixin, CreateView):
+class CompanyCreateView(LoginRequiredMixin, PermissionRequiredMixin, BaseScopedCreateView):
     model = Company
     form_class = CompanyForm
     template_name = "base/company_form.html"

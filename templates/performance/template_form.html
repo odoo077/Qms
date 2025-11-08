@@ -1,0 +1,66 @@
+{# templates/performance/template_form.html #}
+{% extends "base.html" %}
+{% load widget_tweaks %}
+{% load static %}
+
+{% block title %}
+  {% if object.pk %}Edit Template{% else %}New Template{% endif %} · 360 Manager
+{% endblock %}
+{% block page_title %}
+  {% if object.pk %}Edit Evaluation Template{% else %}Create Evaluation Template{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 py-8">
+  <nav class="text-sm breadcrumbs mb-4">
+    <ul>
+      <li><a href="{% url 'performance:template_list' %}">Templates</a></li>
+      <li class="font-semibold">{% if object.pk %}Edit{% else %}Create{% endif %}</li>
+    </ul>
+  </nav>
+
+  <form method="post" class="card bg-base-100 border border-base-300 shadow-xl">
+    {% csrf_token %}
+    <div class="card-body grid grid-cols-1 md:grid-cols-2 gap-5">
+
+      <!-- Name -->
+      <div class="form-control md:col-span-2">
+        <label class="label"><span class="label-text">Template Name</span></label>
+        {{ form.name|add_class:"input input-bordered w-full" }}
+        {% if form.name.errors %}
+          <p class="text-error text-sm mt-1">{{ form.name.errors.0 }}</p>
+        {% endif %}
+      </div>
+
+      <!-- Company -->
+      <div class="form-control">
+        <label class="label"><span class="label-text">Company</span></label>
+        {{ form.company|add_class:"select select-bordered w-full" }}
+      </div>
+
+      <!-- Parameters -->
+      <div class="form-control md:col-span-2">
+        <label class="label"><span class="label-text">Parameters</span></label>
+        {{ form.parameters|add_class:"select select-bordered w-full" }}
+        <p class="text-xs text-base-content/60 mt-1">
+          Hold <kbd>Ctrl</kbd> (or <kbd>Cmd</kbd> on Mac) to select multiple.
+        </p>
+      </div>
+
+      <!-- Description -->
+      <div class="form-control md:col-span-2">
+        <label class="label"><span class="label-text">Description</span></label>
+        {{ form.description|add_class:"textarea textarea-bordered w-full h-28" }}
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="card-footer flex justify-end gap-3 p-5 border-t border-base-300 bg-base-200/40">
+      <a href="{% url 'performance:template_list' %}" class="btn btn-ghost">Cancel</a>
+      <button type="submit" class="btn btn-primary">
+        {% if object.pk %}Save Changes{% else %}Create Template{% endif %}
+      </button>
+    </div>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,33 @@
+{# templates/assets/asset_form.html #}
+{% extends "base.html" %}
+{% load widget_tweaks %}
+{% block title %}{{ object.pk|yesno:"Edit Asset,New Asset" }}{% endblock %}
+{% block page_title %}Assets{% endblock %}
+{% block content %}
+<div class="px-4 py-6">
+  <form method="post" class="grid gap-4 md:grid-cols-2">
+    {% csrf_token %}
+    <div class="card bg-base-100 border border-base-300 md:col-span-2">
+      <div class="card-body grid gap-4 md:grid-cols-2">
+        <div><label class="label-text">Code</label>{{ form.code|add_class:"input input-bordered w-full" }}</div>
+        <div><label class="label-text">Name</label>{{ form.name|add_class:"input input-bordered w-full" }}</div>
+        <div><label class="label-text">Serial</label>{{ form.serial|add_class:"input input-bordered w-full" }}</div>
+        <div><label class="label-text">Company</label>{{ form.company|add_class:"select select-bordered w-full" }}</div>
+        <div><label class="label-text">Category</label>{{ form.category|add_class:"select select-bordered w-full" }}</div>
+        <div><label class="label-text">Department</label>{{ form.department|add_class:"select select-bordered w-full" }}</div>
+        <div><label class="label-text">Holder</label>{{ form.holder|add_class:"select select-bordered w-full" }}</div>
+        <div><label class="label-text">Status</label>{{ form.status|add_class:"select select-bordered w-full" }}</div>
+        <div><label class="label-text">Purchase date</label>{{ form.purchase_date|add_class:"input input-bordered w-full" }}</div>
+        <div><label class="label-text">Purchase value</label>{{ form.purchase_value|add_class:"input input-bordered w-full" }}</div>
+        <div class="md:col-span-2"><label class="label-text">Note</label>{{ form.note|add_class:"textarea textarea-bordered w-full" }}</div>
+        <div><label class="label-text">Parent</label>{{ form.parent|add_class:"select select-bordered w-full" }}</div>
+        <div class="flex items-center gap-2"><span>Active</span>{{ form.active|add_class:"toggle toggle-primary" }}</div>
+      </div>
+    </div>
+    <div class="md:col-span-2 flex gap-2">
+      <button class="btn btn-primary">Save</button>
+      <a href="{% url 'assets:asset_list' %}" class="btn btn-ghost">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

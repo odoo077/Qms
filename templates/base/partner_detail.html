@@ -17,7 +17,9 @@
       <p class="text-base-content/60 text-sm">{{ object.company|default:"—" }}</p>
     </div>
     <div class="flex items-center gap-2">
-      <a href="{% url 'base:partner_edit' object.pk %}" class="btn btn-outline btn-sm">Edit</a>
+      {% if can_edit_object %}
+        <a href="{% url 'base:partner_edit' object.pk %}" class="btn btn-outline btn-sm">Edit</a>
+      {% endif %}
       <a href="{% url 'base:partner_list' %}" class="btn btn-sm">Back</a>
     </div>
   </div>

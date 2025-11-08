@@ -1,0 +1,122 @@
+{# templates/performance/evaluation_list.html #}
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Performance Evaluations · 360 Manager{% endblock %}
+{% block page_title %}Performance Evaluations{% endblock %}
+
+{% block page_actions %}
+  {% if can_add_evaluation %}
+    <a href="{% url 'performance:evaluation_create' %}" class="btn btn-primary btn-sm">+ New Evaluation</a>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="px-4 py-6 space-y-6">
+
+  <!-- Search + Filters -->
+  <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+    <form method="get" class="flex items-center gap-2">
+      <input type="text" name="q" value="{{ request.GET.q }}" placeholder="Search by employee, manager, or template"
+             class="input input-bordered input-sm w-64 md:w-80" />
+      {% if request.GET.q %}
+        <a href="." class="btn btn-ghost btn-sm">Reset</a>
+      {% endif %}
+      <button type="submit" class="btn btn-primary btn-sm">Search</button>
+    </form>
+
+    {% include "base/includes/search_panel.html" %}
+  </div>
+
+  <!-- List of Evaluations -->
+  {% if object_list %}
+  <div class="overflow-x-auto rounded-2xl border border-base-300 bg-base-100 shadow-md">
+    <table class="table table-zebra w-full text-sm">
+      <thead class="bg-base-200 text-base-content/80">
+        <tr>
+          <th>#</th>
+          <th>Employee</th>
+          <th>Manager</th>
+          <th>Template</th>
+          <th>Period</th>
+          <th>Status</th>
+          <th>Score</th>
+          <th class="text-right">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for e in object_list %}
+        <tr>
+          <td>{{ forloop.counter }}</td>
+          <td class="font-medium">
+            <a href="{% url 'performance:evaluation_detail' e.id %}" class="hover:text-primary">
+              {{ e.employee.name }}
+            </a>
+          </td>
+          <td>{{ e.manager.name|default:"—" }}</td>
+          <td>{{ e.template.name|default:"—" }}</td>
+          <td>{{ e.period_start|date:"Y-m-d" }} → {{ e.period_end|date:"Y-m-d" }}</td>
+
+          <td>
+            <span class="badge
+              {% if e.state == 'draft' %}badge-ghost
+              {% elif e.state == 'in_progress' %}badge-info
+              {% elif e.state == 'done' %}badge-success
+              {% elif e.state == 'cancelled' %}badge-error
+              {% endif %}">
+              {{ e.get_state_display }}
+            </span>
+          </td>
+
+          <td>
+            {% if e.overall_score %}
+              <span class="font-semibold text-success">{{ e.overall_score|floatformat:1 }}%</span>
+            {% else %}
+              <span class="text-base-content/50">—</span>
+            {% endif %}
+          </td>
+
+          <td class="text-right">
+            <div class="flex items-center justify-end gap-2">
+              <a href="{% url 'performance:evaluation_detail' e.id %}" class="btn btn-xs btn-outline">View</a>
+              {% if e.id in evaluation_change_ids %}
+                <a href="{% url 'performance:evaluation_edit' e.id %}" class="btn btn-xs btn-primary">Edit</a>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Pagination -->
+  {% if is_paginated %}
+  <div class="mt-6 flex items-center justify-center gap-2">
+    {% if page_obj.has_previous %}
+      <a href="?page={{ page_obj.previous_page_number }}" class="btn btn-sm">Prev</a>
+    {% else %}
+      <button class="btn btn-sm btn-disabled">Prev</button>
+    {% endif %}
+
+    <span class="px-3 py-2 text-sm rounded bg-base-100 border border-base-300">
+      Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+    </span>
+
+    {% if page_obj.has_next %}
+      <a href="?page={{ page_obj.next_page_number }}" class="btn btn-sm">Next</a>
+    {% else %}
+      <button class="btn btn-sm btn-disabled">Next</button>
+    {% endif %}
+  </div>
+  {% endif %}
+  {% else %}
+    <div class="rounded-lg border border-dashed border-base-300 bg-base-100 p-10 text-center">
+      <p class="mb-3 text-sm text-base-content/70">No evaluations found.</p>
+      {% if can_add_evaluation %}
+        <a href="{% url 'performance:evaluation_create' %}" class="btn btn-primary btn-sm">+ Create Evaluation</a>
+      {% endif %}
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

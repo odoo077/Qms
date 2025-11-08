@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% load widget_tweaks %}
+{% block title %}{% if object %}Edit{% else %}New{% endif %} Task{% endblock %}
+{% block page_title %}{% if object %}Edit Task{% else %}New Task{% endif %}{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto px-4 py-8">
+  <form method="post" class="card bg-base-100 border border-base-300 shadow-lg p-6 space-y-6">
+    {% csrf_token %}
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="form-control">
+        <label class="label"><span class="label-text">Name</span></label>
+        {{ form.name|add_class:"input input-bordered w-full" }}
+      </div>
+      <div class="form-control">
+        <label class="label"><span class="label-text">Assignee</span></label>
+        {{ form.assignee|add_class:"select select-bordered w-full" }}
+      </div>
+      <div class="form-control">
+        <label class="label"><span class="label-text">Status</span></label>
+        {{ form.status|add_class:"select select-bordered w-full" }}
+      </div>
+      <div class="form-control">
+        <label class="label"><span class="label-text">Priority</span></label>
+        {{ form.priority|add_class:"select select-bordered w-full" }}
+      </div>
+      <div class="form-control">
+        <label class="label"><span class="label-text">Progress (%)</span></label>
+        {{ form.progress|add_class:"input input-bordered w-full" }}
+      </div>
+    </div>
+
+    <div class="form-control">
+      <label class="label"><span class="label-text">Description</span></label>
+      {{ form.description|add_class:"textarea textarea-bordered w-full" }}
+    </div>
+
+    <div class="flex justify-end gap-2">
+      <a href="{% url 'performance:task_list' %}" class="btn btn-ghost">Cancel</a>
+      <button class="btn btn-primary">{% if object %}Save{% else %}Create{% endif %}</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

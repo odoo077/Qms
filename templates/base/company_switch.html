@@ -1,190 +1,101 @@
 {% extends "base.html" %}
-{% load widget_tweaks %}
-{% block title %}Switch Company · 360 Manager{% endblock %}
+{% load static %}
+
+{% block title %}Switch Company{% endblock %}
+{% block page_title %}Switch Company{% endblock %}
+{% block header_subtitle %}Select or activate your allowed companies{% endblock %}
 
 {% block content %}
-<div class="px-4 py-8 max-w-5xl mx-auto">
+<div class="max-w-xl mx-auto space-y-6">
 
-  <!-- Breadcrumbs -->
-  <nav class="text-sm breadcrumbs mb-5">
-    <ul>
-      <li><a href="{% url 'base:home' %}">Home</a></li>
-      <li>Company</li>
-      <li class="font-semibold">Switch</li>
-    </ul>
-  </nav>
+  <form method="post" class="card bg-base-100 shadow">
+    {% csrf_token %}
+    <div class="card-body space-y-4">
+      <h2 class="card-title text-lg font-bold">Active Companies</h2>
 
-  <!-- Glass card -->
-  <div class="rounded-3xl bg-base-100/70 backdrop-blur ring-1 ring-base-300/60 shadow-2xl overflow-hidden">
-    <!-- Header -->
-    <div class="px-6 pt-6 pb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-      <div>
-        <h1 class="text-2xl font-bold tracking-tight">Switch Active Company</h1>
-        <p class="text-sm text-base-content/70">
-          Choose a company to work under. Lists and forms will be automatically scoped.
+      {% if allowed_companies %}
+        <div class="form-control">
+          <label class="label">
+            <span class="label-text font-semibold">Select active companies</span>
+          </label>
+
+          <div class="dropdown dropdown-end w-full">
+            <label tabindex="0" class="btn btn-outline w-full justify-between">
+              <span>
+                {% if active_ids %}
+                  {{ active_ids|length }} selected
+                {% else %}
+                  Select companies
+                {% endif %}
+              </span>
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M7 10l5 5 5-5z"/>
+              </svg>
+            </label>
+
+            <ul tabindex="0"
+                class="dropdown-content menu menu-sm p-2 shadow bg-base-100 rounded-box w-full max-h-60 overflow-y-auto">
+              {% for c in allowed_companies %}
+                <li>
+                  <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" name="active_companies"
+                           value="{{ c.id }}"
+                           class="checkbox checkbox-sm"
+                           {% if c.id in active_ids %}checked{% endif %}>
+                    <span>{{ c.name }}</span>
+                    {% if c.id == current_id %}
+                      <span class="badge badge-primary badge-sm ml-1">Current</span>
+                    {% endif %}
+                  </label>
+                </li>
+              {% endfor %}
+            </ul>
+          </div>
+          <p class="text-xs text-base-content/70 mt-1">
+            At least one company must remain active.
+          </p>
+        </div>
+      {% else %}
+        <div class="alert alert-warning">No companies available for your user.</div>
+      {% endif %}
+
+      <div class="divider"></div>
+
+      <div class="form-control">
+        <label class="label">
+          <span class="label-text font-semibold">Current Company</span>
+        </label>
+        <select name="current_company" class="select select-bordered w-full" required>
+          {% for c in allowed_companies %}
+            <option value="{{ c.id }}" {% if c.id == current_id %}selected{% endif %}>{{ c.name }}</option>
+          {% endfor %}
+        </select>
+        <p class="text-xs text-base-content/70 mt-1">
+          The selected company will be used as your current context.
         </p>
       </div>
+
+      <div class="card-actions justify-end mt-4">
+        <a href="{% url 'base:home' %}" class="btn btn-ghost">Cancel</a>
+        <button type="submit" class="btn btn-primary">Apply Changes</button>
+      </div>
+    </div>
+  </form>
+
+  {% if current_company %}
+    <div class="alert alert-info mt-4">
       <div class="flex items-center gap-2">
-        <span class="text-xs opacity-70">Current:</span>
-        <span class="badge badge-primary badge-outline">
-          {{ current_company.name|default:"—" }}
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M13 16h-1v-4h-1v4H8l4 4 4-4h-3zM12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48
+                   10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8
+                   8 3.59 8 8-3.59 8-8 8z"/>
+        </svg>
+        <span>
+          Current active company: <strong>{{ current_company.name }}</strong>
         </span>
       </div>
     </div>
+  {% endif %}
 
-    <!-- Body -->
-    <div class="p-6 grid gap-6 lg:grid-cols-3">
-
-      <!-- Pretty list (like Odoo dropdown) -->
-      <section class="lg:col-span-2 space-y-4">
-        <div class="join w-full">
-          <input id="companySearch" type="search" class="input input-bordered join-item w-full rounded-l-2xl"
-                 placeholder="Search companies…" />
-          <button type="button" class="btn btn-ghost join-item rounded-r-2xl" onclick="document.getElementById('companySearch').value=''; filterCompanies();">
-            Clear
-          </button>
-        </div>
-
-        <div id="companyList"
-             class="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[22rem] overflow-auto pr-1">
-          {% for c in allowed_companies %}
-            <button type="button"
-                    class="company-item group text-left rounded-2xl p-4 border border-base-300/60 bg-base-100/70 hover:bg-base-200/60 hover:shadow-md transition flex items-start gap-3"
-                    data-id="{{ c.id }}" data-name="{{ c.name|lower }}">
-              <div class="mt-1">
-                <input type="radio" name="company_visual"
-                       class="radio radio-primary radio-sm company-radio"
-                       {% if current_company and c.id == current_company.id %}checked{% endif %}/>
-              </div>
-              <div class="min-w-0">
-                <div class="font-medium truncate">{{ c.name }}</div>
-                <div class="text-xs text-base-content/60 mt-0.5">
-                  {% if current_company and c.id == current_company.id %}
-                    <span class="badge badge-primary badge-outline">Current</span>
-                  {% else %}
-                    <span class="badge badge-ghost">Available</span>
-                  {% endif %}
-                </div>
-              </div>
-            </button>
-          {% empty %}
-            <div class="rounded-xl border border-base-300/60 p-4 text-sm text-base-content/70">
-              No companies configured for your account.
-            </div>
-          {% endfor %}
-        </div>
-
-        <p class="text-xs text-base-content/60">Tip: Use the search box, or click a card to select. Keyboard: ↑/↓ then Enter.</p>
-      </section>
-
-      <!-- Form / fallback select -->
-      <aside class="space-y-4">
-        {% if messages %}
-          <div class="space-y-2">
-            {% for message in messages %}
-              <div class="alert {{ message.tags|default:'alert-info' }}"><span>{{ message }}</span></div>
-            {% endfor %}
-          </div>
-        {% endif %}
-
-        <form id="switchForm" method="post" class="space-y-4">
-          {% csrf_token %}
-
-          <!-- Hidden “real” select that the view expects -->
-          <div class="hidden">
-            {# keep it in DOM; value is programmatically controlled #}
-            {{ form.companies|add_class:"select select-bordered" }}
-          </div>
-
-          <div class="rounded-2xl bg-base-200/60 p-4 space-y-2">
-            <div class="text-sm font-medium">Selected company</div>
-            <div class="text-sm text-base-content/70">
-              <span id="selectedCompanyLabel" class="badge badge-outline">
-                {% if current_company %}{{ current_company.name }}{% else %}—{% endif %}
-              </span>
-            </div>
-          </div>
-
-          <div class="flex flex-col sm:flex-row gap-2">
-            <button type="submit" class="btn btn-primary rounded-xl flex-1">Switch</button>
-            <a href="{% url 'base:partner_list' %}" class="btn btn-ghost rounded-xl">Cancel</a>
-          </div>
-
-          <div class="divider my-2"></div>
-
-          <div class="rounded-2xl border border-base-300/60 p-4">
-            <div class="text-sm font-semibold mb-2">Allowed companies</div>
-            <div class="flex flex-wrap gap-2">
-              {% for c in allowed_companies %}
-                <span class="badge badge-ghost">{{ c.name }}</span>
-              {% endfor %}
-            </div>
-          </div>
-        </form>
-      </aside>
-    </div>
-  </div>
 </div>
-
-<!-- Minimal JS (no external libs) to mirror pretty list -> hidden select -->
-<script>
-(function () {
-  const list = document.getElementById('companyList');
-  const search = document.getElementById('companySearch');
-  const selectedLabel = document.getElementById('selectedCompanyLabel');
-
-  // real <select multiple> field rendered by Django form
-  const realSelect = document.querySelector('select[name="{{ form.companies.name }}"]');
-
-  // Ensure only one selected value (first value wins) — common pattern in “active company” switchers
-  function setSelected(id, name) {
-    // clear all options
-    for (const opt of realSelect.options) opt.selected = false;
-    // select target
-    const target = Array.from(realSelect.options).find(o => o.value == id);
-    if (target) target.selected = true;
-    // update label + radios
-    selectedLabel.textContent = name;
-    for (const radio of document.querySelectorAll('.company-radio')) radio.checked = false;
-    const btn = list.querySelector(`[data-id="${id}"]`);
-    if (btn) btn.querySelector('.company-radio').checked = true;
-  }
-
-  // Prefill selected from current value in <select>
-  (function prefill() {
-    const opt = Array.from(realSelect.options).find(o => o.selected);
-    if (opt) setSelected(opt.value, opt.textContent.trim());
-  })();
-
-  // Click handler on cards
-  list?.addEventListener('click', (e) => {
-    const btn = e.target.closest('.company-item');
-    if (!btn) return;
-    setSelected(btn.dataset.id, btn.querySelector('.font-medium').textContent.trim());
-  });
-
-  // Filter
-  window.filterCompanies = function () {
-    const q = (search.value || '').toLowerCase().trim();
-    for (const el of list.querySelectorAll('.company-item')) {
-      const hit = el.dataset.name.includes(q);
-      el.style.display = hit ? '' : 'none';
-    }
-  };
-  search?.addEventListener('input', filterCompanies);
-
-  // Keyboard navigation (↑/↓ + Enter)
-  let focusIndex = -1;
-  function items() { return Array.from(list.querySelectorAll('.company-item')).filter(el => el.style.display !== 'none'); }
-  document.addEventListener('keydown', (e) => {
-    const visible = items();
-    if (!visible.length) return;
-    if (e.key === 'ArrowDown') { e.preventDefault(); focusIndex = (focusIndex + 1) % visible.length; visible[focusIndex].focus(); }
-    if (e.key === 'ArrowUp')   { e.preventDefault(); focusIndex = (focusIndex - 1 + visible.length) % visible.length; visible[focusIndex].focus(); }
-    if (e.key === 'Enter' && document.activeElement?.classList.contains('company-item')) {
-      document.activeElement.click();
-    }
-  });
-})();
-</script>
 {% endblock %}

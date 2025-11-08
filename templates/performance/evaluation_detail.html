@@ -1,0 +1,118 @@
+{# templates/performance/evaluation_detail.html #}
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Evaluation — {{ object.name }} · 360 Manager{% endblock %}
+{% block page_title %}Performance Evaluation{% endblock %}
+
+{% block page_actions %}
+  <a href="{% url 'performance:evaluation_list' %}" class="btn btn-sm btn-ghost">← Back to list</a>
+  {% if object.id in evaluation_change_ids %}
+    <a href="{% url 'performance:evaluation_edit' object.id %}" class="btn btn-sm btn-primary">Edit</a>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto px-4 py-8 space-y-8">
+
+  <!-- Summary card -->
+  <div class="card bg-base-100 border border-base-300 shadow-xl">
+    <div class="card-body grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div>
+        <div class="text-base-content/60">Employee</div>
+        <div class="font-medium">{{ object.employee.name }}</div>
+      </div>
+      <div>
+        <div class="text-base-content/60">Manager</div>
+        <div class="font-medium">{{ object.manager.name|default:"—" }}</div>
+      </div>
+      <div>
+        <div class="text-base-content/60">Template</div>
+        <div class="font-medium">{{ object.template.name|default:"—" }}</div>
+      </div>
+      <div>
+        <div class="text-base-content/60">Period</div>
+        <div class="font-medium">{{ object.period_start|date:"Y-m-d" }} → {{ object.period_end|date:"Y-m-d" }}</div>
+      </div>
+      <div>
+        <div class="text-base-content/60">Status</div>
+        <div>
+          <span class="badge
+            {% if object.state == 'draft' %}badge-ghost
+            {% elif object.state == 'in_progress' %}badge-info
+            {% elif object.state == 'done' %}badge-success
+            {% elif object.state == 'cancelled' %}badge-error
+            {% endif %}">
+            {{ object.get_state_display }}
+          </span>
+        </div>
+      </div>
+      <div>
+        <div class="text-base-content/60">Overall Score</div>
+        {% if object.overall_score %}
+          <div class="text-lg font-bold text-success">{{ object.overall_score|floatformat:1 }}%</div>
+        {% else %}
+          <div class="text-base-content/50">—</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Parameters and Results -->
+  {% if object.template and object.template.parameters.exists %}
+  <div class="rounded-2xl bg-base-100 ring-1 ring-base-300 shadow-lg p-6">
+    <h3 class="text-lg font-semibold mb-4">Evaluation Parameters</h3>
+
+    <div class="overflow-x-auto">
+      <table class="table table-sm table-zebra w-full">
+        <thead>
+          <tr class="bg-base-200">
+            <th>#</th>
+            <th>Parameter</th>
+            <th>Weight</th>
+            <th>Score</th>
+            <th>Comment</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for param in object.template.parameters.all %}
+            {% with result=param.results.filter(evaluation=object).first %}
+            <tr>
+              <td>{{ forloop.counter }}</td>
+              <td>{{ param.name }}</td>
+              <td>{{ param.weight|default:"—" }}</td>
+              <td>
+                {% if result %}
+                  <span class="font-medium text-success">{{ result.score|floatformat:1 }}%</span>
+                {% else %}
+                  <span class="text-base-content/50">—</span>
+                {% endif %}
+              </td>
+              <td>{{ result.comment|default:"—" }}</td>
+            </tr>
+            {% endwith %}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Notes -->
+  {% if object.note %}
+  <div class="rounded-2xl bg-base-100 ring-1 ring-base-300 shadow-md p-6">
+    <h3 class="text-lg font-semibold border-b border-base-300 pb-2 mb-3">Manager Notes</h3>
+    <p class="whitespace-pre-wrap text-sm text-base-content/80">{{ object.note }}</p>
+  </div>
+  {% endif %}
+
+  <!-- Actions -->
+  <div class="flex justify-end gap-3 mt-6">
+    <a href="{% url 'performance:evaluation_list' %}" class="btn btn-ghost">Back</a>
+    {% if object.id in evaluation_change_ids %}
+      <a href="{% url 'performance:evaluation_edit' object.id %}" class="btn btn-primary">Edit</a>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}

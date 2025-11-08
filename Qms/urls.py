@@ -31,6 +31,18 @@ urlpatterns = [
     path("employees/", include(("employees.urls", "employees"), namespace="employees")),
     # لوحة الإدارة
     path("admin/", admin.site.urls),
+
+    path("hr/", include("hr.urls", namespace="hr")),
+
+    path("skills/", include("skills.urls", namespace="skills")),
+
+    path("assets/", include("assets.urls", namespace="assets")),
+
+    path("performance/", include("performance.urls", namespace="performance")),
+
+    path("payroll/", include("payroll.urls", namespace="payroll")),
+
+
 ]
 
 # Helpers أثناء التطوير

@@ -1,0 +1,31 @@
+{# templates/hr/department_detail.html #}
+{% extends "base.html" %}
+{% block title %}Department · {{ object.complete_name|default:object.name }}{% endblock %}
+{% block page_title %}Departments{% endblock %}
+
+{% block content %}
+<div class="px-4 py-6">
+  <nav class="text-sm breadcrumbs mb-4">
+    <ul><li><a href="{% url 'hr:department_list' %}">Departments</a></li><li class="font-semibold">{{ object.name }}</li></ul>
+  </nav>
+
+  <div class="mb-4 flex items-center justify-between">
+    <h1 class="text-2xl font-bold">{{ object.complete_name|default:object.name }}</h1>
+    <div class="flex items-center gap-2">
+      {% if object.id in dept_change_ids %}
+        <a class="btn btn-outline btn-sm" href="{% url 'hr:department_edit' object.pk %}">Edit</a>
+      {% endif %}
+      <a class="btn btn-sm" href="{% url 'hr:department_list' %}">Back</a>
+    </div>
+  </div>
+
+  <div class="card bg-base-100 border border-base-300">
+    <div class="card-body p-5 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+      <div><div class="text-base-content/60">Company</div><div class="font-medium">{{ object.company|default:"—" }}</div></div>
+      <div><div class="text-base-content/60">Parent</div><div class="font-medium">{{ object.parent|default:"—" }}</div></div>
+      <div><div class="text-base-content/60">Manager</div><div class="font-medium">{{ object.manager|default:"—" }}</div></div>
+      <div><div class="text-base-content/60">Active</div><div class="font-medium">{{ object.active|yesno:"Yes,No" }}</div></div>
+    </div>
+  </div>
+</div>
+{% endblock %}

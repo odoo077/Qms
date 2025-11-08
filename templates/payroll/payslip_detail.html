@@ -1,0 +1,55 @@
+<!-- templates/payroll/payslip_detail.html -->
+{% extends "base.html" %}
+{% block page_title %}Payslip Detail{% endblock %}
+{% block title %}Payroll · Payslip Detail{% endblock %}
+{% block content %}
+<div class="px-4 py-6 space-y-6">
+  <div class="rounded-2xl bg-base-100 ring-1 ring-base-300/70 shadow p-5">
+    <div class="flex items-center justify-between">
+      <div>
+        <h2 class="text-xl font-semibold">{{ object.employee }} — {{ object.period.year }}-{{ object.period.month|stringformat:"02d" }}</h2>
+        <p class="text-sm text-base-content/60">{{ object.company }}{% if object.department %} • {{ object.department }}{% endif %}{% if object.job %} • {{ object.job }}{% endif %} • {{ object.state|capfirst }}</p>
+      </div>
+      <a href="{% url 'payroll:payslip_edit' object.pk %}" class="btn btn-outline btn-sm">Edit</a>
+    </div>
+    <div class="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+      <div class="stat bg-base-200 rounded-box p-3"><div class="stat-title">Basic</div><div class="stat-value text-primary text-lg">{{ object.basic }}</div></div>
+      <div class="stat bg-base-200 rounded-box p-3"><div class="stat-title">Allowances</div><div class="stat-value text-secondary text-lg">{{ object.allowances }}</div></div>
+      <div class="stat bg-base-200 rounded-box p-3"><div class="stat-title">Deductions</div><div class="stat-value text-accent text-lg">{{ object.deductions }}</div></div>
+      <div class="stat bg-base-200 rounded-box p-3"><div class="stat-title">Net</div><div class="stat-value text-success text-lg">{{ object.net }}</div></div>
+    </div>
+  </div>
+  <div class="rounded-2xl bg-base-100 ring-1 ring-base-300/70 shadow">
+    <header class="px-5 py-4 border-b border-base-300/70">
+      <h3 class="text-lg font-semibold">Lines</h3>
+    </header>
+    <div class="p-5">
+      {% if object.lines.all %}
+      <div class="overflow-x-auto">
+        <table class="table table-sm">
+          <thead>
+            <tr><th>Seq</th><th>Code</th><th>Name</th><th>Category</th><th class="text-right">Amount</th><th class="text-right">Qty</th><th class="text-right">Rate %</th><th class="text-right">Total</th></tr>
+          </thead>
+          <tbody>
+            {% for l in object.lines.all %}
+            <tr>
+              <td>{{ l.sequence }}</td>
+              <td>{{ l.code }}</td>
+              <td class="max-w-[20rem] truncate">{{ l.name }}</td>
+              <td>{{ l.category.name }}</td>
+              <td class="text-right">{{ l.amount }}</td>
+              <td class="text-right">{{ l.quantity }}</td>
+              <td class="text-right">{{ l.rate }}</td>
+              <td class="text-right font-medium">{{ l.total }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p class="text-sm text-base-content/60">No lines.</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

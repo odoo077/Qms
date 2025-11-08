@@ -1,0 +1,15 @@
+<!-- templates/payroll/rule_parameter_form.html -->
+{% extends "base.html" %}
+{% block page_title %}Rule Parameter{% endblock %}
+{% block title %}Payroll · Rule Parameter{% endblock %}
+{% block content %}
+<div class="px-4 py-6 max-w-2xl">
+  <form method="post" class="space-y-4">{% csrf_token %}
+    {{ form.as_p }}
+    <div class="mt-4 flex gap-2">
+      <button class="btn btn-primary">Save</button>
+      <a href="{% url 'payroll:rule_parameter_list' %}" class="btn">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

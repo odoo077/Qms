@@ -1,0 +1,45 @@
+<!-- templates/payroll/period_detail.html -->
+{% extends "base.html" %}
+{% block page_title %}Period Detail{% endblock %}
+{% block title %}Payroll · Period Detail{% endblock %}
+{% block content %}
+<div class="px-4 py-6 space-y-6">
+  <div class="rounded-2xl bg-base-100 ring-1 ring-base-300/70 shadow p-5">
+    <div class="flex items-center justify-between">
+      <div>
+        <h2 class="text-xl font-semibold">{{ object.company }} — {{ object.year }}-{{ object.month|stringformat:"02d" }}</h2>
+        <p class="text-sm text-base-content/60">{{ object.date_from }} → {{ object.date_to }} • {{ object.state|capfirst }}</p>
+      </div>
+      <a href="{% url 'payroll:period_edit' object.pk %}" class="btn btn-outline btn-sm">Edit</a>
+    </div>
+  </div>
+
+  <div class="rounded-2xl bg-base-100 ring-1 ring-base-300/70 shadow">
+    <header class="px-5 py-4 border-b border-base-300/70 flex items-center justify-between">
+      <h3 class="text-lg font-semibold">Payslips</h3>
+      <a href="{% url 'payroll:payslip_list' %}" class="btn btn-xs">All payslips</a>
+    </header>
+    <div class="p-5">
+      {% if object.payslips.all %}
+      <div class="space-y-2">
+        {% for ps in object.payslips.all %}
+        <div class="flex items-center justify-between border-b border-base-200 py-2">
+          <div class="min-w-0">
+            <a href="{% url 'payroll:payslip_detail' ps.pk %}" class="font-medium hover:text-primary">
+              {{ ps.employee }} — {{ ps.get_state_display|default:ps.state|capfirst }}
+            </a>
+            <div class="text-xs text-base-content/60">
+              Gross: {{ ps.gross_wage }} · Net: {{ ps.net_wage }}{% if ps.department %} • {{ ps.department }}{% endif %}
+            </div>
+          </div>
+          <a href="{% url 'payroll:payslip_edit' ps.pk %}" class="btn btn-xs btn-outline">Edit</a>
+        </div>
+        {% empty %}
+        <p class="text-sm text-base-content/60">No payslips in this period.</p>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

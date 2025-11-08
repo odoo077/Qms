@@ -1,0 +1,78 @@
+{# templates/performance/objective_detail.html #}
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ object.name }} · Objective · 360 Manager{% endblock %}
+{% block page_title %}Objective Details{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 py-10 space-y-8">
+
+  <!-- Header Card -->
+  <section class="rounded-2xl bg-base-100 ring-1 ring-base-300/70 shadow-lg overflow-hidden">
+    <div class="p-6 sm:p-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div>
+        <h2 class="text-2xl font-bold">{{ object.name }}</h2>
+        <p class="text-sm text-base-content/70">
+          Company: {{ object.company|default:"—" }}
+        </p>
+      </div>
+      <div>
+        <span class="badge
+          {% if object.status == 'new' %}badge-ghost
+          {% elif object.status == 'in_progress' %}badge-info
+          {% elif object.status == 'done' %}badge-success
+          {% elif object.status == 'cancelled' %}badge-error
+          {% endif %} text-sm">
+          {{ object.get_status_display }}
+        </span>
+      </div>
+    </div>
+
+    <div class="border-t border-base-300/70 p-6 grid grid-cols-1 sm:grid-cols-2 gap-6">
+      <div>
+        <h3 class="font-semibold text-base-content/80 mb-1">Employee</h3>
+        <p class="text-base-content/70">{{ object.employee|default:"—" }}</p>
+      </div>
+      <div>
+        <h3 class="font-semibold text-base-content/80 mb-1">Owner</h3>
+        <p class="text-base-content/70">{{ object.owner|default:"—" }}</p>
+      </div>
+      <div>
+        <h3 class="font-semibold text-base-content/80 mb-1">Start Date</h3>
+        <p class="text-base-content/70">{{ object.start_date|date:"Y-m-d" }}</p>
+      </div>
+      <div>
+        <h3 class="font-semibold text-base-content/80 mb-1">End Date</h3>
+        <p class="text-base-content/70">{{ object.end_date|date:"Y-m-d" }}</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Progress Card -->
+  <section class="rounded-2xl bg-base-100 ring-1 ring-base-300/70 shadow-lg overflow-hidden p-6 sm:p-8">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="text-lg font-semibold">Progress</h3>
+      <span class="font-bold text-primary text-lg">{{ object.progress }}%</span>
+    </div>
+    <progress class="progress progress-primary w-full" value="{{ object.progress }}" max="100"></progress>
+  </section>
+
+  <!-- Description -->
+  {% if object.description %}
+  <section class="rounded-2xl bg-base-100 ring-1 ring-base-300/70 shadow-lg p-6 sm:p-8">
+    <h3 class="text-lg font-semibold mb-2">Description</h3>
+    <p class="text-base-content/70 leading-relaxed">{{ object.description }}</p>
+  </section>
+  {% endif %}
+
+  <!-- Actions -->
+  <section class="flex justify-end gap-3">
+    <a href="{% url 'performance:objective_list' %}" class="btn btn-ghost">Back</a>
+    {% if object.id in objective_change_ids %}
+      <a href="{% url 'performance:objective_edit' object.pk %}" class="btn btn-outline">Edit</a>
+    {% endif %}
+  </section>
+
+</div>
+{% endblock %}

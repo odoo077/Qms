@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% load widget_tweaks %}
+{% block title %}{{ object.pk|yesno:"Edit Skill Type,New Skill Type" }}{% endblock %}
+{% block page_title %}Skill Types{% endblock %}
+{% block content %}
+<div class="px-4 py-6">
+  <form method="post" class="grid gap-4 md:grid-cols-2">
+    {% csrf_token %}
+    <div class="card bg-base-100 border border-base-300 md:col-span-2">
+      <div class="card-body grid gap-4 md:grid-cols-2">
+        <div>
+          <label class="label-text">Name</label>
+          {{ form.name|add_class:"input input-bordered w-full" }}
+        </div>
+        <div>
+          <label class="label-text">Sequence</label>
+          {{ form.sequence|add_class:"input input-bordered w-full" }}
+        </div>
+        <div>
+          <label class="label-text">Color</label>
+          {{ form.color|add_class:"input input-bordered w-full" }}
+        </div>
+        <div>
+          <label class="label cursor-pointer">
+            <span class="label-text">Certification</span>
+            {{ form.is_certification|add_class:"checkbox ml-2" }}
+          </label>
+        </div>
+        <div>
+          <label class="label cursor-pointer">
+            <span class="label-text">Active</span>
+            {{ form.active|add_class:"toggle toggle-primary ml-2" }}
+          </label>
+        </div>
+      </div>
+    </div>
+    <div class="md:col-span-2 flex gap-2">
+      <button class="btn btn-primary">Save</button>
+      <a href="{% url 'skills:skilltype_list' %}" class="btn btn-ghost">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

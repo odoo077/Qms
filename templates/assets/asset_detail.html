@@ -1,0 +1,27 @@
+{# templates/assets/asset_detail.html #}
+{% extends "base.html" %}
+{% block title %}Asset · {{ object.code }}{% endblock %}
+{% block content %}
+<div class="px-4 py-6">
+  <div class="mb-4 flex items-start justify-between">
+    <div>
+      <h1 class="text-2xl font-bold">{{ object.code }} — {{ object.name }}</h1>
+      <p class="text-base-content/60 text-sm">{{ object.company }}</p>
+    </div>
+    <div class="flex gap-2">
+      <a class="btn btn-outline btn-sm" href="{% url 'assets:asset_edit' object.pk %}">Edit</a>
+      <a class="btn btn-sm" href="{% url 'assets:asset_list' %}">Back</a>
+    </div>
+  </div>
+  <div class="card bg-base-100 border border-base-300">
+    <div class="card-body grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+      <div><div class="text-base-content/60">Category</div><div class="font-medium">{{ object.category|default:"—" }}</div></div>
+      <div><div class="text-base-content/60">Department</div><div class="font-medium">{{ object.department|default:"—" }}</div></div>
+      <div><div class="text-base-content/60">Holder</div><div class="font-medium">{{ object.holder|default:"—" }}</div></div>
+      <div><div class="text-base-content/60">Status</div><div class="font-medium">{{ object.get_status_display }}</div></div>
+      <div><div class="text-base-content/60">Purchase</div><div class="font-medium">{{ object.purchase_date|default:"—" }} / {{ object.purchase_value|default:"—" }}</div></div>
+      <div class="md:col-span-2"><div class="text-base-content/60">Note</div><div class="font-medium whitespace-pre-wrap">{{ object.note|default:"—" }}</div></div>
+    </div>
+  </div>
+</div>
+{% endblock %}

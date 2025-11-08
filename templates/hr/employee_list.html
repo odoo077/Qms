@@ -1,0 +1,75 @@
+{# templates/hr/employee_list.html #}
+{% extends "base.html" %}
+{% block page_title %}Employees{% endblock %}
+{% block page_actions %}
+  {% if can_add_employee %}
+    <a href="{% url 'hr:employee_create' %}" class="btn btn-primary btn-sm">+ New employee</a>
+  {% endif %}
+{% endblock %}
+
+{% block title %}Employees · 360 Manager{% endblock %}
+{% block content %}
+<div class="px-4 py-6">
+  <div class="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+    <div>
+      <h1 class="text-2xl font-bold">Employees</h1>
+      {% include "base/includes/search_panel.html" %}
+      <p class="text-base-content/60 text-sm">
+        {% if current_company %}Scoped to <span class="badge badge-outline">{{ current_company.name }}</span> · {% endif %}
+        {{ page_obj.paginator.count }} result{{ page_obj.paginator.count|pluralize }}
+      </p>
+    </div>
+
+    <form method="get" class="flex items-center gap-2">
+      <input name="q" value="{{ request.GET.q }}" placeholder="Search by name, job, department…"
+             class="input input-bordered input-sm w-72" />
+      {% if request.GET.q %}<a href="." class="btn btn-ghost btn-sm">Reset</a>{% endif %}
+      <button class="btn btn-primary btn-sm">Search</button>
+    </form>
+  </div>
+
+  {% if object_list %}
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+      {% for e in object_list %}
+        <div class="card bg-base-100 border border-base-300 hover:shadow-md transition">
+          <div class="card-body p-4">
+            <a href="{% url 'hr:employee_detail' e.pk %}" class="text-lg font-semibold hover:text-primary">{{ e.name }}</a>
+            <p class="text-sm text-base-content/60 mt-1">
+              {{ e.job|default:"—" }}{% if e.department %} • {{ e.department.name }}{% endif %}
+            </p>
+            <p class="text-sm text-base-content/60">{{ e.company|default:"—" }}</p>
+
+            <div class="card-actions mt-4">
+              <a href="{% url 'hr:employee_detail' e.pk %}" class="btn btn-sm">View</a>
+              {% if e.id in emp_change_ids %}
+                <a href="{% url 'hr:employee_edit' e.pk %}" class="btn btn-sm btn-outline">Edit</a>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+
+    {% if is_paginated %}
+      <div class="mt-6 flex items-center justify-center gap-1">
+        {% if page_obj.has_previous %}
+          <a href="?{% if request.GET.q %}q={{ request.GET.q }}&{% endif %}page={{ page_obj.previous_page_number }}" class="btn btn-sm">Prev</a>
+        {% else %}<button class="btn btn-sm btn-disabled">Prev</button>{% endif %}
+        <span class="px-3 py-2 text-sm rounded bg-base-100 border border-base-300">
+          Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+        </span>
+        {% if page_obj.has_next %}
+          <a href="?{% if request.GET.q %}q={{ request.GET.q }}&{% endif %}page={{ page_obj.next_page_number }}" class="btn btn-sm">Next</a>
+        {% else %}<button class="btn btn-sm btn-disabled">Next</button>{% endif %}
+      </div>
+    {% endif %}
+  {% else %}
+    <div class="rounded-lg border border-dashed border-base-300 bg-base-100 p-10 text-center">
+      <p class="mb-2">No employees found.</p>
+      {% if can_add_employee %}
+        <a href="{% url 'hr:employee_create' %}" class="btn btn-secondary btn-sm mt-3">+ New Employee</a>
+      {% endif %}
+    </div>
+  {% endif %}
+</div>
+{% endblock %}
