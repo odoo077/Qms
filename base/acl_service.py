@@ -5,6 +5,7 @@ from typing import Iterable, Optional, Sequence, Tuple
 from django.contrib.contenttypes.models import ContentType
 from django.db.models import Q
 
+from hr.models import Department , Employee
 from .acl import ObjectACL, CORE_PERMS
 
 # --------------------------------------------------------------------------------------
@@ -302,40 +303,57 @@ def grant_bulk(objs: Iterable, *, user=None, group=None, perms: Iterable[str] | 
         grant_access(obj, user=user, group=group, extras=extras, **core_kwargs)
 
 
-
 # === DEFAULT GLOBAL POLICY (company-wide) ====================================
+# full updated apply_default_acl implementation
 from django.contrib.auth.models import Group, Permission
-from django.contrib.contenttypes.models import ContentType
+from hr.models import Department, Employee
+
+def _get_base_department_for_obj(obj):
+    """
+    Return the department related to obj:
+      - if obj is Department -> itself
+      - if obj has department_id -> obj.department
+      - if obj has employee_id -> obj.employee.department
+    """
+    if isinstance(obj, Department):
+        return obj
+
+    if hasattr(obj, "department_id") and getattr(obj, "department_id"):
+        return getattr(obj, "department", None)
+
+    if hasattr(obj, "employee_id") and getattr(obj, "employee_id"):
+        emp = getattr(obj, "employee", None)
+        if isinstance(emp, Employee) and getattr(emp, "department_id", None):
+            return getattr(emp, "department", None)
+
+    return None
+
 
 def apply_default_acl(obj):
     """
-    يطبّق السياسة الافتراضية للعناصر (Global) بدون الاعتماد على اسم أي مجموعة:
-      - المالك (created_by): view/change/delete/approve/assign/share
-      - HR Manager (أي مجموعة تحمل permission: hr.manage_all_hr):
-            view/change/delete/approve/assign/share
-      - مدير القسم (إن وُجد على السجل الحالي):
-            view/change/approve/assign
-    ملاحظة: هذه الدالة idempotent (تعيد ضبط/إنشاء ACE حسب الحاجة).
+    Best-practice ACL application:
+      - owner = full access
+      - HR groups = full access
+      - employee himself = view+change
+      - managers in ancestor chain = operational (view+change) on descendant objects
+      - base_dept.manager (i.e. team leader) = view-only on parents (context)
+      - for Department objects: managers of sibling teams get view-only on this dept (coordination)
     """
-    # 0) سلامة: لا نعمل على كائن بلا PK
     if not getattr(obj, "pk", None):
         return
 
-    # 1) مالك السجل (created_by)
+    # (1) owner
     owner = getattr(obj, "created_by", None)
     if owner:
         grant_access(
             obj,
             user=owner,
-            view=True, change=True, delete=True, approve=True, assign=True, share=True,
+            view=True, change=True, delete=True, approve=True, assign=True, share=True
         )
 
-    # 2) HR Manager: أي مجموعة لديها permission codename = manage_all_hr (app_label=hr)
+    # (2) HR managers groups (full access)
     try:
-        perm = Permission.objects.get(
-            content_type__app_label="hr",
-            codename="manage_all_hr",
-        )
+        perm = Permission.objects.get(content_type__app_label="hr", codename="manage_all_hr")
         hr_groups = Group.objects.filter(permissions=perm)
         for g in hr_groups:
             grant_access(
@@ -344,15 +362,171 @@ def apply_default_acl(obj):
                 view=True, change=True, delete=True, approve=True, assign=True, share=True,
             )
     except Permission.DoesNotExist:
-        # لو الصلاحية غير موجودة بعد، نتجاوز بهدوء (لا نكسر الحفظ)
         pass
 
-    # 3) مدير القسم (HR): إن كان للكائن 'department' وله 'manager' مرتبط بمستخدم
-    #    - هذا يخص نماذج HR (مثل Employee) التي تحتوي field department → manager
-    dept = getattr(obj, "department", None)
-    if dept and getattr(dept, "manager_id", None) and getattr(dept.manager, "user_id", None):
-        grant_access(
-            obj,
-            user=dept.manager.user,  # مستخدم مدير القسم
-            view=True, change=True, approve=True, assign=True,
+    # (3) employee itself
+    if isinstance(obj, Employee) and getattr(obj, "user_id", None):
+        grant_access(obj, user=obj.user, view=True, change=True)
+
+    # (4) main hierarchical managers: managers of base_dept and its ancestors
+    base_dept = _get_base_department_for_obj(obj)
+    if not isinstance(base_dept, Department):
+        return
+
+    seen = set()
+    cur = base_dept
+    # climb up: for each ancestor dept, its manager gets operational rights on obj (they manage below)
+    while cur:
+        if getattr(cur, "manager_id", None):
+            manager_user = getattr(getattr(cur, "manager", None), "user", None)
+            if manager_user and manager_user.pk not in seen:
+                grant_access(
+                    obj,
+                    user=manager_user,
+                    view=True,
+                    change=True,
+                    approve=True,
+                    assign=True,
+                )
+                seen.add(manager_user.pk)
+        cur = cur.parent
+
+    # (5) base_dept.manager should be able to VIEW parents (context), but not change them
+    try:
+        base_mgr = getattr(base_dept, "manager", None)
+        base_mgr_user = getattr(base_mgr, "user", None) if base_mgr else None
+        if base_mgr_user:
+            p = base_dept.parent
+            seen_view = set()
+            while p:
+                if base_mgr_user.pk not in seen_view:
+                    grant_access(
+                        p,
+                        user=base_mgr_user,
+                        view=True,
+                        change=False,
+                        approve=False,
+                        assign=False,
+                        share=False,
+                    )
+                    seen_view.add(base_mgr_user.pk)
+                p = p.parent
+    except Exception:
+        # swallow to not break saving flow
+        pass
+
+    # (6) For Department objects: let sibling team managers view this department (coordination)
+    #     i.e., if obj is a Department, give the managers of other children of obj.parent view-only on obj
+    if isinstance(obj, Department):
+        parent = getattr(obj, "parent", None)
+        if parent:
+            try:
+                siblings = parent.children.exclude(pk=obj.pk)
+                for s in siblings:
+                    m = getattr(s, "manager", None)
+                    mu = getattr(m, "user", None) if m else None
+                    if mu:
+                        grant_access(
+                            obj,
+                            user=mu,
+                            view=True,
+                            change=False,
+                        )
+            except Exception:
+                pass
+
+    # done
+
+
+# === TEAM VISIBILITY (manager + peers) =======================================
+from collections import defaultdict
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+
+from hr.models import Department, Employee  # غالباً موجودة بالأعلى، إن كانت موجودة لا تكررها
+
+TEAM_EXTRA_FLAG = "team_visibility"
+
+
+def rebuild_team_visibility():
+    """
+    يجعل كل موظف يرى:
+      - مديره المباشر (Employee.manager)
+      - زملاءه الذين لهم نفس المدير
+
+    المنطق:
+      - نبني ACEs جديدة بعَلم extra_perms=['team_visibility']
+      - قبل البناء نحذف كل ACEs القديمة التي تحمل هذا العلم حتى لا تتراكم.
+    """
+    from django.contrib.contenttypes.models import ContentType
+    from .acl import ObjectACL   # نفس الموديل الموجود في هذا الملف
+    from .acl_service import grant_access  # إذا أعطاك import دائري، تجاهله هنا لأننا في نفس الملف
+
+    # تجنّب الاستيراد الدائري: بما أننا داخل نفس الملف يمكننا استخدام grant_access مباشرة بدون import
+    ct = ContentType.objects.get_for_model(Employee, for_concrete_model=False)
+
+    # 1) حذف كل ACEs السابقة الخاصة بـ team_visibility
+    ObjectACL.objects.filter(
+        content_type=ct,
+        extra_perms__contains=[TEAM_EXTRA_FLAG],
+    ).delete()
+
+    # 2) جمع الموظفين الذين لديهم user ومدير
+    employees = (
+        Employee.objects.filter(
+            active=True,
+            user__isnull=False,
+            manager__isnull=False,
         )
+        .select_related("user", "manager")
+        .only("id", "user_id", "manager_id", "company_id", "active")
+    )
+
+    # تقسيمهم حسب المدير
+    teams: dict[int, list[Employee]] = defaultdict(list)
+    for emp in employees:
+        teams[emp.manager_id].append(emp)
+
+    # 3) بناء ACEs
+    for manager_id, team in teams.items():
+        try:
+            manager_emp = Employee.objects.get(pk=manager_id, active=True)
+        except Employee.DoesNotExist:
+            manager_emp = None
+
+        # (أ) كل فرد في الفريق يرى المدير
+        if manager_emp and manager_emp.user_id:
+            for emp in team:
+                if not emp.user_id:
+                    continue
+                grant_access(
+                    manager_emp,
+                    user=emp.user,
+                    view=True,
+                    extras=[TEAM_EXTRA_FLAG],
+                )
+
+        # (ب) كل فرد يرى زملاءه (نفس المدير)
+        for emp in team:
+            if not emp.user_id:
+                continue
+            for peer in team:
+                if peer.pk == emp.pk or not peer.user_id:
+                    continue
+                grant_access(
+                    peer,
+                    user=emp.user,
+                    view=True,
+                    extras=[TEAM_EXTRA_FLAG],
+                )
+
+
+@receiver(post_save, sender=Employee)
+def _sync_team_visibility_on_employee_save(sender, instance, **kwargs):
+    """
+    أي تعديل على موظف (خصوصاً تغيير manager) يعيد بناء رؤية الفرق.
+    هذا أبسط حل الآن (يعيد بناء كل الفرق) ومناسب لعدد موظفينك الحالي.
+    """
+    rebuild_team_visibility()
+
+

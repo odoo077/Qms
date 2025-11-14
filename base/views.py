@@ -338,9 +338,11 @@ class CompanyScopeAclMixin:
         if not active_ids:
             return qs.none()
 
-        # Normalize to ORM FK name (e.g., "company_id" -> "company")
-        orm_field = self.company_field_name[:-3] if self.company_field_name.endswith("_id") else self.company_field_name
+        # ✅ حالة موديل Company نفسه (لا يملك حقل company)
+        if qs.model._meta.app_label == "base" and qs.model._meta.model_name == "company":
+            return qs.filter(id__in=active_ids)
 
+        orm_field = self.company_field_name[:-3] if self.company_field_name.endswith("_id") else self.company_field_name
         has_company = any(
             (getattr(f, "name", None) == orm_field) or (getattr(f, "attname", None) == f"{orm_field}_id")
             for f in qs.model._meta.get_fields()
@@ -351,21 +353,33 @@ class CompanyScopeAclMixin:
 
     def _apply_acl_on_queryset(self, qs, perm=None):
         """
-        أعد دائمًا QuerySet قابلًا للتصفية حتى لو كانت with_acl تُنشئ combined query.
-        نأخذ Pks من with_acl ثم نفلتر عليها (pk__in) لتفادي union().
+        أعد دائمًا QuerySet قابلًا للتصفية حتى لو كانت with_acl تُنشئ combined query (union).
+        - نحاول أولاً استخدام manager المخصص acl_objects إن وُجد.
+        - ثم objects.with_acl إن وُجد.
+        - ثم with_acl على الـ QuerySet نفسه إن وُجد.
+        - في كل الحالات نرجع QuerySet جديد من Model.objects مع pk__in لتفادي مشكلة
+          "Calling QuerySet.filter() after union() is not supported".
         """
         perm = perm or self.required_acl_perm
+        Model = qs.model
 
-        # حالة: with_acl على الـ manager
-        if hasattr(qs.model, "objects") and hasattr(qs.model.objects, "with_acl"):
-            acl_qs = qs.model.objects.with_acl(perm)
-            return qs.model.objects.filter(pk__in=acl_qs.values("pk"))
+        # 1) Manager مخصص ACL: مثل Employee.acl_objects أو Department.acl_objects
+        acl_manager = getattr(Model, "acl_objects", None)
+        if hasattr(acl_manager, "with_acl"):
+            acl_qs = acl_manager.with_acl(perm)
+            return Model.objects.filter(pk__in=acl_qs.values("pk"))
 
-        # حالة: with_acl على الـ queryset نفسه
+        # 2) Manager objects نفسه يدعم with_acl
+        if hasattr(Model, "objects") and hasattr(Model.objects, "with_acl"):
+            acl_qs = Model.objects.with_acl(perm)
+            return Model.objects.filter(pk__in=acl_qs.values("pk"))
+
+        # 3) الـ QuerySet نفسه يدعم with_acl
         if hasattr(qs, "with_acl"):
             acl_qs = qs.with_acl(perm)
-            return qs.model.objects.filter(pk__in=acl_qs.values("pk"))
+            return Model.objects.filter(pk__in=acl_qs.values("pk"))
 
+        # لا يوجد ACL → نرجع الـ QuerySet كما هو
         return qs
 
     def _enforce_object_scope_or_404(self, obj):
@@ -641,12 +655,15 @@ class UserListView(LoginRequiredMixin, BaseScopedListView):
     paginate_by = 24
 
     def get_queryset(self):
-        base = self.model.acl_objects.with_acl("view")
+        # احصل على Pks عبر ACL
+        base_acl = self.model.acl_objects.with_acl("view").values("pk")
         qs = (self.model.objects
-              .filter(pk__in=base.values("pk"))
+              .filter(pk__in=base_acl)
               .select_related("company")
               .prefetch_related("companies")
               .order_by("email"))
+        # ✅ فلترة الشركة النشطة
+        qs = self._enforce_company_on_queryset(qs)
         return qs
 
     def get_context_data(self, **kwargs):

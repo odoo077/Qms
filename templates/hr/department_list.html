@@ -28,29 +28,32 @@
     </form>
   </div>
 
-  {% if object_list %}
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-      {% for d in object_list %}
-        <div class="card bg-base-100 border border-base-300 hover:shadow-md transition">
-          <div class="card-body p-4">
-            <a href="{% url 'hr:department_detail' d.pk %}" class="text-lg font-semibold hover:text-primary">
-              {{ d.complete_name|default:d.name }}
-            </a>
-            <p class="text-sm text-base-content/60 mt-1">
-              {% if d.parent %}Parent: {{ d.parent.complete_name|default:d.parent.name }}{% else %}—{% endif %}
-            </p>
-            <p class="text-sm text-base-content/60">Manager: {{ d.manager|default:"—" }}</p>
 
-            <div class="card-actions mt-4">
-              <a href="{% url 'hr:department_detail' d.pk %}" class="btn btn-sm">View</a>
-              {% if d.id in dept_change_ids %}
-                <a href="{% url 'hr:department_edit' d.pk %}" class="btn btn-sm btn-outline">Edit</a>
-              {% endif %}
-            </div>
-          </div>
-        </div>
+  <!-- Alpine.js Setup -->
+<script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+
+<div x-data>
+  <div class="mb-4 flex gap-2">
+    <button @click="document.querySelectorAll('details').forEach(d => d.open = true)"
+            class="btn btn-sm btn-outline btn-success">
+      🔼 Expand All
+    </button>
+    <button @click="document.querySelectorAll('details').forEach(d => d.open = false)"
+            class="btn btn-sm btn-outline btn-error">
+      🔽 Collapse All
+    </button>
+  </div>
+</div>
+
+
+  {% if object_list %}
+    <ul class="space-y-2">
+      {% for d in object_list %}
+        {% if not d.parent %}
+          {% include "hr/includes/department_tree_node.html" with node=d dept_change_ids=dept_change_ids %}
+        {% endif %}
       {% endfor %}
-    </div>
+    </ul>
 
     {% if is_paginated %}
     <div class="mt-6 flex items-center justify-center gap-1">

@@ -212,16 +212,21 @@ class ACLQuerySet(models.QuerySet):
     .with_acl(action[, user=...]) يفلتر النتائج وفق:
       1) صلاحية النموذج (Django model perm) للأفعال الأساسية view/change/delete فقط
       2) نطاق الشركات المسموح بها (company_id ∈ allowed) – إن وُجد حقل company
-      3) is_private: العامة تظهر داخل الشركة، والخاصّة لا تظهر إلا بوجود ACE بـ 'view'
-      4) مشاركة خارج الشركة عبر ACE
-      5) للأفعال غير الأساسية (share/approve/assign/... أو أي extra): لا نفرض model perm؛
+      3) إن كان الموديل ACL-aware (يورّث AccessControlledMixin):
+         🔒 نُلزم وجود ACE دائمًا حتى داخل الشركة (لا تكفي العلنية is_private=False)
+      4) إن لم يكن ACL-aware نطبّق منطق is_private: العامة تظهر داخل الشركة،
+         والخاصّة لا تظهر إلا بوجود ACE
+      5) مشاركة خارج الشركة عبر ACE
+      6) للأفعال غير الأساسية (share/approve/assign/... أو أي extra): لا نفرض model perm؛
          يكفي رصد ACE المقابل.
     """
     def with_acl(self, action: str, user=None):
         user = user or getattr(self, "_acl_user", None) or _user_from_ctx()
-        # غير الموثق → لا بيانات
+
+        # غير الموثّق → لا بيانات
         if not user or not getattr(user, "is_authenticated", False):
             return self.none()
+
         # السوبر يوزر يرى كل شيء
         if getattr(user, "is_superuser", False):
             return self
@@ -234,12 +239,16 @@ class ACLQuerySet(models.QuerySet):
             if not user.has_perm(codename):
                 return self.none()
 
-        # 2) نطاق الشركات / 3) is_private / 4) مشاركة عبر ACE
+        # 2) نطاق الشركات / الكشف عن is_private / الكشف إن كان الموديل ACL-aware
         allowed = list(get_allowed_company_ids() or [])
         has_company = any(f.name == "company" for f in self.model._meta.get_fields())
         has_private = any(f.name == "is_private" for f in self.model._meta.get_fields())
 
-        # Build ACE subquery for the action
+        # ✅ الموديلات التي تعتمد ACL (تورّث AccessControlledMixin) تملك علاقة GenericRelation باسم "acls"
+        # وجود هذه العلاقة على الموديل يكفي لاكتشاف أنه ACL-aware
+        requires_ace = hasattr(self.model, "acls")
+
+        # بناء Subquery لِـ ACE الخاص بالفعل المطلوب
         ct = ContentType.objects.get_for_model(self.model, for_concrete_model=False)
         g_ids = _group_ids(user)
 
@@ -248,33 +257,39 @@ class ACLQuerySet(models.QuerySet):
         if flag:
             acl_filter &= Q(**{flag: True})
         else:
-            # extra permission stored in JSON list → contains
+            # extra permission مخزّنة كقائمة JSON
             acl_filter &= Q(extra_perms__contains=[extra])
 
         acl_ids = ObjectACL.objects.filter(acl_filter).values("object_id")
         qs = self
 
+        # -----------------------------
         # داخل الشركة
+        # -----------------------------
         if has_company:
             if allowed:
-                in_company = qs.filter(company_id__in=allowed)
-                if has_private:
-                    public_in_company = in_company.filter(Q(is_private=False) | Q(is_private__isnull=True))
-                    private_in_company = in_company.filter(is_private=True, pk__in=acl_ids)  # يحتاج ACE
-                    in_company = public_in_company.union(private_in_company)
+                base_in_company = qs.filter(company_id__in=allowed)
             else:
-                # لا شركات مسموح بها → لا شيء داخل الشركة
-                in_company = qs.none()
+                base_in_company = qs.none()
         else:
-            # موديلات بلا حقل company
-            if has_private:
-                public_no_company = qs.filter(Q(is_private=False) | Q(is_private__isnull=True))
-                private_no_company = qs.filter(is_private=True, pk__in=acl_ids)
-                in_company = public_no_company.union(private_no_company)
-            else:
-                in_company = qs
+            base_in_company = qs
 
-        # خارج الشركة (مشاركة صريحة فقط عبر ACE)
+        # 🔒 الشرط الحاسم:
+        # إن كان الموديل ACL-aware → نطالب بوجود ACE دائمًا حتى داخل الشركة
+        if requires_ace:
+            in_company = base_in_company.filter(pk__in=acl_ids)
+        else:
+            # موديلات غير ACL-aware → نستخدم منطق is_private السابق كما هو
+            if has_private:
+                public_in_company = base_in_company.filter(Q(is_private=False) | Q(is_private__isnull=True))
+                private_in_company = base_in_company.filter(is_private=True, pk__in=acl_ids)  # الخاص يحتاج ACE
+                in_company = public_in_company.union(private_in_company)
+            else:
+                in_company = base_in_company
+
+        # -----------------------------
+        # خارج الشركة (مشاركة صريحة عبر ACE فقط)
+        # -----------------------------
         if has_company:
             if allowed:
                 shared = qs.filter(~Q(company_id__in=allowed), pk__in=acl_ids)
@@ -284,6 +299,7 @@ class ACLQuerySet(models.QuerySet):
             return in_company.union(shared)
 
         return in_company
+
 
 
 class ACLManager(models.Manager.from_queryset(ACLQuerySet)):

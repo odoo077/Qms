@@ -1,73 +1,174 @@
 {# templates/hr/employee_list.html #}
 {% extends "base.html" %}
+
 {% block page_title %}Employees{% endblock %}
+
 {% block page_actions %}
   {% if can_add_employee %}
-    <a href="{% url 'hr:employee_create' %}" class="btn btn-primary btn-sm">+ New employee</a>
+    <a href="{% url 'hr:employee_create' %}" class="btn btn-primary btn-sm">
+      + New employee
+    </a>
   {% endif %}
 {% endblock %}
 
 {% block title %}Employees · 360 Manager{% endblock %}
+
 {% block content %}
-<div class="px-4 py-6">
-  <div class="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-    <div>
-      <h1 class="text-2xl font-bold">Employees</h1>
+<div class="px-4 py-6 space-y-6">
+
+  {# ---------- Header / filters ---------- #}
+  <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+    <div class="space-y-1">
+      <h1 class="text-2xl font-bold tracking-tight">Employees</h1>
+      <div class="flex flex-wrap items-center gap-2 text-xs md:text-sm text-base-content/70">
+        {% if current_company %}
+          <span class="badge badge-outline badge-sm">
+            Company: {{ current_company.name }}
+          </span>
+        {% endif %}
+        <span class="badge badge-ghost badge-sm">
+          {{ page_obj.paginator.count }} result{{ page_obj.paginator.count|pluralize }}
+        </span>
+      </div>
+      {# reuse the common quick filters / company switcher #}
       {% include "base/includes/search_panel.html" %}
-      <p class="text-base-content/60 text-sm">
-        {% if current_company %}Scoped to <span class="badge badge-outline">{{ current_company.name }}</span> · {% endif %}
-        {{ page_obj.paginator.count }} result{{ page_obj.paginator.count|pluralize }}
-      </p>
     </div>
 
-    <form method="get" class="flex items-center gap-2">
-      <input name="q" value="{{ request.GET.q }}" placeholder="Search by name, job, department…"
-             class="input input-bordered input-sm w-72" />
-      {% if request.GET.q %}<a href="." class="btn btn-ghost btn-sm">Reset</a>{% endif %}
-      <button class="btn btn-primary btn-sm">Search</button>
+    <form method="get" class="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
+      <input
+        name="q"
+        value="{{ request.GET.q }}"
+        placeholder="Search by name, job, department…"
+        class="input input-bordered input-sm w-full sm:w-72"
+      />
+      <div class="flex gap-2 justify-end">
+        {% if request.GET.q %}
+          <a href="." class="btn btn-ghost btn-sm">Reset</a>
+        {% endif %}
+        <button class="btn btn-primary btn-sm">Search</button>
+      </div>
     </form>
   </div>
 
+  {# ---------- Result grid ---------- #}
   {% if object_list %}
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
       {% for e in object_list %}
-        <div class="card bg-base-100 border border-base-300 hover:shadow-md transition">
-          <div class="card-body p-4">
-            <a href="{% url 'hr:employee_detail' e.pk %}" class="text-lg font-semibold hover:text-primary">{{ e.name }}</a>
-            <p class="text-sm text-base-content/60 mt-1">
-              {{ e.job|default:"—" }}{% if e.department %} • {{ e.department.name }}{% endif %}
-            </p>
-            <p class="text-sm text-base-content/60">{{ e.company|default:"—" }}</p>
+        <article class="card bg-base-100/80 border border-base-300/70 shadow-sm hover:shadow-md transition-shadow duration-150">
+          <div class="card-body p-4 pb-3 flex flex-col gap-3">
 
-            <div class="card-actions mt-4">
-              <a href="{% url 'hr:employee_detail' e.pk %}" class="btn btn-sm">View</a>
+            {# Top row: avatar + main info #}
+            <div class="flex items-start gap-3">
+              <div class="avatar placeholder">
+                <div class="bg-primary/10 text-primary-content/90 rounded-full w-10 h-10 flex items-center justify-center font-semibold">
+                  {{ e.name|first|default:"?" }}
+                </div>
+              </div>
+
+              <div class="min-w-0 flex-1">
+                <a href="{% url 'hr:employee_detail' e.pk %}"
+                   class="font-semibold text-base sm:text-lg hover:text-primary line-clamp-1">
+                  {{ e.name }}
+                </a>
+
+                <p class="mt-1 text-xs sm:text-sm text-base-content/70 flex flex-wrap gap-1 items-center">
+                  {% if e.job %}
+                    <span class="line-clamp-1">{{ e.job }}</span>
+                  {% else %}
+                    <span class="opacity-70">No job title</span>
+                  {% endif %}
+                  {% if e.department %}
+                    <span class="hidden sm:inline text-base-content/40">•</span>
+                    <span class="line-clamp-1 text-base-content/80">
+                      {{ e.department.complete_name|default:e.department.name }}
+                    </span>
+                  {% endif %}
+                </p>
+
+                <p class="mt-1 text-[11px] sm:text-xs text-base-content/60">
+                  {{ e.company|default:"—" }}
+                </p>
+              </div>
+            </div>
+
+            {# Middle: small meta chips #}
+            <div class="flex flex-wrap gap-1.5 text-[11px] sm:text-xs text-base-content/70">
+              {% if e.work_email %}
+                <span class="badge badge-ghost badge-xs sm:badge-sm">
+                  {{ e.work_email }}
+                </span>
+              {% endif %}
+              {% if e.work_phone %}
+                <span class="badge badge-ghost badge-xs sm:badge-sm">
+                  {{ e.work_phone }}
+                </span>
+              {% endif %}
+
               {% if e.id in emp_change_ids %}
-                <a href="{% url 'hr:employee_edit' e.pk %}" class="btn btn-sm btn-outline">Edit</a>
+                <span class="badge badge-outline badge-success badge-xs sm:badge-sm">
+                  You can manage
+                </span>
               {% endif %}
             </div>
+
+            {# Footer: actions #}
+            <div class="card-actions mt-1 justify-between items-center">
+              <div class="flex gap-2">
+                <a href="{% url 'hr:employee_detail' e.pk %}" class="btn btn-xs sm:btn-sm">
+                  View
+                </a>
+                {% if e.id in emp_change_ids %}
+                  <a href="{% url 'hr:employee_edit' e.pk %}"
+                     class="btn btn-xs sm:btn-sm btn-outline">
+                    Edit
+                  </a>
+                {% endif %}
+              </div>
+            </div>
           </div>
-        </div>
+        </article>
       {% endfor %}
     </div>
 
+    {# ---------- Pagination ---------- #}
     {% if is_paginated %}
-      <div class="mt-6 flex items-center justify-center gap-1">
+      <div class="mt-6 flex items-center justify-center gap-2">
         {% if page_obj.has_previous %}
-          <a href="?{% if request.GET.q %}q={{ request.GET.q }}&{% endif %}page={{ page_obj.previous_page_number }}" class="btn btn-sm">Prev</a>
-        {% else %}<button class="btn btn-sm btn-disabled">Prev</button>{% endif %}
-        <span class="px-3 py-2 text-sm rounded bg-base-100 border border-base-300">
+          <a href="?{% if request.GET.q %}q={{ request.GET.q }}&{% endif %}page={{ page_obj.previous_page_number }}"
+             class="btn btn-sm">
+            Prev
+          </a>
+        {% else %}
+          <button class="btn btn-sm btn-disabled">Prev</button>
+        {% endif %}
+
+        <span class="px-3 py-1.5 text-sm rounded-full bg-base-100 border border-base-300">
           Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
         </span>
+
         {% if page_obj.has_next %}
-          <a href="?{% if request.GET.q %}q={{ request.GET.q }}&{% endif %}page={{ page_obj.next_page_number }}" class="btn btn-sm">Next</a>
-        {% else %}<button class="btn btn-sm btn-disabled">Next</button>{% endif %}
+          <a href="?{% if request.GET.q %}q={{ request.GET.q }}&{% endif %}page={{ page_obj.next_page_number }}"
+             class="btn btn-sm">
+            Next
+          </a>
+        {% else %}
+          <button class="btn btn-sm btn-disabled">Next</button>
+        {% endif %}
       </div>
     {% endif %}
+
   {% else %}
-    <div class="rounded-lg border border-dashed border-base-300 bg-base-100 p-10 text-center">
-      <p class="mb-2">No employees found.</p>
+    {# ---------- Empty state ---------- #}
+    <div class="rounded-2xl border border-dashed border-base-300 bg-base-100/60 py-10 px-6 text-center space-y-3">
+      <p class="font-medium text-base">No employees found.</p>
+      <p class="text-sm text-base-content/60">
+        Try adjusting your search or filters. If you expected to see records here,
+        check your active company and access rights.
+      </p>
       {% if can_add_employee %}
-        <a href="{% url 'hr:employee_create' %}" class="btn btn-secondary btn-sm mt-3">+ New Employee</a>
+        <a href="{% url 'hr:employee_create' %}" class="btn btn-secondary btn-sm mt-2">
+          + New employee
+        </a>
       {% endif %}
     </div>
   {% endif %}

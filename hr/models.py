@@ -56,7 +56,7 @@ class ContractType(TimeStampedMixin, UserStampedMixin, models.Model):
 # ------------------------------------------------------------
 # Department — قسم هرمي على مستوى الشركة
 # ------------------------------------------------------------
-class Department(CompanyOwnedMixin, ActivableMixin, TimeStampedMixin, UserStampedMixin, models.Model):
+class Department(AccessControlledMixin,CompanyOwnedMixin, ActivableMixin, TimeStampedMixin, UserStampedMixin, models.Model):
     """
     Odoo-like hr.department
     - شجرة أقسام لكل شركة
@@ -98,7 +98,7 @@ class Department(CompanyOwnedMixin, ActivableMixin, TimeStampedMixin, UserStampe
     color = models.IntegerField(default=0)
 
     objects = CompanyScopeManager()
-    acl_objects = ACLQuerySet.as_manager()
+    acl_objects = ACLManager()
 
     class Meta:
         db_table = "hr_department"
