@@ -1,11 +1,28 @@
 @import "tailwindcss";
-@plugin "daisyui";
 
 /**
-  * A catch-all path to Django template files, JavaScript, and Python files
-  * that contain Tailwind CSS classes and will be scanned by Tailwind to generate the final CSS file.
-  *
-  * If your final CSS file is not being updated after code changes, you may want to broaden or narrow
-  * the scope of this path.
+  * ملفات القوالب والبايثون والـ JS التي تحتوي كلاسات Tailwind
   */
 @source "../../../**/*.{html,py,js}";
+
+/**
+  * تفعيل DaisyUI مع الثيمات التي نريدها
+  * نجعل corporate هو الافتراضي
+  */
+@plugin "daisyui" {
+  themes: corporate --default, business;
+}
+
+/* تخصيصات إضافية للثيم الداكن (business) */
+@layer base {
+  [data-theme="business"] body {
+    @apply text-gray-100;
+  }
+
+  [data-theme="business"] h1,
+  [data-theme="business"] h2,
+  [data-theme="business"] h3,
+  [data-theme="business"] th {
+    @apply text-white;
+  }
+}
