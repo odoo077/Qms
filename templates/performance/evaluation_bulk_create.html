@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+
+{% block title %}Bulk Evaluations{% endblock %}
+{% block page_title %}Evaluations{% endblock %}
+{% block header_title %}Bulk Evaluation Creation{% endblock %}
+{% block header_subtitle %}
+  Create evaluations for multiple employees at once, for the same period and type/template.
+{% endblock %}
+
+{% block page_actions %}
+  <a href="{% url 'performance:evaluation_list' %}" class="btn btn-sm">
+    Back to Evaluations
+  </a>
+{% endblock %}
+
+{% block content %}
+<div class="card bg-base-100 shadow">
+  <div class="card-body space-y-6">
+
+    {# تنبيه توضيحي #}
+    <div class="alert alert-info text-sm">
+      <span>
+        This tool will create one evaluation per selected employee for the chosen period.
+        Existing evaluations for the same employee and period will be skipped automatically.
+      </span>
+    </div>
+
+    {% if form.non_field_errors %}
+      <div class="alert alert-error text-sm">
+        <ul class="list-disc list-inside">
+          {% for error in form.non_field_errors %}
+            <li>{{ error }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% endif %}
+
+    <form method="post" novalidate>
+      {% csrf_token %}
+
+      {# القسم 1: إعدادات عامة #}
+      <div class="space-y-4">
+        <h2 class="text-sm font-semibold tracking-wide uppercase opacity-70">
+          Evaluation Settings
+        </h2>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {# Company #}
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text">Company</span>
+            </label>
+            {{ form.company }}
+            {% for error in form.company.errors %}
+              <p class="text-error text-xs mt-1">{{ error }}</p>
+            {% endfor %}
+          </div>
+
+          {# Evaluation Type #}
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text">Evaluation Type (optional)</span>
+            </label>
+            {{ form.evaluation_type }}
+            <label class="label">
+              <span class="label-text-alt text-xs opacity-70">
+                If left empty, evaluations will be created without a specific type.
+              </span>
+            </label>
+            {% for error in form.evaluation_type.errors %}
+              <p class="text-error text-xs mt-1">{{ error }}</p>
+            {% endfor %}
+          </div>
+
+          {# Template #}
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text">Template (optional)</span>
+            </label>
+            {{ form.template }}
+            <label class="label">
+              <span class="label-text-alt text-xs opacity-70">
+                If left empty, you can assign templates later per evaluation.
+              </span>
+            </label>
+            {% for error in form.template.errors %}
+              <p class="text-error text-xs mt-1">{{ error }}</p>
+            {% endfor %}
+          </div>
+
+          {# Dates #}
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text">Start Date</span>
+              </label>
+              {{ form.date_start }}
+              {% for error in form.date_start.errors %}
+                <p class="text-error text-xs mt-1">{{ error }}</p>
+              {% endfor %}
+            </div>
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text">End Date</span>
+              </label>
+              {{ form.date_end }}
+              {% for error in form.date_end.errors %}
+                <p class="text-error text-xs mt-1">{{ error }}</p>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {# القسم 2: اختيار الموظفين #}
+      <div class="space-y-4 mt-6">
+        <h2 class="text-sm font-semibold tracking-wide uppercase opacity-70">
+          Employees Selection
+        </h2>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text">Employees</span>
+            </label>
+            {{ form.employees }}
+            <label class="label">
+              <span class="label-text-alt text-xs opacity-70">
+                Hold <kbd class="kbd kbd-xs">Ctrl</kbd> (or <kbd class="kbd kbd-xs">Cmd</kbd> on Mac) to select multiple employees.
+              </span>
+            </label>
+            {% for error in form.employees.errors %}
+              <p class="text-error text-xs mt-1">{{ error }}</p>
+            {% endfor %}
+          </div>
+
+          <div class="text-xs opacity-80 space-y-2">
+            <p>
+              Best practice is to create evaluations per team or department for a fixed period
+              (e.g. monthly, quarterly, or annual cycles). Make sure:
+            </p>
+            <ul class="list-disc list-inside space-y-1">
+              <li>All selected employees belong to the same company.</li>
+              <li>The period does not overlap with existing evaluations, unless you intend to.</li>
+              <li>You coordinate with HR policy regarding evaluation frequency.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-8 flex items-center justify-between">
+        <p class="text-xs opacity-70">
+          Existing evaluations for the same employee and period will not be duplicated.
+        </p>
+        <button type="submit" class="btn btn-primary">
+          Create Evaluations
+        </button>
+      </div>
+
+    </form>
+
+  </div>
+</div>
+{% endblock %}

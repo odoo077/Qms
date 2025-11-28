@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+
+{% block title %}My Evaluations{% endblock %}
+{% block page_title %}My Evaluations{% endblock %}
+{% block header_title %}My Performance Evaluations{% endblock %}
+{% block header_subtitle %}
+  View your own performance evaluations and their status.
+{% endblock %}
+
+{% block page_actions %}
+  <a href="{% url 'performance:evaluation_list' %}" class="btn btn-sm">
+    All Evaluations (HR/Managers)
+  </a>
+{% endblock %}
+
+{% block content %}
+<div class="card bg-base-100 shadow">
+  <div class="card-body space-y-4">
+
+    <div class="alert alert-info text-xs">
+      <span>
+        This page shows only evaluations where you are the evaluated employee.
+      </span>
+    </div>
+
+    <div class="overflow-x-auto">
+      <table class="table table-zebra w-full text-sm">
+        <thead>
+          <tr>
+            <th>Evaluation</th>
+            <th>Company</th>
+            <th>Type</th>
+            <th>Period</th>
+            <th>Template</th>
+            <th class="text-center">Score</th>
+            <th class="text-center">State</th>
+            <th class="text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for obj in object_list %}
+          <tr>
+            <td>
+              <div class="flex flex-col">
+                <span class="font-semibold">
+                  {{ obj.display_name|default:obj }}
+                </span>
+                <span class="text-xs opacity-70">
+                  #{{ obj.id }}
+                </span>
+              </div>
+            </td>
+
+            <td>{{ obj.company }}</td>
+
+            <td>
+              {% if obj.evaluation_type %}
+                <span class="badge badge-outline badge-sm">
+                  {{ obj.evaluation_type.name }}
+                </span>
+              {% else %}
+                <span class="text-xs opacity-60">—</span>
+              {% endif %}
+            </td>
+
+            <td>
+              {{ obj.date_start }} → {{ obj.date_end }}
+            </td>
+
+            <td>
+              {% if obj.template %}
+                <span>{{ obj.template }}</span>
+              {% else %}
+                <span class="text-xs opacity-60">—</span>
+              {% endif %}
+            </td>
+
+            <td class="text-center">
+              {% if obj.final_score_pct %}
+                <span class="font-semibold">
+                  {{ obj.final_score_pct }}%
+                </span>
+              {% else %}
+                <span class="text-xs opacity-60">—</span>
+              {% endif %}
+            </td>
+
+            <td class="text-center">
+              {% if obj.state == "draft" %}
+                <span class="badge badge-ghost badge-sm">Draft</span>
+              {% elif obj.state == "submitted" or obj.state == "in_progress" %}
+                <span class="badge badge-info badge-sm">In Review</span>
+              {% elif obj.state == "calibrated" %}
+                <span class="badge badge-warning badge-sm">Calibrated</span>
+              {% elif obj.state == "approved" %}
+                <span class="badge badge-success badge-sm">Approved</span>
+              {% elif obj.state == "locked" %}
+                <span class="badge badge-neutral badge-sm">Locked</span>
+              {% else %}
+                <span class="badge badge-ghost badge-sm">{{ obj.state }}</span>
+              {% endif %}
+            </td>
+
+            <td class="text-right">
+              <a href="{% url 'performance:evaluation_detail' obj.id %}"
+                 class="btn btn-ghost btn-xs">
+                View Details
+              </a>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="8" class="text-center opacity-70 py-6">
+              No evaluations available for you yet.
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% include "partials/paginator.html" %}
+
+  </div>
+</div>
+{% endblock %}

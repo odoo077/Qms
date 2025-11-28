@@ -143,10 +143,15 @@ AUTHENTICATION_BACKENDS = (
 
 
 # Auth redirects
-# إذا حاول فتح أي رابط مباشر بدون تسجيل الدخول → يتحول تلقائيًا لصفحة تسجيل الدخول.
-LOGIN_URL = "users/login/"
-LOGIN_REDIRECT_URL = "/"        # بعد تسجيل الدخول نرجّعك للـ Home
-LOGOUT_REDIRECT_URL = "users/login/"
+# إذا حاول المستخدم فتح صفحة تتطلب تسجيل دخول → يُحوَّل تلقائياً إلى صفحة تسجيل الدخول
+LOGIN_URL = "base:login"
+
+# بعد نجاح تسجيل الدخول → نعيده إلى الصفحة الرئيسية لنظام إدارة الموظفين
+LOGIN_REDIRECT_URL = "base:home"
+
+# بعد تسجيل الخروج → نعيده مرة أخرى إلى صفحة تسجيل الدخول
+LOGOUT_REDIRECT_URL = "base:login"
+
 
 # -------------------------------------------------
 # Password validation
@@ -185,7 +190,7 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # Tailwind
 # -------------------------------------------------
 TAILWIND_APP_NAME = "theme"
-# NPM_BIN_PATH = r"C:\Program Files\nodejs\npm.cmd"
+NPM_BIN_PATH = r"C:\Program Files\nodejs\npm.cmd"
 
 # -------------------------------------------------
 # Dev helpers

@@ -1,27 +1,74 @@
 {# templates/assets/assignment_form.html #}
 {% extends "base.html" %}
-{% load widget_tweaks %}
-{% block title %}{{ object.pk|yesno:"Edit Assignment,New Assignment" }}{% endblock %}
-{% block page_title %}Asset Assignments{% endblock %}
+{% load assets_access %}
+
+{% block title %}Assignment Form{% endblock %}
+{% block page_title %}Assignment{% endblock %}
+{% block header_title %}Assignment{% endblock %}
+{% block header_subtitle %}
+  {% if object %}Edit Assignment{% else %}Create New Assignment{% endif %}
+{% endblock %}
+
+{% block page_actions %}
+  <a href="{% url 'assets:assignment_list' %}" class="btn btn-sm">Back</a>
+
+  {% if object %}
+      {% can_delete_assignment user object as can_del %}
+      {% if can_del %}
+          <a href="{% url 'assets:assignment_delete' object.id %}"
+             class="btn btn-error btn-sm">Delete</a>
+      {% endif %}
+  {% endif %}
+{% endblock %}
+
 {% block content %}
-<div class="px-4 py-6">
-  <form method="post" class="grid gap-4 md:grid-cols-2">
-    {% csrf_token %}
-    <div class="card bg-base-100 border border-base-300 md:col-span-2">
-      <div class="card-body grid gap-4 md:grid-cols-2">
-        <div><label class="label-text">Asset</label>{{ form.asset|add_class:"select select-bordered w-full" }}</div>
-        <div><label class="label-text">Employee</label>{{ form.employee|add_class:"select select-bordered w-full" }}</div>
-        <div><label class="label-text">Company</label>{{ form.company|add_class:"select select-bordered w-full" }}</div>
-        <div><label class="label-text">From</label>{{ form.date_from|add_class:"input input-bordered w-full" }}</div>
-        <div><label class="label-text">To</label>{{ form.date_to|add_class:"input input-bordered w-full" }}</div>
-        <div class="md:col-span-2"><label class="label-text">Note</label>{{ form.note|add_class:"input input-bordered w-full" }}</div>
-        <div class="flex items-center gap-2"><span>Active</span>{{ form.active|add_class:"toggle toggle-primary" }}</div>
+<div class="card bg-base-100 shadow">
+  <div class="card-body">
+
+    <form method="post" enctype="multipart/form-data" class="space-y-6">
+      {% csrf_token %}
+
+      {% if form.non_field_errors %}
+        <div class="alert alert-error text-sm">
+          {{ form.non_field_errors }}
+        </div>
+      {% endif %}
+
+      {% for hidden in form.hidden_fields %}
+        {{ hidden }}
+      {% endfor %}
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {% for field in form.visible_fields %}
+          <div>
+            <label class="label">
+              <span class="label-text font-semibold">
+                {{ field.label }}
+                {% if field.field.required %}<span class="text-error">*</span>{% endif %}
+              </span>
+            </label>
+
+            {{ field }}
+
+            {% if field.help_text %}
+              <p class="text-xs opacity-70 mt-1">{{ field.help_text }}</p>
+            {% endif %}
+
+            {% for error in field.errors %}
+              <p class="text-error text-xs mt-1">{{ error }}</p>
+            {% endfor %}
+          </div>
+        {% endfor %}
       </div>
-    </div>
-    <div class="md:col-span-2 flex gap-2">
-      <button class="btn btn-primary">Save</button>
-      <a href="{% url 'assets:assignment_list' %}" class="btn btn-ghost">Cancel</a>
-    </div>
-  </form>
+
+      <div class="mt-6">
+        <button type="submit" class="btn btn-primary">
+          {% if object %}Save Changes{% else %}Create Assignment{% endif %}
+        </button>
+      </div>
+
+    </form>
+
+  </div>
 </div>
 {% endblock %}

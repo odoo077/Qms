@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% load skills_permissions %}
+
+{% block title %}Resume Line Type Form{% endblock %}
+{% block page_title %}Resume Line Type{% endblock %}
+{% block header_title %}Resume Line Type{% endblock %}
+{% block header_subtitle %}
+  {% if object %}Edit Resume Line Type{% else %}Create New Resume Line Type{% endif %}
+{% endblock %}
+
+{% block page_actions %}
+  <a href="{% url 'skills:resumelinetype_list' %}" class="btn btn-sm">Back</a>
+
+  {% if object %}
+      {% can_delete_resumelinetype user object as can_del %}
+      {% if can_del %}
+          <a href="{% url 'skills:resumelinetype_delete' object.id %}"
+             class="btn btn-error btn-sm">
+            Delete
+          </a>
+      {% endif %}
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="card bg-base-100 shadow">
+  <div class="card-body">
+
+    <form method="post" class="space-y-6">
+      {% csrf_token %}
+
+      {% if form.non_field_errors %}
+        <div class="alert alert-error text-sm">
+          {{ form.non_field_errors }}
+        </div>
+      {% endif %}
+
+      {% for hidden in form.hidden_fields %}
+        {{ hidden }}
+      {% endfor %}
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {% for field in form.visible_fields %}
+          <div>
+            <label class="label">
+              <span class="label-text font-semibold">
+                {{ field.label }}
+                {% if field.field.required %}<span class="text-error">*</span>{% endif %}
+              </span>
+            </label>
+
+            {{ field }}
+
+            {% if field.help_text %}
+              <p class="text-xs opacity-70 mt-1">{{ field.help_text }}</p>
+            {% endif %}
+
+            {% for error in field.errors %}
+              <p class="text-error text-xs mt-1">{{ error }}</p>
+            {% endfor %}
+          </div>
+        {% endfor %}
+      </div>
+
+      <div class="mt-6">
+        <button type="submit" class="btn btn-primary">
+          {% if object %}Save Changes{% else %}Create Resume Line Type{% endif %}
+        </button>
+      </div>
+
+    </form>
+
+  </div>
+</div>
+{% endblock %}

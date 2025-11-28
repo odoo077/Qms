@@ -1,36 +1,64 @@
 {% extends "base.html" %}
+{% load skills_permissions  %}
+
+{% block title %}Skill Levels{% endblock %}
 {% block page_title %}Skill Levels{% endblock %}
+{% block header_title %}Skill Levels{% endblock %}
+{% block header_subtitle %}Manage all skill levels{% endblock %}
+
 {% block page_actions %}
-  {% if can_add_skilllevel %}
-    <a href="{% url 'skills:skilllevel_create' %}" class="btn btn-primary btn-sm">+ New Skill Level</a>
+  {% can_add_skilllevel user as can_add %}
+  {% if can_add %}
+    <a href="{% url 'skills:skilllevel_create' %}" class="btn btn-primary btn-sm">
+      New Skill Level
+    </a>
   {% endif %}
 {% endblock %}
 
-{% block title %}Skill Levels{% endblock %}
 {% block content %}
-<div class="px-4 py-6">
-  {% include "base/includes/search_panel.html" %}
-  {% if object_list %}
-  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-    {% for sl in object_list %}
-    <div class="card bg-base-100 border border-base-300">
-      <div class="card-body p-4">
-        <h3 class="font-semibold text-lg">{{ sl.name }}</h3>
-        <p class="text-sm text-base-content/70">{{ sl.skill_type }}</p>
-        <div class="stat-desc">Progress: {{ sl.level_progress }}%</div>
-        {% if can_add_skilllevel %}
-        <div class="card-actions mt-4">
-          <a href="{% url 'skills:skilllevel_edit' sl.pk %}" class="btn btn-sm btn-outline">Edit</a>
-        </div>
-        {% endif %}
-      </div>
-    </div>
-    {% endfor %}
+<div class="card bg-base-100 shadow">
+  <div class="card-body">
+
+    <table class="table table-zebra w-full text-sm">
+      <thead>
+        <tr>
+          <th>Skill Type</th>
+          <th>Name</th>
+          <th>Progress</th>
+          <th class="text-right">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for obj in object_list %}
+        <tr>
+          <td>{{ obj.skill_type.name }}</td>
+          <td>{{ obj.name }}</td>
+          <td>{{ obj.level_progress }}</td>
+
+          <td class="text-right space-x-2">
+            {% can_edit_skilllevel user obj as can_edit %}
+            {% if can_edit %}
+              <a href="{% url 'skills:skilllevel_update' obj.id %}"
+                 class="btn btn-outline btn-xs">Edit</a>
+            {% endif %}
+
+            {% can_delete_skilllevel user obj as can_del %}
+            {% if can_del %}
+              <a href="{% url 'skills:skilllevel_delete' obj.id %}"
+                 class="btn btn-error btn-xs">Delete</a>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="4" class="text-center opacity-70">No records found</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    {% include "partials/paginator.html" %}
+
   </div>
-  {% else %}
-  <div class="rounded-lg border border-dashed border-base-300 p-10 text-center bg-base-100">
-    <p>No Skill Levels found.</p>
-  </div>
-  {% endif %}
 </div>
 {% endblock %}

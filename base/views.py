@@ -1,7 +1,9 @@
+# base/views.py
+
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.db.models import Q
 from django.views import View
-from django.views.generic import TemplateView, FormView, CreateView, DetailView, UpdateView
+from django.views.generic import TemplateView, FormView, CreateView, DetailView, UpdateView, DeleteView
 from django.apps import apps
 from urllib.parse import urljoin
 from django.conf import settings
@@ -9,18 +11,16 @@ from django.contrib import messages
 from django.contrib.auth import login, logout, get_user_model, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import PasswordChangeForm
-from django.shortcuts import render, redirect, get_object_or_404
+from django.shortcuts import render, redirect
 from django.template.loader import render_to_string
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
-from base.forms import CompanySwitchForm, RegisterForm, PartnerForm, LoginForm, ProfileEditForm, UserForm, CompanyForm, \
+from base.forms import RegisterForm, PartnerForm, LoginForm, ProfileEditForm, UserForm, CompanyForm, \
     UserCreateForm
 from base.tokens import account_activation_token
-from .company_context import get_company_id, get_allowed_company_ids
 from .models import Partner, Company
-from django.views.generic import ListView, DetailView, CreateView, UpdateView
 from django.core.exceptions import PermissionDenied
 from django.http import Http404
 from django.views.generic import ListView, DetailView, CreateView, UpdateView
@@ -508,6 +508,56 @@ class BaseScopedUpdateView(CompanyScopeAclMixin, UpdateView):
             if not form.instance.check_acl(self.request.user, "change"):
                 raise PermissionDenied("Access denied.")
         return super().form_valid(form)
+
+
+class BaseScopedDeleteView(CompanyScopeAclMixin, DeleteView):
+    """
+    DeleteView مدمج مع صلاحيات الشركة + ACL
+    - يطبق with_acl("delete") على مستوى الموديل
+    - يقيّد النتائج بالشركات النشطة
+    - يتحقق من ACL على السجل نفسه عبر _enforce_object_scope_or_404
+    """
+    required_acl_perm = "delete"
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        qs = self._apply_acl_on_queryset(qs, perm="delete")
+        qs = self._enforce_company_on_queryset(qs)
+        return qs
+
+    def get_object(self, queryset=None):
+        obj = super().get_object(queryset=queryset)
+        return self._enforce_object_scope_or_404(obj)
+
+
+class ConfirmDeleteMixin:
+    """
+    صفحة تأكيد حذف موحّدة لكل المشروع.
+    """
+    template_name = "partials/confirm_delete.html"
+    object_label_field = "name"   # يمكن تغييره في كل View
+    back_url_name = None          # يجب تحديده في كل View
+    confirm_label = "Yes, delete"
+
+    def get_object_label(self):
+        obj = self.object
+        field = getattr(self, "object_label_field", None)
+        if field and hasattr(obj, field):
+            return getattr(obj, field)
+        return str(obj)
+
+    def get_back_url(self):
+        name = getattr(self, "back_url_name", None)
+        if name:
+            return reverse(name)
+        return None
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["object_label"] = self.get_object_label()
+        ctx["back_url"] = self.get_back_url()
+        ctx["confirm_label"] = self.confirm_label
+        return ctx
 
 
 def _model_has_field(model, name: str) -> bool:

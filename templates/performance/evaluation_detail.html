@@ -1,117 +1,468 @@
-{# templates/performance/evaluation_detail.html #}
 {% extends "base.html" %}
-{% load static %}
+{% load performance_permissions %}
 
-{% block title %}Evaluation — {{ object.name }} · 360 Manager{% endblock %}
-{% block page_title %}Performance Evaluation{% endblock %}
+{% block title %}Evaluation Details{% endblock %}
+{% block page_title %}Evaluation{% endblock %}
+{% block header_title %}Evaluation Details{% endblock %}
+{% block header_subtitle %}
+  View full evaluation information, workflow status, and scoring breakdown.
+{% endblock %}
 
 {% block page_actions %}
-  <a href="{% url 'performance:evaluation_list' %}" class="btn btn-sm btn-ghost">← Back to list</a>
-  {% if object.id in evaluation_change_ids %}
-    <a href="{% url 'performance:evaluation_edit' object.id %}" class="btn btn-sm btn-primary">Edit</a>
+  <a href="{% url 'performance:evaluation_list' %}" class="btn btn-sm">
+    Back
+  </a>
+
+  {% if object %}
+    {% if can_submit %}
+      <a href="{% url 'performance:evaluation_submit' object.id %}"
+         class="btn btn-primary btn-sm">
+        Submit
+      </a>
+    {% endif %}
+
+    {% if can_approve_step %}
+      <a href="{% url 'performance:evaluation_approve_step' object.id %}"
+         class="btn btn-success btn-sm">
+        Approve Step
+      </a>
+    {% endif %}
+
+    {% if can_reject_step %}
+      <a href="{% url 'performance:evaluation_reject_step' object.id %}"
+         class="btn btn-warning btn-sm">
+        Reject / Send Back
+      </a>
+    {% endif %}
+
+    {% if can_edit_object %}
+      <a href="{% url 'performance:evaluation_update' object.id %}"
+         class="btn btn-outline btn-sm">
+        Edit
+      </a>
+    {% endif %}
+
+    {% if can_delete_object %}
+      <a href="{% url 'performance:evaluation_delete' object.id %}"
+         class="btn btn-error btn-sm">
+        Delete
+      </a>
+    {% endif %}
   {% endif %}
 {% endblock %}
 
 {% block content %}
-<div class="max-w-6xl mx-auto px-4 py-8 space-y-8">
+<div class="space-y-6">
 
-  <!-- Summary card -->
-  <div class="card bg-base-100 border border-base-300 shadow-xl">
-    <div class="card-body grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      <div>
-        <div class="text-base-content/60">Employee</div>
-        <div class="font-medium">{{ object.employee.name }}</div>
-      </div>
-      <div>
-        <div class="text-base-content/60">Manager</div>
-        <div class="font-medium">{{ object.manager.name|default:"—" }}</div>
-      </div>
-      <div>
-        <div class="text-base-content/60">Template</div>
-        <div class="font-medium">{{ object.template.name|default:"—" }}</div>
-      </div>
-      <div>
-        <div class="text-base-content/60">Period</div>
-        <div class="font-medium">{{ object.period_start|date:"Y-m-d" }} → {{ object.period_end|date:"Y-m-d" }}</div>
-      </div>
-      <div>
-        <div class="text-base-content/60">Status</div>
+  {# ============== Summary Card ============== #}
+  <div class="card bg-base-100 shadow">
+    <div class="card-body space-y-4">
+
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <span class="badge
-            {% if object.state == 'draft' %}badge-ghost
-            {% elif object.state == 'in_progress' %}badge-info
-            {% elif object.state == 'done' %}badge-success
-            {% elif object.state == 'cancelled' %}badge-error
-            {% endif %}">
-            {{ object.get_state_display }}
-          </span>
+          <h2 class="text-lg font-semibold">
+            {{ object.employee }}
+          </h2>
+          <p class="text-sm opacity-70">
+            Evaluation #{{ object.id }}
+            {% if object.evaluation_type %}
+              • {{ object.evaluation_type.name }}
+            {% endif %}
+          </p>
+        </div>
+
+        <div class="flex flex-wrap gap-2 items-center">
+          {% if object.state == "draft" %}
+            <span class="badge badge-ghost">Draft</span>
+          {% elif object.state == "submitted" or object.state == "in_progress" %}
+            <span class="badge badge-info">In Review</span>
+          {% elif object.state == "calibrated" %}
+            <span class="badge badge-warning">Calibrated</span>
+          {% elif object.state == "approved" %}
+            <span class="badge badge-success">Approved</span>
+          {% elif object.state == "locked" %}
+            <span class="badge badge-neutral">Locked</span>
+          {% else %}
+            <span class="badge badge-ghost">{{ object.state }}</span>
+          {% endif %}
+
+          {% if object.active %}
+            <span class="badge badge-outline badge-success">Active</span>
+          {% else %}
+            <span class="badge badge-outline badge-ghost">Inactive</span>
+          {% endif %}
         </div>
       </div>
-      <div>
-        <div class="text-base-content/60">Overall Score</div>
-        {% if object.overall_score %}
-          <div class="text-lg font-bold text-success">{{ object.overall_score|floatformat:1 }}%</div>
-        {% else %}
-          <div class="text-base-content/50">—</div>
-        {% endif %}
+
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
+        <div class="stat bg-base-200 rounded-box">
+          <div class="stat-title text-xs uppercase opacity-70">Period</div>
+          <div class="stat-value text-base">
+            {{ object.date_start }} → {{ object.date_end }}
+          </div>
+          <div class="stat-desc text-xs opacity-70">
+            Evaluation window
+          </div>
+        </div>
+
+        <div class="stat bg-base-200 rounded-box">
+          <div class="stat-title text-xs uppercase opacity-70">Final Score</div>
+          <div class="stat-value text-base">
+            {{ object.final_score_pct }}%
+          </div>
+          <div class="stat-desc text-xs opacity-70">
+            Weighted overall result
+          </div>
+        </div>
+
+        <div class="stat bg-base-200 rounded-box">
+          <div class="stat-title text-xs uppercase opacity-70">Evaluation Type</div>
+          <div class="stat-value text-base">
+            {% if object.evaluation_type %}
+              {{ object.evaluation_type.name }}
+            {% else %}
+              <span class="opacity-60">—</span>
+            {% endif %}
+          </div>
+          <div class="stat-desc text-xs opacity-70">
+            Monthly, quarterly, etc.
+          </div>
+        </div>
+
+        <div class="stat bg-base-200 rounded-box">
+          <div class="stat-title text-xs uppercase opacity-70">Current Approver</div>
+          <div class="stat-value text-base">
+            {% if object.current_approver %}
+              {{ object.current_approver }}
+            {% elif object.state == "approved" or object.state == "locked" %}
+              <span class="opacity-70">Completed</span>
+            {% else %}
+              <span class="opacity-60">—</span>
+            {% endif %}
+          </div>
+          <div class="stat-desc text-xs opacity-70">
+            Step {{ current_step|default:0 }} in workflow
+          </div>
+        </div>
       </div>
+
     </div>
   </div>
 
-  <!-- Parameters and Results -->
-  {% if object.template and object.template.parameters.exists %}
-  <div class="rounded-2xl bg-base-100 ring-1 ring-base-300 shadow-lg p-6">
-    <h3 class="text-lg font-semibold mb-4">Evaluation Parameters</h3>
+  {# ============== Basic Info + Template ============== #}
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-2 space-y-6">
 
-    <div class="overflow-x-auto">
-      <table class="table table-sm table-zebra w-full">
-        <thead>
-          <tr class="bg-base-200">
-            <th>#</th>
-            <th>Parameter</th>
-            <th>Weight</th>
-            <th>Score</th>
-            <th>Comment</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for param in object.template.parameters.all %}
-            {% with result=param.results.filter(evaluation=object).first %}
-            <tr>
-              <td>{{ forloop.counter }}</td>
-              <td>{{ param.name }}</td>
-              <td>{{ param.weight|default:"—" }}</td>
-              <td>
-                {% if result %}
-                  <span class="font-medium text-success">{{ result.score|floatformat:1 }}%</span>
+      <div class="card bg-base-100 shadow">
+        <div class="card-body space-y-4">
+          <h2 class="text-sm font-semibold tracking-wide uppercase opacity-70">
+            Core Information
+          </h2>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <div>
+              <h3 class="font-semibold mb-1">Company</h3>
+              <p>{{ object.company }}</p>
+            </div>
+
+            <div>
+              <h3 class="font-semibold mb-1">Employee</h3>
+              <p>{{ object.employee }}</p>
+            </div>
+
+            <div>
+              <h3 class="font-semibold mb-1">Evaluator</h3>
+              <p>
+                {% if object.evaluator %}
+                  {{ object.evaluator }}
                 {% else %}
-                  <span class="text-base-content/50">—</span>
+                  <span class="opacity-60">—</span>
                 {% endif %}
-              </td>
-              <td>{{ result.comment|default:"—" }}</td>
-            </tr>
-            {% endwith %}
-          {% endfor %}
-        </tbody>
-      </table>
+              </p>
+            </div>
+
+            <div>
+              <h3 class="font-semibold mb-1">Template</h3>
+              <p>
+                {% if object.template %}
+                  {{ object.template }}
+                {% else %}
+                  <span class="opacity-60">—</span>
+                {% endif %}
+              </p>
+            </div>
+
+            <div>
+              <h3 class="font-semibold mb-1">Overall Rating</h3>
+              <p>
+                {% if object.overall_rating %}
+                  {{ object.overall_rating }}
+                {% else %}
+                  <span class="opacity-60">—</span>
+                {% endif %}
+              </p>
+            </div>
+
+            <div>
+              <h3 class="font-semibold mb-1">State</h3>
+              <p>{{ object.state }}</p>
+            </div>
+          </div>
+
+          {% if object.calibration_notes %}
+            <div class="mt-4">
+              <h3 class="font-semibold mb-1">Calibration / Manager Notes</h3>
+              <div class="p-3 rounded-box bg-base-200 text-sm whitespace-pre-line">
+                {{ object.calibration_notes }}
+              </div>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+
+      {# ============== Parameter Results ============== #}
+      <div class="card bg-base-100 shadow">
+        <div class="card-body space-y-4">
+          <h2 class="text-sm font-semibold tracking-wide uppercase opacity-70">
+            Scoring Breakdown
+          </h2>
+
+          <div class="overflow-x-auto">
+            <table class="table table-zebra w-full text-xs md:text-sm">
+              <thead>
+                <tr>
+                  <th>Parameter</th>
+                  <th>Objective / KPI</th>
+                  <th>Source</th>
+                  <th class="text-center">Weight</th>
+                  <th class="text-center">Score %</th>
+                  <th>Raw Value</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for res in object.parameter_results.all %}
+                  {% with p=res.parameter %}
+                  <tr>
+                    <td>
+                      <div class="flex flex-col">
+                        <span class="font-semibold">{{ p.name }}</span>
+                        {% if p.code %}
+                          <span class="text-[11px] opacity-70">Code: {{ p.code }}</span>
+                        {% endif %}
+                      </div>
+                    </td>
+                    <td>
+                      <div class="flex flex-col">
+                        {% if p.objective %}
+                          <span>{{ p.objective }}</span>
+                        {% endif %}
+                        {% if p.kpi %}
+                          <span class="text-[11px] opacity-70">KPI: {{ p.kpi }}</span>
+                        {% endif %}
+                        {% if not p.objective and not p.kpi %}
+                          <span class="opacity-60">—</span>
+                        {% endif %}
+                      </div>
+                    </td>
+                    <td>
+                      <span class="badge badge-ghost badge-sm">
+                        {{ p.get_source_kind_display }}
+                      </span>
+                    </td>
+                    <td class="text-center">
+                      {{ p.weight_pct }}%
+                    </td>
+                    <td class="text-center">
+                      {{ res.score_pct }}%
+                    </td>
+                    <td>
+                      {% if res.raw_value_number %}
+                        {{ res.raw_value_number }}
+                      {% elif res.raw_value_json %}
+                        <span class="text-[11px] opacity-70">
+                          JSON
+                        </span>
+                      {% else %}
+                        <span class="opacity-60">—</span>
+                      {% endif %}
+                    </td>
+                  </tr>
+                  {% endwith %}
+                {% empty %}
+                  <tr>
+                    <td colspan="6" class="text-center opacity-70 py-4">
+                      No parameter results available for this evaluation.
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+
+        </div>
+      </div>
+
     </div>
-  </div>
-  {% endif %}
 
-  <!-- Notes -->
-  {% if object.note %}
-  <div class="rounded-2xl bg-base-100 ring-1 ring-base-300 shadow-md p-6">
-    <h3 class="text-lg font-semibold border-b border-base-300 pb-2 mb-3">Manager Notes</h3>
-    <p class="whitespace-pre-wrap text-sm text-base-content/80">{{ object.note }}</p>
-  </div>
-  {% endif %}
+    {# ============== Workflow & Audit Side Panel ============== #}
+    <div class="space-y-6">
 
-  <!-- Actions -->
-  <div class="flex justify-end gap-3 mt-6">
-    <a href="{% url 'performance:evaluation_list' %}" class="btn btn-ghost">Back</a>
-    {% if object.id in evaluation_change_ids %}
-      <a href="{% url 'performance:evaluation_edit' object.id %}" class="btn btn-primary">Edit</a>
-    {% endif %}
+      {# Workflow Steps #}
+      <div class="card bg-base-100 shadow">
+        <div class="card-body space-y-4">
+          <h2 class="text-sm font-semibold tracking-wide uppercase opacity-70">
+            Approval Workflow
+          </h2>
+
+          {% if workflow_steps %}
+            <div class="overflow-x-auto">
+              <table class="table table-sm w-full">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Step</th>
+                    <th>Approver Type</th>
+                    <th>Configured Approver</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for step in workflow_steps %}
+                    {% with idx=forloop.counter %}
+                    <tr
+                      {% if object.state == "approved" or object.state == "locked" %}
+                        class="bg-base-200"
+                      {% elif idx == current_step %}
+                        class="bg-base-200"
+                      {% endif %}
+                    >
+                      <td>{{ idx }}</td>
+                      <td>{{ step.name }}</td>
+                      <td>
+                        <span class="badge badge-outline badge-xs">
+                          {{ step.get_approver_kind_display }}
+                        </span>
+                      </td>
+                      <td>
+                        {% if step.approver_kind == step.ApproverKind.EMPLOYEE and step.approver_employee %}
+                          {{ step.approver_employee }}
+                        {% elif step.approver_kind == step.ApproverKind.GROUP and step.approver_group %}
+                          Group: {{ step.approver_group.name }}
+                        {% elif step.approver_kind == step.ApproverKind.DIRECT_MANAGER %}
+                          Direct Manager
+                        {% elif step.approver_kind == step.ApproverKind.DEPARTMENT_MANAGER %}
+                          Department Manager
+                        {% elif step.approver_kind == step.ApproverKind.MANAGER_CHAIN %}
+                          Manager chain (level {{ step.manager_level }})
+                        {% else %}
+                          <span class="opacity-60">—</span>
+                        {% endif %}
+                      </td>
+                      <td>
+                        {% if object.state == "approved" or object.state == "locked" %}
+                          <span class="badge badge-success badge-xs">Completed</span>
+                        {% else %}
+                          {% if current_step|default:0 == 0 %}
+                            <span class="badge badge-ghost badge-xs">Pending</span>
+                          {% else %}
+                            {% if idx < current_step %}
+                              <span class="badge badge-success badge-xs">Completed</span>
+                            {% elif idx == current_step and object.state == "in_progress" %}
+                              <span class="badge badge-info badge-xs">Current</span>
+                            {% else %}
+                              <span class="badge badge-ghost badge-xs">Pending</span>
+                            {% endif %}
+                          {% endif %}
+                        {% endif %}
+                      </td>
+                    </tr>
+                    {% endwith %}
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% else %}
+            <p class="text-sm opacity-70">
+              No workflow steps configured for this evaluation type.
+            </p>
+          {% endif %}
+
+          <div class="text-xs opacity-70 mt-2">
+            Workflow is driven by the Evaluation Type and its approval steps.
+          </div>
+        </div>
+      </div>
+
+      {# Audit Info #}
+      <div class="card bg-base-100 shadow">
+        <div class="card-body space-y-4">
+          <h2 class="text-sm font-semibold tracking-wide uppercase opacity-70">
+            Audit & Timeline
+          </h2>
+
+          <div class="space-y-2 text-sm">
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <h3 class="font-semibold mb-1">Created At</h3>
+                <p>{{ object.created_at }}</p>
+              </div>
+              <div>
+                <h3 class="font-semibold mb-1">Updated At</h3>
+                <p>{{ object.updated_at }}</p>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <h3 class="font-semibold mb-1">Submitted</h3>
+                <p>
+                  {% if object.submitted_at %}
+                    {{ object.submitted_at }}{% if object.submitted_by %} – {{ object.submitted_by }}{% endif %}
+                  {% else %}
+                    <span class="opacity-60">Not submitted</span>
+                  {% endif %}
+                </p>
+              </div>
+              <div>
+                <h3 class="font-semibold mb-1">Calibrated</h3>
+                <p>
+                  {% if object.calibrated_at %}
+                    {{ object.calibrated_at }}{% if object.calibrated_by %} – {{ object.calibrated_by }}{% endif %}
+                  {% else %}
+                    <span class="opacity-60">Not calibrated</span>
+                  {% endif %}
+                </p>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <h3 class="font-semibold mb-1">Approved</h3>
+                <p>
+                  {% if object.approved_at %}
+                    {{ object.approved_at }}{% if object.approved_by %} – {{ object.approved_by }}{% endif %}
+                  {% else %}
+                    <span class="opacity-60">Not approved</span>
+                  {% endif %}
+                </p>
+              </div>
+              <div>
+                <h3 class="font-semibold mb-1">Locked</h3>
+                <p>
+                  {% if object.locked_at %}
+                    {{ object.locked_at }}
+                  {% else %}
+                    <span class="opacity-60">Not locked</span>
+                  {% endif %}
+                </p>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
   </div>
 
 </div>

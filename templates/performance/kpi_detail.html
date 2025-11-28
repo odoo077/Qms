@@ -1,74 +1,49 @@
-{# templates/performance/kpi_detail.html #}
 {% extends "base.html" %}
-{% load static %}
+{% load performance_permissions %}
 
-{% block title %}KPI · {{ object.name }}{% endblock %}
-{% block page_title %}KPI Details{% endblock %}
+{% block title %}KPI Details{% endblock %}
+{% block page_title %}KPI{% endblock %}
+{% block header_title %}KPI Details{% endblock %}
+{% block header_subtitle %}View KPI information{% endblock %}
 
-{% block content %}
-<div class="max-w-5xl mx-auto px-4 py-10">
-  <div class="card bg-base-100 border border-base-300 shadow-xl">
-    <div class="card-body space-y-6">
+{% block page_actions %}
+  <a href="{% url 'performance:kpi_list' %}" class="btn btn-sm">Back</a>
 
-      <!-- Header -->
-      <div class="flex items-start justify-between flex-wrap gap-4">
-        <div>
-          <h2 class="text-3xl font-bold">{{ object.name }}</h2>
-          <p class="text-sm text-base-content/70 mt-1">
-            Code: <span class="font-medium">{{ object.code|default:"—" }}</span>
-          </p>
-        </div>
-        <div class="flex gap-2">
-          <a href="{% url 'performance:kpi_list' %}" class="btn btn-sm btn-ghost">Back</a>
-          {% if perms.performance.change_kpi %}
-            <a href="{% url 'performance:kpi_edit' object.id %}" class="btn btn-sm btn-outline">Edit</a>
-          {% endif %}
-        </div>
-      </div>
-
-      <!-- Divider -->
-      <div class="divider my-2"></div>
-
-      <!-- KPI Information -->
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div class="space-y-2">
-          <p><span class="font-semibold">Company:</span> {{ object.company|default:"—" }}</p>
-          <p><span class="font-semibold">Responsible:</span> {{ object.responsible|default:"—" }}</p>
-          <p><span class="font-semibold">Weight:</span> {{ object.weight|default:"0" }}%</p>
-          <p><span class="font-semibold">Target Value:</span> {{ object.target_value|default:"—" }}</p>
-        </div>
-
-        <div class="space-y-2">
-          <p><span class="font-semibold">Status:</span>
-            {% if object.is_active %}
-              <span class="badge badge-success badge-sm">Active</span>
-            {% else %}
-              <span class="badge badge-ghost badge-sm">Inactive</span>
-            {% endif %}
-          </p>
-          <p><span class="font-semibold">Created at:</span> {{ object.created_at|date:"Y-m-d" }}</p>
-          <p><span class="font-semibold">Updated at:</span> {{ object.updated_at|date:"Y-m-d" }}</p>
-        </div>
-      </div>
-
-      <!-- Description -->
-      {% if object.description %}
-      <div class="bg-base-200 rounded-xl p-4 border border-base-300">
-        <h3 class="font-semibold mb-2">Description</h3>
-        <p class="text-sm text-base-content/70 whitespace-pre-line">{{ object.description }}</p>
-      </div>
+  {% if object %}
+      {% can_edit_kpi user object as can_edit %}
+      {% if can_edit %}
+        <a href="{% url 'performance:kpi_update' object.id %}"
+           class="btn btn-outline btn-sm">
+          Edit
+        </a>
       {% endif %}
 
-      <!-- Progress Section -->
-      <div class="bg-base-200 rounded-xl p-4 border border-base-300">
-        <h3 class="font-semibold mb-2">Progress</h3>
-        <div class="flex items-center gap-3">
-          <progress class="progress progress-primary w-full" value="{{ object.progress|default:0 }}" max="100"></progress>
-          <span class="text-sm font-medium">{{ object.progress|default:0 }}%</span>
-        </div>
+      {% can_delete_kpi user object as can_del %}
+      {% if can_del %}
+        <a href="{% url 'performance:kpi_delete' object.id %}"
+           class="btn btn-error btn-sm">
+          Delete
+        </a>
+      {% endif %}
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="card bg-base-100 shadow">
+  <div class="card-body space-y-4">
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div>
+        <h2 class="font-semibold mb-1">Name</h2>
+        <p>{{ object.name }}</p>
       </div>
 
+      <div>
+        <h2 class="font-semibold mb-1">Objective</h2>
+        <p>{{ object.objective }}</p>
+      </div>
     </div>
+
   </div>
 </div>
 {% endblock %}

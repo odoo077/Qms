@@ -1,90 +1,304 @@
-{# templates/performance/evaluation_form.html #}
 {% extends "base.html" %}
-{% load widget_tweaks %}
-{% load static %}
+{% load performance_permissions %}
 
-{% block title %}
-  {% if object.pk %}Edit Evaluation{% else %}New Evaluation{% endif %} · 360 Manager
+{% block title %}Evaluation Form{% endblock %}
+{% block page_title %}Evaluation{% endblock %}
+{% block header_title %}Employee Evaluation{% endblock %}
+{% block header_subtitle %}
+  {% if object %}
+    Edit existing evaluation, adjust period, type, and notes.
+  {% else %}
+    Create a new evaluation for an employee and define its period and type.
+  {% endif %}
 {% endblock %}
-{% block page_title %}
-  {% if object.pk %}Edit Performance Evaluation{% else %}Create Performance Evaluation{% endif %}
+
+{% block page_actions %}
+  <a href="{% url 'performance:evaluation_list' %}" class="btn btn-sm">
+    Back
+  </a>
+
+  {% if object %}
+    {% can_delete_evaluation user object as can_del %}
+    {% if can_del %}
+      <a href="{% url 'performance:evaluation_delete' object.id %}"
+         class="btn btn-error btn-sm">
+        Delete
+      </a>
+    {% endif %}
+  {% endif %}
 {% endblock %}
 
 {% block content %}
-<div class="max-w-5xl mx-auto px-4 py-8">
-  <nav class="text-sm breadcrumbs mb-4">
-    <ul>
-      <li><a href="{% url 'performance:evaluation_list' %}">Evaluations</a></li>
-      <li class="font-semibold">
-        {% if object.pk %}Edit{% else %}Create{% endif %}
-      </li>
-    </ul>
-  </nav>
+<div class="card bg-base-100 shadow">
+  <div class="card-body space-y-6">
 
-  <!-- Main card -->
-  <form method="post" class="card bg-base-100 border border-base-300 shadow-xl">
-    {% csrf_token %}
-    <div class="card-body grid grid-cols-1 md:grid-cols-2 gap-5">
+    {# أخطاء عامة على مستوى الفورم #}
+    {% if form.non_field_errors %}
+      <div class="alert alert-error text-sm">
+        <ul class="list-disc list-inside">
+          {% for error in form.non_field_errors %}
+            <li>{{ error }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% endif %}
 
-      <!-- Left column -->
+    <form method="post" novalidate>
+      {% csrf_token %}
+
+      {# القسم 1: المعلومات الأساسية #}
       <div class="space-y-4">
-        <div class="form-control">
-          <label class="label"><span class="label-text">Company</span></label>
-          {{ form.company|add_class:"select select-bordered w-full" }}
-        </div>
+        <h2 class="text-sm font-semibold tracking-wide uppercase opacity-70">
+          Basic Information
+        </h2>
 
-        <div class="form-control">
-          <label class="label"><span class="label-text">Employee</span></label>
-          {{ form.employee|add_class:"select select-bordered w-full" }}
-        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {# Company #}
+          {% if form.company %}
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text">Company</span>
+            </label>
+            {{ form.company }}
+            {% if form.company.help_text %}
+              <label class="label">
+                <span class="label-text-alt text-xs opacity-70">
+                  {{ form.company.help_text }}
+                </span>
+              </label>
+            {% endif %}
+            {% for error in form.company.errors %}
+              <p class="text-error text-xs mt-1">{{ error }}</p>
+            {% endfor %}
+          </div>
+          {% endif %}
 
-        <div class="form-control">
-          <label class="label"><span class="label-text">Manager</span></label>
-          {{ form.manager|add_class:"select select-bordered w-full" }}
-        </div>
+          {# Employee #}
+          {% if form.employee %}
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text">Employee</span>
+            </label>
+            {{ form.employee }}
+            {% if form.employee.help_text %}
+              <label class="label">
+                <span class="label-text-alt text-xs opacity-70">
+                  {{ form.employee.help_text }}
+                </span>
+              </label>
+            {% endif %}
+            {% for error in form.employee.errors %}
+              <p class="text-error text-xs mt-1">{{ error }}</p>
+            {% endfor %}
+          </div>
+          {% endif %}
 
-        <div class="form-control">
-          <label class="label"><span class="label-text">Template</span></label>
-          {{ form.template|add_class:"select select-bordered w-full" }}
+          {# Evaluator #}
+          {% if form.evaluator %}
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text">Evaluator (Optional)</span>
+            </label>
+            {{ form.evaluator }}
+            {% if form.evaluator.help_text %}
+              <label class="label">
+                <span class="label-text-alt text-xs opacity-70">
+                  {{ form.evaluator.help_text }}
+                </span>
+              </label>
+            {% endif %}
+            {% for error in form.evaluator.errors %}
+              <p class="text-error text-xs mt-1">{{ error }}</p>
+            {% endfor %}
+          </div>
+          {% endif %}
+
+          {# Evaluation Type #}
+          {% if form.evaluation_type %}
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text">Evaluation Type</span>
+            </label>
+            {{ form.evaluation_type }}
+            {% if form.evaluation_type.help_text %}
+              <label class="label">
+                <span class="label-text-alt text-xs opacity-70">
+                  {{ form.evaluation_type.help_text }}
+                </span>
+              </label>
+            {% endif %}
+            {% for error in form.evaluation_type.errors %}
+              <p class="text-error text-xs mt-1">{{ error }}</p>
+            {% endfor %}
+          </div>
+          {% endif %}
         </div>
       </div>
 
-      <!-- Right column -->
-      <div class="space-y-4">
-        <div class="form-control">
-          <label class="label"><span class="label-text">Period Start</span></label>
-          {{ form.period_start|add_class:"input input-bordered w-full" }}
-        </div>
+      {# القسم 2: الفترة والقالب #}
+      <div class="space-y-4 mt-6">
+        <h2 class="text-sm font-semibold tracking-wide uppercase opacity-70">
+          Period & Template
+        </h2>
 
-        <div class="form-control">
-          <label class="label"><span class="label-text">Period End</span></label>
-          {{ form.period_end|add_class:"input input-bordered w-full" }}
-        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {# Date Start #}
+          {% if form.date_start %}
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text">Start Date</span>
+            </label>
+            {{ form.date_start }}
+            {% if form.date_start.help_text %}
+              <label class="label">
+                <span class="label-text-alt text-xs opacity-70">
+                  {{ form.date_start.help_text }}
+                </span>
+              </label>
+            {% endif %}
+            {% for error in form.date_start.errors %}
+              <p class="text-error text-xs mt-1">{{ error }}</p>
+            {% endfor %}
+          </div>
+          {% endif %}
 
-        <div class="form-control">
-          <label class="label"><span class="label-text">Status</span></label>
-          {{ form.state|add_class:"select select-bordered w-full" }}
-        </div>
+          {# Date End #}
+          {% if form.date_end %}
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text">End Date</span>
+            </label>
+            {{ form.date_end }}
+            {% if form.date_end.help_text %}
+              <label class="label">
+                <span class="label-text-alt text-xs opacity-70">
+                  {{ form.date_end.help_text }}
+                </span>
+              </label>
+            {% endif %}
+            {% for error in form.date_end.errors %}
+              <p class="text-error text-xs mt-1">{{ error }}</p>
+            {% endfor %}
+          </div>
+          {% endif %}
 
-        <div class="form-control">
-          <label class="label"><span class="label-text">Overall Score (%)</span></label>
-          {{ form.overall_score|add_class:"input input-bordered w-full" }}
+          {# Template #}
+          {% if form.template %}
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text">Template</span>
+            </label>
+            {{ form.template }}
+            {% if form.template.help_text %}
+              <label class="label">
+                <span class="label-text-alt text-xs opacity-70">
+                  {{ form.template.help_text }}
+                </span>
+              </label>
+            {% endif %}
+            {% for error in form.template.errors %}
+              <p class="text-error text-xs mt-1">{{ error }}</p>
+            {% endfor %}
+          </div>
+          {% endif %}
+
+          {# Active #}
+          {% if form.active %}
+          <div class="form-control">
+            <label class="label cursor-pointer justify-start gap-3">
+              {{ form.active }}
+              <span class="label-text">Active</span>
+            </label>
+            {% for error in form.active.errors %}
+              <p class="text-error text-xs mt-1">{{ error }}</p>
+            {% endfor %}
+          </div>
+          {% endif %}
         </div>
       </div>
 
-      <div class="md:col-span-2 form-control">
-        <label class="label"><span class="label-text">Notes</span></label>
-        {{ form.note|add_class:"textarea textarea-bordered w-full h-32" }}
-      </div>
-    </div>
+      {# القسم 3: التقييم النهائي والملاحظات #}
+      <div class="space-y-4 mt-6">
+        <h2 class="text-sm font-semibold tracking-wide uppercase opacity-70">
+          Rating & Notes
+        </h2>
 
-    <!-- Footer buttons -->
-    <div class="card-footer flex justify-end gap-3 p-5 border-t border-base-300 bg-base-200/40">
-      <a href="{% url 'performance:evaluation_list' %}" class="btn btn-ghost">Cancel</a>
-      <button type="submit" class="btn btn-primary">
-        {% if object.pk %}Save Changes{% else %}Create Evaluation{% endif %}
-      </button>
-    </div>
-  </form>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {# Overall Rating #}
+          {% if form.overall_rating %}
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text">Overall Rating</span>
+            </label>
+            {{ form.overall_rating }}
+            {% if form.overall_rating.help_text %}
+              <label class="label">
+                <span class="label-text-alt text-xs opacity-70">
+                  {{ form.overall_rating.help_text }}
+                </span>
+              </label>
+            {% endif %}
+            {% for error in form.overall_rating.errors %}
+              <p class="text-error text-xs mt-1">{{ error }}</p>
+            {% endfor %}
+          </div>
+          {% endif %}
+        </div>
+
+        {# Calibration Notes #}
+        {% if form.calibration_notes %}
+        <div class="form-control">
+          <label class="label">
+            <span class="label-text">Calibration / Manager Notes</span>
+          </label>
+          {{ form.calibration_notes }}
+          {% if form.calibration_notes.help_text %}
+            <label class="label">
+              <span class="label-text-alt text-xs opacity-70">
+                {{ form.calibration_notes.help_text }}
+              </span>
+            </label>
+          {% endif %}
+          {% for error in form.calibration_notes.errors %}
+            <p class="text-error text-xs mt-1">{{ error }}</p>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+
+      {# القسم 4: أي حقول أخرى لم نذكرها (للمستقبل) #}
+      {% for field in form %}
+        {% if field.name not in "company employee evaluator evaluation_type date_start date_end template active overall_rating calibration_notes" %}
+          <div class="form-control mt-4">
+            <label class="label">
+              <span class="label-text">{{ field.label }}</span>
+            </label>
+            {{ field }}
+            {% if field.help_text %}
+              <label class="label">
+                <span class="label-text-alt text-xs opacity-70">
+                  {{ field.help_text }}
+                </span>
+              </label>
+            {% endif %}
+            {% for error in field.errors %}
+              <p class="text-error text-xs mt-1">{{ error }}</p>
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endfor %}
+
+      <div class="mt-8 flex items-center justify-between">
+        <p class="text-xs opacity-70">
+          Fields may change based on selected company and evaluation type.
+        </p>
+        <button type="submit" class="btn btn-primary">
+          {% if object %}Save Changes{% else %}Create Evaluation{% endif %}
+        </button>
+      </div>
+
+    </form>
+
+  </div>
 </div>
 {% endblock %}

@@ -1,21 +1,50 @@
-{# templates/assets/category_detail.html #}
 {% extends "base.html" %}
-{% block title %}Category · {{ object.name }}{% endblock %}
+{% load assets_access %}
+
+{% block title %}Category Details{% endblock %}
+{% block page_title %}Category Details{% endblock %}
+{% block header_title %}Category Details{% endblock %}
+{% block header_subtitle %}View complete information about this category{% endblock %}
+
+{% block page_actions %}
+  <a href="{% url 'assets:category_list' %}" class="btn btn-sm">Back</a>
+
+  {% if can_edit_object %}
+    <a href="{% url 'assets:category_edit' object.pk %}"
+       class="btn btn-primary btn-sm">Edit</a>
+  {% endif %}
+
+  {% if can_delete_object %}
+    <a href="{% url 'assets:category_delete' object.pk %}"
+       class="btn btn-error btn-sm">Delete</a>
+  {% endif %}
+{% endblock %}
+
 {% block content %}
-<div class="px-4 py-6">
-  <div class="mb-4 flex items-center justify-between">
-    <h1 class="text-2xl font-bold">{{ object.name }}</h1>
-    <div class="flex gap-2">
-      <a class="btn btn-outline btn-sm" href="{% url 'assets:category_edit' object.pk %}">Edit</a>
-      <a class="btn btn-sm" href="{% url 'assets:category_list' %}">Back</a>
+<div class="card bg-base-100 shadow">
+  <div class="card-body grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+
+    <div class="opacity-70">Name</div>
+    <div>{{ object.name|default:"—" }}</div>
+
+    <div class="opacity-70">Company</div>
+    <div>{{ object.company|default:"—" }}</div>
+
+    <div class="opacity-70">Parent</div>
+    <div>{{ object.parent|default:"—" }}</div>
+
+    <div class="opacity-70">Parent Path</div>
+    <div>{{ object.parent_path|default:"—" }}</div>
+
+    <div class="opacity-70">Active</div>
+    <div>
+      {% if object.active %}
+        <span class="badge badge-success badge-sm">Active</span>
+      {% else %}
+        <span class="badge badge-ghost badge-sm">Archived</span>
+      {% endif %}
     </div>
-  </div>
-  <div class="card bg-base-100 border border-base-300">
-    <div class="card-body grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-      <div><div class="text-base-content/60">Company</div><div class="font-medium">{{ object.company|default:"—" }}</div></div>
-      <div><div class="text-base-content/60">Parent</div><div class="font-medium">{{ object.parent|default:"—" }}</div></div>
-      <div><div class="text-base-content/60">Active</div><div class="font-medium">{{ object.active|yesno:"Yes,No" }}</div></div>
-    </div>
+
   </div>
 </div>
 {% endblock %}

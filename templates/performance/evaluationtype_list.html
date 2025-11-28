@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+
+{% block title %}Evaluation Types{% endblock %}
+{% block page_title %}Performance{% endblock %}
+{% block header_title %}Evaluation Types{% endblock %}
+{% block header_subtitle %}
+  Configure the different evaluation types used across your organization.
+{% endblock %}
+
+{% block page_actions %}
+  {% if perms.performance.add_evaluationtype %}
+    <a href="{% url 'performance:evaluation_type_create' %}" class="btn btn-primary btn-sm">
+      New Evaluation Type
+    </a>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="card bg-base-100 shadow">
+  <div class="card-body space-y-4">
+
+    <div class="flex flex-wrap items-center justify-between gap-4 text-sm">
+      <div class="space-x-2">
+        <span class="font-semibold">Usage:</span>
+        <span class="badge badge-outline badge-sm">Configuration</span>
+        <span class="badge badge-ghost badge-sm">HR / System Admin</span>
+      </div>
+    </div>
+
+    <div class="overflow-x-auto">
+      <table class="table table-zebra w-full text-sm">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Company</th>
+            <th>Code</th>
+            <th class="text-center">Active</th>
+            <th class="text-center">Sequence</th>
+            <th class="text-center">Steps</th>
+            <th class="text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for obj in object_list %}
+          <tr>
+            <td class="font-semibold">
+              <a href="{% url 'performance:evaluation_type_detail' obj.id %}"
+                 class="link link-hover">
+                {{ obj.name }}
+              </a>
+            </td>
+            <td>{{ obj.company }}</td>
+            <td>
+              {% if obj.code %}
+                <span class="font-mono text-xs">{{ obj.code }}</span>
+              {% else %}
+                <span class="text-xs opacity-60">—</span>
+              {% endif %}
+            </td>
+            <td class="text-center">
+              {% if obj.active %}
+                <span class="badge badge-success badge-sm">Active</span>
+              {% else %}
+                <span class="badge badge-ghost badge-sm">Inactive</span>
+              {% endif %}
+            </td>
+            <td class="text-center">
+              {{ obj.sequence|default:"—" }}
+            </td>
+            <td class="text-center">
+              {{ obj.approval_steps.count }}
+            </td>
+            <td class="text-right space-x-1">
+              <a href="{% url 'performance:evaluation_type_detail' obj.id %}"
+                 class="btn btn-ghost btn-xs">
+                View
+              </a>
+
+              {% if perms.performance.change_evaluationtype %}
+                <a href="{% url 'performance:evaluation_type_update' obj.id %}"
+                   class="btn btn-outline btn-xs">
+                  Edit
+                </a>
+              {% endif %}
+
+              {% if perms.performance.delete_evaluationtype %}
+                <a href="{% url 'performance:evaluation_type_delete' obj.id %}"
+                   class="btn btn-error btn-xs">
+                  Delete
+                </a>
+              {% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="7" class="text-center opacity-70 py-6">
+              No evaluation types defined yet.
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% include "partials/paginator.html" %}
+
+  </div>
+</div>
+{% endblock %}

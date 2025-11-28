@@ -1,41 +1,49 @@
 {% extends "base.html" %}
-{% block title %}Task · {{ object.name }}{% endblock %}
-{% block page_title %}Task Detail{% endblock %}
+{% load performance_permissions %}
+
+{% block title %}Task Details{% endblock %}
+{% block page_title %}Task{% endblock %}
+{% block header_title %}Task Details{% endblock %}
+{% block header_subtitle %}View task information{% endblock %}
+
+{% block page_actions %}
+  <a href="{% url 'performance:task_list' %}" class="btn btn-sm">Back</a>
+
+  {% if object %}
+      {% can_edit_task user object as can_edit %}
+      {% if can_edit %}
+        <a href="{% url 'performance:task_update' object.id %}"
+           class="btn btn-outline btn-sm">
+          Edit
+        </a>
+      {% endif %}
+
+      {% can_delete_task user object as can_del %}
+      {% if can_del %}
+        <a href="{% url 'performance:task_delete' object.id %}"
+           class="btn btn-error btn-sm">
+          Delete
+        </a>
+      {% endif %}
+  {% endif %}
+{% endblock %}
 
 {% block content %}
-<div class="max-w-4xl mx-auto px-4 py-10">
-  <div class="card bg-base-100 border border-base-300 shadow-xl">
-    <div class="card-body space-y-4">
-      <div class="flex items-start justify-between">
-        <h2 class="text-2xl font-bold">{{ object.name }}</h2>
-        {% if can_edit %}
-          <a href="{% url 'performance:task_edit' object.pk %}" class="btn btn-sm btn-outline">Edit</a>
-        {% endif %}
+<div class="card bg-base-100 shadow">
+  <div class="card-body space-y-4">
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div>
+        <h2 class="font-semibold mb-1">Name</h2>
+        <p>{{ object.name }}</p>
       </div>
 
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-        <div>
-          <div class="text-base-content/60">Assignee</div>
-          <div class="font-medium">{{ object.assignee|default:"—" }}</div>
-        </div>
-        <div>
-          <div class="text-base-content/60">Company</div>
-          <div class="font-medium">{{ object.company|default:"—" }}</div>
-        </div>
-        <div>
-          <div class="text-base-content/60">Status</div>
-          <div class="font-medium">{{ object.status|title }}</div>
-        </div>
-        <div>
-          <div class="text-base-content/60">Priority</div>
-          <div class="font-medium">{{ object.priority|title }}</div>
-        </div>
-        <div class="col-span-2">
-          <div class="text-base-content/60">Description</div>
-          <div class="font-medium">{{ object.description|default:"—" }}</div>
-        </div>
+      <div>
+        <h2 class="font-semibold mb-1">KPI</h2>
+        <p>{{ object.kpi }}</p>
       </div>
     </div>
+
   </div>
 </div>
 {% endblock %}

@@ -1,33 +1,121 @@
-{# templates/hr/employee_detail.html #}
 {% extends "base.html" %}
-{% block title %}Employee · {{ object.name }}{% endblock %}
-{% block page_title %}Employees{% endblock %}
+
+{% block title %}{{ employee.display_name }}{% endblock %}
 
 {% block content %}
-<div class="px-4 py-6">
-  <nav class="text-sm breadcrumbs mb-4">
-    <ul><li><a href="{% url 'hr:employee_list' %}">Employees</a></li><li class="font-semibold">{{ object.name }}</li></ul>
-  </nav>
+<div class="max-w-6xl mx-auto p-6">
 
-  <div class="mb-4 flex items-center justify-between">
-    <h1 class="text-2xl font-bold">{{ object.name }}</h1>
-    <div class="flex items-center gap-2">
-      {% if object.id in emp_change_ids %}
-        <a class="btn btn-outline btn-sm" href="{% url 'hr:employee_edit' object.pk %}">Edit</a>
-      {% endif %}
-      <a class="btn btn-sm" href="{% url 'hr:employee_list' %}">Back</a>
+    <!-- BREADCRUMB -->
+    <div class="text-sm breadcrumbs mb-4">
+        <ul>
+            <li><a href="{% url 'hr:employee_list' %}">Employees</a></li>
+            <li>{{ employee.display_name }}</li>
+        </ul>
     </div>
-  </div>
 
-  <div class="card bg-base-100 border border-base-300">
-    <div class="card-body p-5 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-      <div><div class="text-base-content/60">Company</div><div class="font-medium">{{ object.company|default:"—" }}</div></div>
-      <div><div class="text-base-content/60">Department</div><div class="font-medium">{{ object.department|default:"—" }}</div></div>
-      <div><div class="text-base-content/60">Job</div><div class="font-medium">{{ object.job|default:"—" }}</div></div>
-      <div><div class="text-base-content/60">Work Email</div><div class="font-medium">{{ object.work_email|default:"—" }}</div></div>
-      <div><div class="text-base-content/60">Work Phone</div><div class="font-medium">{{ object.work_phone|default:"—" }}</div></div>
-      <div><div class="text-base-content/60">Active</div><div class="font-medium">{{ object.active|yesno:"Yes,No" }}</div></div>
+    <!-- HEADER -->
+    <div class="flex justify-between items-center mb-6">
+        <div>
+            <h1 class="text-3xl font-bold">{{ employee.display_name }}</h1>
+            <p class="opacity-70">{{ employee.job.name }}</p>
+        </div>
+
+        {% if can_edit %}
+        <a href="{{ employee.get_edit_url }}" class="btn btn-primary">
+            Edit Employee
+        </a>
+        {% endif %}
     </div>
-  </div>
+
+    <!-- LAYOUT -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        <!-- LEFT: Profile -->
+        <div class="col-span-1">
+            <div class="card bg-base-100 shadow p-6 space-y-4">
+                <h3 class="text-lg font-semibold mb-3">Profile Information</h3>
+
+                <p><span class="opacity-70">Email: </span> {{ employee.email }}</p>
+                <p><span class="opacity-70">Phone: </span> {{ employee.phone }}</p>
+
+                <p>
+                    <span class="opacity-70">Company:</span>
+                    {{ employee.company.name }}
+                </p>
+
+                <p>
+                    <span class="opacity-70">Department:</span>
+                    {% if employee.department %}
+                        <a class="text-primary" href="{{ employee.department.get_absolute_url }}">
+                            {{ employee.department.complete_name }}
+                        </a>
+                    {% else %}
+                        <span class="opacity-60">None</span>
+                    {% endif %}
+                </p>
+
+                <p>
+                    <span class="opacity-70">Job Title:</span>
+                    {{ employee.job.name }}
+                </p>
+
+                <p>
+                    <span class="opacity-70">Manager:</span>
+                    {% if employee.manager %}
+                        <a href="{{ employee.manager.get_absolute_url }}" class="text-primary">
+                            {{ employee.manager.display_name }}
+                        </a>
+                    {% else %}
+                        <span class="opacity-60">None</span>
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+
+        <!-- RIGHT: Teams & Structure -->
+        <div class="col-span-2 space-y-6">
+
+            <!-- MANAGER CHAIN -->
+            <div class="card bg-base-100 shadow p-6">
+                <h3 class="text-xl font-semibold mb-4">Management Chain</h3>
+
+                {% if manager_chain %}
+                    <ul class="space-y-2">
+                        {% for m in manager_chain %}
+                        <li>
+                            <a class="text-primary font-medium" href="{{ m.get_absolute_url }}">
+                                {{ m.display_name }}
+                            </a>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="opacity-60">No managers above.</p>
+                {% endif %}
+            </div>
+
+            <!-- SUBORDINATES -->
+            <div class="card bg-base-100 shadow p-6">
+                <h3 class="text-xl font-semibold mb-4">Subordinates</h3>
+
+                {% if subordinates %}
+                    <ul class="space-y-2">
+                        {% for sub in subordinates %}
+                        <li>
+                            <a href="{{ sub.get_absolute_url }}" class="text-primary font-medium">
+                                {{ sub.display_name }}
+                            </a>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="opacity-60">No subordinates</p>
+                {% endif %}
+            </div>
+
+        </div>
+
+    </div>
+
 </div>
 {% endblock %}

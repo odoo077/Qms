@@ -1,33 +1,68 @@
 {% extends "base.html" %}
+{% load skills_permissions %}
+
+{% block title %}Skills{% endblock %}
 {% block page_title %}Skills{% endblock %}
+{% block header_title %}Skills{% endblock %}
+{% block header_subtitle %}Manage all skills{% endblock %}
+
 {% block page_actions %}
-  {% if can_add_skill %}
-    <a href="{% url 'skills:skill_create' %}" class="btn btn-primary btn-sm">+ New Skill</a>
+  {% can_add_skill user as can_add %}
+  {% if can_add %}
+    <a href="{% url 'skills:skill_create' %}" class="btn btn-primary btn-sm">
+      New Skill
+    </a>
   {% endif %}
 {% endblock %}
+
 {% block content %}
-<div class="px-4 py-6">
-  {% include "base/includes/search_panel.html" %}
-  {% if object_list %}
-  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-    {% for s in object_list %}
-    <div class="card bg-base-100 border border-base-300 hover:shadow-md transition">
-      <div class="card-body p-4">
-        <h3 class="font-semibold text-lg">{{ s.name }}</h3>
-        <p class="text-sm text-base-content/70">{{ s.skill_type }}</p>
-        {% if can_add_skill %}
-        <div class="card-actions mt-4">
-          <a href="{% url 'skills:skill_edit' s.pk %}" class="btn btn-sm btn-outline">Edit</a>
-        </div>
-        {% endif %}
-      </div>
-    </div>
-    {% endfor %}
+<div class="card bg-base-100 shadow">
+  <div class="card-body">
+
+    <table class="table table-zebra w-full text-sm">
+      <thead>
+        <tr>
+          <th>Skill Type</th>
+          <th>Name</th>
+          <th class="text-right">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for obj in object_list %}
+        <tr>
+          <td>{{ obj.skill_type.name }}</td>
+          <td>{{ obj.name }}</td>
+
+          <td class="text-right space-x-2">
+            {% can_edit_skill user obj as can_edit %}
+            {% if can_edit %}
+              <a href="{% url 'skills:skill_update' obj.id %}"
+                 class="btn btn-outline btn-xs">
+                Edit
+              </a>
+            {% endif %}
+
+            {% can_delete_skill user obj as can_del %}
+            {% if can_del %}
+              <a href="{% url 'skills:skill_delete' obj.id %}"
+                 class="btn btn-error btn-xs">
+                Delete
+              </a>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="3" class="text-center opacity-70">
+            No records found
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    {% include "partials/paginator.html" %}
+
   </div>
-  {% else %}
-  <div class="rounded-lg border border-dashed border-base-300 bg-base-100 p-10 text-center">
-    <p>No Skills found.</p>
-  </div>
-  {% endif %}
 </div>
 {% endblock %}

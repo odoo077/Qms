@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% load skills_permissions %}
+
+{% block title %}Resume Line Types{% endblock %}
+{% block page_title %}Resume Line Types{% endblock %}
+{% block header_title %}Resume Line Types{% endblock %}
+{% block header_subtitle %}Manage all resume line types{% endblock %}
+
+{% block page_actions %}
+  {% can_add_resumelinetype user as can_add %}
+  {% if can_add %}
+    <a href="{% url 'skills:resumelinetype_create' %}" class="btn btn-primary btn-sm">
+      New Resume Line Type
+    </a>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="card bg-base-100 shadow">
+  <div class="card-body">
+
+    <table class="table table-zebra w-full text-sm">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Sequence</th>
+          <th class="text-right">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for obj in object_list %}
+        <tr>
+          <td>{{ obj.name }}</td>
+          <td>{{ obj.sequence }}</td>
+
+          <td class="text-right space-x-2">
+            {% can_edit_resumelinetype user obj as can_edit %}
+            {% if can_edit %}
+              <a href="{% url 'skills:resumelinetype_update' obj.id %}"
+                 class="btn btn-outline btn-xs">
+                Edit
+              </a>
+            {% endif %}
+
+            {% can_delete_resumelinetype user obj as can_del %}
+            {% if can_del %}
+              <a href="{% url 'skills:resumelinetype_delete' obj.id %}"
+                 class="btn btn-error btn-xs">
+                Delete
+              </a>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="3" class="text-center opacity-70">
+            No records found
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    {% include "partials/paginator.html" %}
+
+  </div>
+</div>
+{% endblock %}

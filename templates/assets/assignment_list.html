@@ -1,31 +1,66 @@
 {# templates/assets/assignment_list.html #}
 {% extends "base.html" %}
-{% block page_title %}Asset Assignments{% endblock %}
+{% load assets_access %}
+
+{% block title %}Assignments{% endblock %}
+{% block page_title %}Assignments{% endblock %}
+{% block header_title %}Assignments{% endblock %}
+{% block header_subtitle %}Browse all assignments{% endblock %}
+
 {% block page_actions %}
-  {% if can_add_assignment %}<a href="{% url 'assets:assignment_create' %}" class="btn btn-primary btn-sm">+ New assignment</a>{% endif %}
-{% endblock %}
-{% block title %}Assignments · 360 Manager{% endblock %}
-{% block content %}
-<div class="px-4 py-6">
-  {% include "base/includes/search_panel.html" %}
-  {% if object_list %}
-  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-    {% for r in object_list %}
-    <div class="card bg-base-100 border border-base-300">
-      <div class="card-body p-4">
-        <h3 class="text-lg font-semibold">{{ r.asset.code }} — {{ r.asset.name }}</h3>
-        <p class="text-sm text-base-content/70">{{ r.employee }} • {{ r.company }}</p>
-        <div class="text-xs text-base-content/60">{{ r.date_from|date:"Y-m-d" }} → {{ r.date_to|default:"Open" }}</div>
-        <div class="card-actions mt-4">
-          <a href="{% url 'assets:assignment_detail' r.pk %}" class="btn btn-sm">View</a>
-          {% if r.id in assignment_change_ids %}<a href="{% url 'assets:assignment_edit' r.pk %}" class="btn btn-sm btn-outline">Edit</a>{% endif %}
-        </div>
-      </div>
-    </div>
-    {% endfor %}
-  </div>
-  {% else %}
-    <div class="rounded-lg border border-dashed border-base-300 bg-base-100 p-10 text-center">No assignments.</div>
+  {% if can_add_assignment %}
+    <a href="{% url 'assets:assignment_create' %}" class="btn btn-primary btn-sm">New Assignment</a>
   {% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="card bg-base-100 shadow">
+  <div class="card-body">
+
+    <table class="table table-zebra w-full text-sm">
+      <thead>
+        <tr>
+          <th>Asset</th>
+          <th>Employee</th>
+          <th>From</th>
+          <th>To</th>
+          <th class="text-right">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for obj in object_list %}
+        <tr>
+          <td>
+            <a href="{% url 'assets:asset_detail' obj.asset.id %}" class="link link-primary">
+              {{ obj.asset.name }}
+            </a>
+          </td>
+          <td>{{ obj.employee.name }}</td>
+          <td>{{ obj.date_from|date:"Y-m-d" }}</td>
+          <td>{{ obj.date_to|date:"Y-m-d"|default:"—" }}</td>
+
+          <td class="text-right space-x-2">
+            {% if obj.id in assignment_change_ids %}
+              <a href="{% url 'assets:assignment_edit' obj.id %}"
+                 class="btn btn-outline btn-xs">Edit</a>
+            {% endif %}
+
+            {% can_delete_assignment user obj as can_del %}
+            {% if can_del %}
+              <a href="{% url 'assets:assignment_delete' obj.id %}"
+                 class="btn btn-error btn-xs">Delete</a>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="5" class="text-center opacity-70">No assignments found</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    {% include "partials/paginator.html" %}
+  </div>
 </div>
 {% endblock %}

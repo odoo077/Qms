@@ -6,6 +6,8 @@
 
 from django.db import models
 from django.conf import settings
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 from django.utils.translation import gettext_lazy as _
 from base.acl import AccessControlledMixin, ACLManager
 from base.models import CompanyScopeManager
@@ -70,6 +72,13 @@ class AssetCategory(AccessControlledMixin, models.Model):
 
     def __str__(self):
         return self.name
+
+# Automatically apply ACL to new categories
+@receiver(post_save, sender=AssetCategory)
+def apply_acl_to_category(sender, instance, created, **kwargs):
+    from base.acl_service import apply_default_acl
+    if created:
+        apply_default_acl(instance)
 
 
 # ============================================================

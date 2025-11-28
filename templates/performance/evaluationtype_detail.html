@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+
+{% block title %}Evaluation Type Details{% endblock %}
+{% block page_title %}Performance{% endblock %}
+{% block header_title %}Evaluation Type Details{% endblock %}
+{% block header_subtitle %}
+  View configuration and manage approval workflow steps for this evaluation type.
+{% endblock %}
+
+{% block page_actions %}
+  <a href="{% url 'performance:evaluation_type_list' %}" class="btn btn-sm">
+    Back
+  </a>
+
+  {% if perms.performance.change_evaluationtype %}
+    <a href="{% url 'performance:evaluation_type_update' object.id %}"
+       class="btn btn-outline btn-sm">
+      Edit
+    </a>
+  {% endif %}
+
+  {% if perms.performance.delete_evaluationtype %}
+    <a href="{% url 'performance:evaluation_type_delete' object.id %}"
+       class="btn btn-error btn-sm">
+      Delete
+    </a>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+  <div class="card bg-base-100 shadow">
+    <div class="card-body space-y-4">
+
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <h2 class="text-lg font-semibold">
+            {{ object.name }}
+          </h2>
+          <p class="text-sm opacity-70">
+            {{ object.company }}
+            {% if object.code %} • Code: <span class="font-mono text-xs">{{ object.code }}</span>{% endif %}
+          </p>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2">
+          {% if object.active %}
+            <span class="badge badge-success">Active</span>
+          {% else %}
+            <span class="badge badge-ghost">Inactive</span>
+          {% endif %}
+          <span class="badge badge-outline">Sequence: {{ object.sequence|default:"—" }}</span>
+        </div>
+      </div>
+
+      {% if object.description %}
+        <div class="mt-2">
+          <h3 class="text-sm font-semibold mb-1">Description</h3>
+          <div class="p-3 rounded-box bg-base-200 text-sm whitespace-pre-line">
+            {{ object.description }}
+          </div>
+        </div>
+      {% endif %}
+
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+    <div class="lg:col-span-2">
+      <div class="card bg-base-100 shadow">
+        <div class="card-body space-y-4">
+          <div class="flex items-center justify-between gap-2">
+            <h2 class="text-sm font-semibold tracking-wide uppercase opacity-70">
+              Approval Workflow Steps
+            </h2>
+
+            {% if perms.performance.add_evaluationapprovalstep %}
+              <a href="{% url 'performance:evaluation_step_create' object.id %}"
+                 class="btn btn-primary btn-xs">
+                Add Step
+              </a>
+            {% endif %}
+          </div>
+
+          {% if steps %}
+            <div class="overflow-x-auto">
+              <table class="table table-sm w-full text-xs md:text-sm">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Step</th>
+                    <th>Approver Type</th>
+                    <th>Approver</th>
+                    <th>Active</th>
+                    <th class="text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for step in steps %}
+                  <tr>
+                    <td>{{ step.sequence }}</td>
+                    <td>{{ step.name }}</td>
+                    <td>
+                      <span class="badge badge-outline badge-xs">
+                        {{ step.get_approver_kind_display }}
+                      </span>
+                    </td>
+                    <td>
+                      {% if step.approver_kind == step.ApproverKind.EMPLOYEE and step.approver_employee %}
+                        {{ step.approver_employee }}
+                      {% elif step.approver_kind == step.ApproverKind.GROUP and step.approver_group %}
+                        Group: {{ step.approver_group.name }}
+                      {% elif step.approver_kind == step.ApproverKind.DIRECT_MANAGER %}
+                        Direct Manager
+                      {% elif step.approver_kind == step.ApproverKind.DEPARTMENT_MANAGER %}
+                        Department Manager
+                      {% elif step.approver_kind == step.ApproverKind.MANAGER_CHAIN %}
+                        Manager chain (level {{ step.manager_level }})
+                      {% else %}
+                        <span class="opacity-60">—</span>
+                      {% endif %}
+                    </td>
+                    <td>
+                      {% if step.active %}
+                        <span class="badge badge-success badge-xs">Yes</span>
+                      {% else %}
+                        <span class="badge badge-ghost badge-xs">No</span>
+                      {% endif %}
+                    </td>
+                    <td class="text-right space-x-1">
+                      {% if perms.performance.change_evaluationapprovalstep %}
+                        <a href="{% url 'performance:evaluation_step_update' object.id step.id %}"
+                           class="btn btn-outline btn-xs">
+                          Edit
+                        </a>
+                      {% endif %}
+                      {% if perms.performance.delete_evaluationapprovalstep %}
+                        <a href="{% url 'performance:evaluation_step_delete' object.id step.id %}"
+                           class="btn btn-error btn-xs">
+                          Delete
+                        </a>
+                      {% endif %}
+                    </td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% else %}
+            <p class="text-sm opacity-70">
+              No approval steps configured for this type yet.
+            </p>
+          {% endif %}
+
+          <p class="text-xs opacity-70 mt-2">
+            Workflow steps define who needs to approve each evaluation before it is completed.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="space-y-4">
+      <div class="card bg-base-100 shadow">
+        <div class="card-body space-y-2 text-sm">
+          <h2 class="text-sm font-semibold tracking-wide uppercase opacity-70">
+            Metadata
+          </h2>
+          <div class="grid grid-cols-1 gap-2">
+            <div>
+              <span class="font-semibold">Created at:</span>
+              <div>{{ object.created_at }}</div>
+            </div>
+            <div>
+              <span class="font-semibold">Updated at:</span>
+              <div>{{ object.updated_at }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+{% endblock %}

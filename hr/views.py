@@ -1,230 +1,188 @@
-# hr/views.py
-from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
-from django.db.models import Q
+# file: hr/views.py
+
+from django.core.exceptions import PermissionDenied
 from django.urls import reverse_lazy
-from django.views.generic import DetailView
-from base.views import (
-    BaseScopedListView,
-    BaseScopedCreateView,
-    BaseScopedUpdateView,
-    apply_search_filters, BaseScopedDetailView,
+from django.views.generic import ListView, DetailView, CreateView, UpdateView
+
+from hr.models import Department, Employee, Job, get_root_departments, build_department_tree
+from hr.forms import DepartmentForm, EmployeeForm, JobForm
+from hr.access import (
+    can_view_department,
+    can_edit_department,
+    can_view_employee,
+    can_edit_employee,
 )
-from .models import Department, Job, Employee
-from .forms import DepartmentForm, JobForm, EmployeeForm
 
 
-# ----- Departments -----
-class DepartmentListView(LoginRequiredMixin, BaseScopedListView):
+# ============================================================
+# Departments
+# ============================================================
+
+class DepartmentListView(ListView):
     model = Department
     template_name = "hr/department_list.html"
-    paginate_by = 24
+    context_object_name = "tree"
 
     def get_queryset(self):
-        # الغي فلترة ACL مؤقتًا حتى تظهر الشجرة بالكامل
-        base_qs = Department.objects.all()
-        qs = (Department.objects
-              .filter(pk__in=base_qs.values("pk"))
-              .select_related("company", "parent", "manager")
-              .prefetch_related("children")
-              .order_by("complete_name", "name"))
-
-        qs = apply_search_filters(self.request, qs,
-                                  search_fields=["name", "complete_name", "manager__name", "parent__name"])
-        return qs
+        """Return only the root nodes of the tree."""
+        user = self.request.user
+        roots = get_root_departments(user.company_ids[0])
+        return build_department_tree(roots)
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx["can_add_department"] = self.request.user.has_perm("hr.add_department")
 
-        active_ids = self._active_company_ids()
+        # كل ما يحتاجه التمبلت ليعمل بدون أي أخطاء
+        ctx["tree"] = ctx["tree"]  # شجرة الأقسام
+        ctx["active_id"] = None
+        ctx["editable_ids"] = []   # لاحقًا تضيف صلاحيات التحرير إن أردت
 
-        # أولاً: احصل على الـ IDs من with_acl فقط (بدون filter بعد union)
-        base_acl_ids = Department.acl_objects.with_acl("change").values("pk")
-
-        # ثم ابنِ QuerySet جديد آمن من Manager العادي
-        qs_acl = Department.objects.filter(pk__in=base_acl_ids)
-        if active_ids:
-            qs_acl = qs_acl.filter(company_id__in=active_ids)
-
-        ctx["dept_change_ids"] = set(qs_acl.values_list("id", flat=True))
         return ctx
 
 
-class DepartmentCreateView(LoginRequiredMixin, PermissionRequiredMixin, BaseScopedCreateView):
-    permission_required = "hr.add_department"
-    model = Department
-    form_class = DepartmentForm
-    template_name = "hr/department_form.html"
-    success_url = reverse_lazy("hr:department_list")
-
-
-class DepartmentUpdateView(LoginRequiredMixin, PermissionRequiredMixin, BaseScopedUpdateView):
-    permission_required = "hr.change_department"
-    model = Department
-    form_class = DepartmentForm
-    template_name = "hr/department_form.html"
-    success_url = reverse_lazy("hr:department_list")
-
-
-# ✅ استخدم BaseScopedDetailView بدلاً من DetailView
-class DepartmentDetailView(LoginRequiredMixin, BaseScopedDetailView):
+class DepartmentDetailView(DetailView):
     model = Department
     template_name = "hr/department_detail.html"
+    context_object_name = "department"
 
-    def get_queryset(self):
-        # ✅ super() يطبق ACL + Company scope
-        return (super().get_queryset()
-                .select_related("company", "parent", "manager"))
-
-    def get_context_data(self, **kwargs):
-        ctx = super().get_context_data(**kwargs)
-
-        active_ids = self._active_company_ids()
-        base_acl_ids = Department.acl_objects.with_acl("change").values("pk")
-        qs_acl = Department.objects.filter(pk__in=base_acl_ids)
-        if active_ids:
-            qs_acl = qs_acl.filter(company_id__in=active_ids)
-
-        ctx["dept_change_ids"] = set(qs_acl.values_list("id", flat=True))
-        return ctx
-
-
-# ----- JOBS -----
-
-class JobListView(LoginRequiredMixin, BaseScopedListView):
-    model = Job
-    template_name = "hr/job_list.html"
-    paginate_by = 24
-
-    def get_queryset(self):
-        # ❗ IDs فقط لتجنب UNION → filter()
-        base_qs = super().get_queryset()
-        qs = (Job.objects
-                .filter(pk__in=base_qs.values("pk"))
-                .select_related("company", "department")
-                .order_by("name"))
-        qs = apply_search_filters(self.request, qs,
-                                  search_fields=["name", "department__name"])
-        return qs
+    def dispatch(self, request, *args, **kwargs):
+        dept = self.get_object()
+        if not can_view_department(request.user, dept):
+            raise PermissionDenied
+        return super().dispatch(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx["can_add_job"] = self.request.user.has_perm("hr.add_job")
+        dept = self.object
 
-        active_ids = self._active_company_ids()
-        base_acl_ids = Job.acl_objects.with_acl("change").values("pk")
-        qs_acl = Job.objects.filter(pk__in=base_acl_ids)
-        if active_ids:
-            qs_acl = qs_acl.filter(company_id__in=active_ids)
+        # Children (sub-departments)
+        ctx["children"] = dept.children_list
 
-        ctx["job_change_ids"] = set(qs_acl.values_list("id", flat=True))
+        # Employees inside this department
+        ctx["employees"] = Employee.objects.filter(
+            department_id=dept.id,
+            company_id=dept.company_id
+        ).select_related("job", "manager")
+
+        # Department path (for breadcrumb)
+        ctx["ancestors"] = dept.get_ancestors()
+
         return ctx
 
 
-class JobCreateView(LoginRequiredMixin, PermissionRequiredMixin, BaseScopedCreateView):
-    permission_required = "hr.add_job"
-    model = Job
-    form_class = JobForm
-    template_name = "hr/job_form.html"
-    success_url = reverse_lazy("hr:job_list")
+class DepartmentCreateView(CreateView):
+    model = Department
+    form_class = DepartmentForm
+    template_name = "hr/department_form.html"
+    success_url = reverse_lazy("hr:department_list")
 
 
-class JobUpdateView(LoginRequiredMixin, PermissionRequiredMixin, BaseScopedUpdateView):
-    permission_required = "hr.change_job"
-    model = Job
-    form_class = JobForm
-    template_name = "hr/job_form.html"
-    success_url = reverse_lazy("hr:job_list")
+class DepartmentUpdateView(UpdateView):
+    model = Department
+    form_class = DepartmentForm
+    template_name = "hr/department_form.html"
+    success_url = reverse_lazy("hr:department_list")
+
+    def dispatch(self, request, *args, **kwargs):
+        dept = self.get_object()
+        if not can_edit_department(request.user, dept):
+            raise PermissionDenied
+        return super().dispatch(request, *args, **kwargs)
 
 
-# ✅ DetailView → BaseScopedDetailView
-class JobDetailView(LoginRequiredMixin, BaseScopedDetailView):
-    model = Job
-    template_name = "hr/job_detail.html"
+# ============================================================
+# Employees
+# ============================================================
 
-    def get_queryset(self):
-        return (super().get_queryset()
-                .select_related("company", "department"))
-
-    def get_context_data(self, **kwargs):
-        ctx = super().get_context_data(**kwargs)
-
-        active_ids = self._active_company_ids()
-        base_acl_ids = Job.acl_objects.with_acl("change").values("pk")
-        qs_acl = Job.objects.filter(pk__in=base_acl_ids)
-        if active_ids:
-            qs_acl = qs_acl.filter(company_id__in=active_ids)
-
-        ctx["job_change_ids"] = set(qs_acl.values_list("id", flat=True))
-        return ctx
-
-
-# ----- EMPLOYEES -----
-
-class EmployeeListView(LoginRequiredMixin, BaseScopedListView):
+class EmployeeListView(ListView):
     model = Employee
     template_name = "hr/employee_list.html"
-    paginate_by = 24
+    context_object_name = "employees"
 
     def get_queryset(self):
-        # ❗ IDs فقط لتجنب UNION → filter()
-        base_qs = super().get_queryset()
-        qs = (Employee.objects
-                .filter(pk__in=base_qs.values("pk"))
-                .select_related("company", "department", "job")
-                .order_by("name"))
-        qs = apply_search_filters(self.request, qs,
-                                  search_fields=["name", "department__name", "job__name",
-                                                 "work_email", "work_phone"])
-        return qs
-
-    def get_context_data(self, **kwargs):
-        ctx = super().get_context_data(**kwargs)
-        ctx["can_add_employee"] = self.request.user.has_perm("hr.add_employee")
-
-        active_ids = self._active_company_ids()
-        base_acl_ids = Employee.acl_objects.with_acl("change").values("pk")
-        qs_acl = Employee.objects.filter(pk__in=base_acl_ids)
-        if active_ids:
-            qs_acl = qs_acl.filter(company_id__in=active_ids)
-
-        ctx["emp_change_ids"] = set(qs_acl.values_list("id", flat=True))
-        return ctx
+        user = self.request.user
+        return Employee.objects.filter(
+            company_id__in=user.company_ids
+        ).select_related("department", "job", "manager")
 
 
-class EmployeeCreateView(LoginRequiredMixin, PermissionRequiredMixin, BaseScopedCreateView):
-    permission_required = "hr.add_employee"
-    model = Employee
-    form_class = EmployeeForm
-    template_name = "hr/employee_form.html"
-    success_url = reverse_lazy("hr:employee_list")
-
-
-class EmployeeUpdateView(LoginRequiredMixin, PermissionRequiredMixin, BaseScopedUpdateView):
-    permission_required = "hr.change_employee"
-    model = Employee
-    form_class = EmployeeForm
-    template_name = "hr/employee_form.html"
-    success_url = reverse_lazy("hr:employee_list")
-
-
-# ✅ DetailView → BaseScopedDetailView
-class EmployeeDetailView(LoginRequiredMixin, BaseScopedDetailView):
+class EmployeeDetailView(DetailView):
     model = Employee
     template_name = "hr/employee_detail.html"
+    context_object_name = "employee"
 
-    def get_queryset(self):
-        return (super().get_queryset()
-                .select_related("company", "department", "job"))
+    def dispatch(self, request, *args, **kwargs):
+        emp = self.get_object()
+        if not can_view_employee(request.user, emp):
+            raise PermissionDenied
+        return super().dispatch(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
+        emp = self.object
 
-        active_ids = self._active_company_ids()
-        base_acl_ids = Employee.acl_objects.with_acl("change").values("pk")
-        qs_acl = Employee.objects.filter(pk__in=base_acl_ids)
-        if active_ids:
-            qs_acl = qs_acl.filter(company_id__in=active_ids)
+        # Subordinates (direct)
+        ctx["subordinates"] = emp.subordinates
 
-        ctx["emp_change_ids"] = set(qs_acl.values_list("id", flat=True))
+        # Full chain of managers
+        chain = []
+        current = emp.manager
+        while current:
+            chain.append(current)
+            current = current.manager
+        ctx["manager_chain"] = chain
+
         return ctx
+
+
+class EmployeeCreateView(CreateView):
+    model = Employee
+    form_class = EmployeeForm
+    template_name = "hr/employee_form.html"
+    success_url = reverse_lazy("hr:employee_list")
+
+
+class EmployeeUpdateView(UpdateView):
+    model = Employee
+    form_class = EmployeeForm
+    template_name = "hr/employee_form.html"
+    success_url = reverse_lazy("hr:employee_list")
+
+    def dispatch(self, request, *args, **kwargs):
+        emp = self.get_object()
+        if not can_edit_employee(request.user, emp):
+            raise PermissionDenied
+        return super().dispatch(request, *args, **kwargs)
+
+
+# ============================================================
+# Jobs
+# ============================================================
+
+class JobListView(ListView):
+    model = Job
+    template_name = "hr/job_list.html"
+    context_object_name = "jobs"
+
+    def get_queryset(self):
+        return Job.objects.filter(company_id__in=self.request.user.company_ids)
+
+
+class JobDetailView(DetailView):
+    model = Job
+    template_name = "hr/job_detail.html"
+    context_object_name = "job"
+
+
+class JobCreateView(CreateView):
+    model = Job
+    form_class = JobForm
+    template_name = "hr/job_form.html"
+    success_url = reverse_lazy("hr:job_list")
+
+
+class JobUpdateView(UpdateView):
+    model = Job
+    form_class = JobForm
+    template_name = "hr/job_form.html"
+    success_url = reverse_lazy("hr:job_list")

@@ -1,32 +1,73 @@
-{# templates/assets/category_list.html #}
 {% extends "base.html" %}
-{% block page_title %}Asset Categories{% endblock %}
+{% load assets_access %}
+
+{% block title %}Categories{% endblock %}
+{% block page_title %}Categories{% endblock %}
+{% block header_title %}Asset Categories{% endblock %}
+{% block header_subtitle %}Browse all asset categories{% endblock %}
+
 {% block page_actions %}
   {% if can_add_category %}
-    <a href="{% url 'assets:category_create' %}" class="btn btn-primary btn-sm">+ New category</a>
+    <a href="{% url 'assets:category_create' %}" class="btn btn-primary btn-sm">New Category</a>
   {% endif %}
 {% endblock %}
-{% block title %}Asset Categories · 360 Manager{% endblock %}
+
 {% block content %}
-<div class="px-4 py-6">
-  {% include "base/includes/search_panel.html" %}
-  {% if object_list %}
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      {% for c in object_list %}
-      <div class="card bg-base-100 border border-base-300">
-        <div class="card-body p-4">
-          <h3 class="text-lg font-semibold">{{ c.name }}</h3>
-          <p class="text-sm text-base-content/70">{{ c.company|default:"—" }}{% if c.parent %} • Parent: {{ c.parent.name }}{% endif %}</p>
-          <div class="card-actions mt-4">
-            <a class="btn btn-sm" href="{% url 'assets:category_detail' c.pk %}">View</a>
-            {% if c.id in category_change_ids %}<a class="btn btn-sm btn-outline" href="{% url 'assets:category_edit' c.pk %}">Edit</a>{% endif %}
-          </div>
-        </div>
-      </div>
-      {% endfor %}
-    </div>
-  {% else %}
-    <div class="rounded-lg border border-dashed border-base-300 bg-base-100 p-10 text-center">No categories.</div>
-  {% endif %}
+<div class="card bg-base-100 shadow">
+  <div class="card-body">
+
+    <table class="table table-zebra w-full text-sm">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Parent</th>
+          <th>Company</th>
+          <th>Active</th>
+          <th class="text-right">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for obj in object_list %}
+        <tr>
+          <td>
+            <a href="{% url 'assets:category_detail' obj.id %}" class="link link-primary">
+              {{ obj.name }}
+            </a>
+          </td>
+          <td>{{ obj.parent|default:"—" }}</td>
+          <td>{{ obj.company|default:"—" }}</td>
+          <td>
+            {% if obj.active %}
+              <span class="badge badge-success badge-sm">Active</span>
+            {% else %}
+              <span class="badge badge-ghost badge-sm">Archived</span>
+            {% endif %}
+          </td>
+
+          <td class="text-right space-x-2">
+            {% if obj.id in category_change_ids %}
+              <a href="{% url 'assets:category_edit' obj.id %}"
+                 class="btn btn-outline btn-xs">Edit</a>
+            {% endif %}
+
+            {% can_delete_category user obj as can_del %}
+            {% if can_del %}
+              <a href="{% url 'assets:category_delete' obj.id %}"
+                 class="btn btn-error btn-xs">Delete</a>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="5" class="text-center opacity-70">
+            No categories found
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    {% include "partials/paginator.html" %}
+  </div>
 </div>
 {% endblock %}

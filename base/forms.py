@@ -32,6 +32,29 @@ class RegisterForm(forms.ModelForm):
         model = User
         fields = ["email", "username", "first_name", "last_name"]
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        base_class = "input-auth"
+
+        self.fields["email"].widget.attrs.update({
+            "class": base_class,
+            "placeholder": "you@example.com",
+            "autocomplete": "email",
+        })
+        self.fields["username"].widget.attrs.update({
+            "class": base_class,
+            "placeholder": "your.username",
+            "autocomplete": "username",
+        })
+        self.fields["first_name"].widget.attrs.update({
+            "class": base_class,
+            "placeholder": "John",
+        })
+        self.fields["last_name"].widget.attrs.update({
+            "class": base_class,
+            "placeholder": "Doe",
+        })
+
     def clean_email(self):
         email = (self.cleaned_data.get("email") or "").strip().lower()
         if User.objects.filter(email__iexact=email).exists():
@@ -58,8 +81,26 @@ class RegisterForm(forms.ModelForm):
 
 
 class LoginForm(AuthenticationForm):
-    # AuthenticationForm يستخدم name=username؛ نعرضه كحقل بريد فقط
-    username = forms.EmailField(label="Email", widget=forms.EmailInput(attrs={"autocomplete": "email"}))
+    # نعرض حقل الـ username كبريد إلكتروني
+    username = forms.EmailField(
+        label="Email",
+        widget=forms.EmailInput(attrs={"autocomplete": "email"}),
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        base_class = "input-auth"
+
+        self.fields["username"].widget.attrs.update({
+            "class": base_class,
+            "placeholder": "you@example.com",
+        })
+        self.fields["password"].widget.attrs.update({
+            "class": base_class + " pr-12",
+            "placeholder": "••••••••",
+            "autocomplete": "current-password",
+        })
+
 
 class UserCreateForm(forms.ModelForm):
     password1 = forms.CharField(label="Password", widget=forms.PasswordInput)

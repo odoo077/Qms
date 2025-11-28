@@ -22,4 +22,9 @@ urlpatterns = [
     path("assignments/new/", v.AssetAssignmentCreateView.as_view(), name="assignment_create"),
     path("assignments/<int:pk>/", v.AssetAssignmentDetailView.as_view(), name="assignment_detail"),
     path("assignments/<int:pk>/edit/", v.AssetAssignmentUpdateView.as_view(), name="assignment_edit"),
+
+    path("assets/<int:pk>/delete/", v.AssetDeleteView.as_view(), name="asset_delete"),
+    path("categories/<int:pk>/delete/", v.AssetCategoryDeleteView.as_view(), name="category_delete"),
+    path("assignments/<int:pk>/delete/", v.AssetAssignmentDeleteView.as_view(), name="assignment_delete"),
+
 ]

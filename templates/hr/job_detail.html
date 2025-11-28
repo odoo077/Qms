@@ -1,31 +1,82 @@
-{# templates/hr/job_detail.html #}
 {% extends "base.html" %}
-{% block title %}Job · {{ object.name }}{% endblock %}
-{% block page_title %}Jobs{% endblock %}
+
+{% block title %}Job: {{ job.name }}{% endblock %}
 
 {% block content %}
-<div class="px-4 py-6">
-  <nav class="text-sm breadcrumbs mb-4">
-    <ul><li><a href="{% url 'hr:job_list' %}">Jobs</a></li><li class="font-semibold">{{ object.name }}</li></ul>
-  </nav>
+<div class="max-w-6xl mx-auto p-6">
 
-  <div class="mb-4 flex items-center justify-between">
-    <h1 class="text-2xl font-bold">{{ object.name }}</h1>
-    <div class="flex items-center gap-2">
-      {% if object.id in job_change_ids %}
-        <a class="btn btn-outline btn-sm" href="{% url 'hr:job_edit' object.pk %}">Edit</a>
-      {% endif %}
-      <a class="btn btn-sm" href="{% url 'hr:job_list' %}">Back</a>
+    <!-- BREADCRUMB -->
+    <div class="text-sm breadcrumbs mb-4">
+        <ul>
+            <li><a href="{% url 'hr:job_list' %}">Job Positions</a></li>
+            <li>{{ job.name }}</li>
+        </ul>
     </div>
-  </div>
 
-  <div class="card bg-base-100 border border-base-300">
-    <div class="card-body p-5 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-      <div><div class="text-base-content/60">Company</div><div class="font-medium">{{ object.company|default:"—" }}</div></div>
-      <div><div class="text-base-content/60">Department</div><div class="font-medium">{{ object.department|default:"—" }}</div></div>
-      <div class="md:col-span-2"><div class="text-base-content/60">Description</div><div class="font-medium">{{ object.description|default:"—" }}</div></div>
-      <div><div class="text-base-content/60">Active</div><div class="font-medium">{{ object.active|yesno:"Yes,No" }}</div></div>
+    <!-- HEADER -->
+    <div class="flex justify-between items-center mb-6">
+        <div>
+            <h1 class="text-3xl font-bold">{{ job.name }}</h1>
+            <p class="opacity-70 text-sm">
+                {{ job.department.complete_name }} — {{ job.company.name }}
+            </p>
+        </div>
+
+        <a href="{{ job.get_edit_url }}" class="btn btn-primary">
+            Edit Job
+        </a>
     </div>
-  </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        <!-- INFO CARD -->
+        <div class="col-span-1">
+            <div class="card bg-base-100 shadow p-6 space-y-4">
+                <h3 class="font-semibold text-lg mb-2">Job Information</h3>
+
+                <p>
+                    <span class="opacity-70">Job Title:</span><br>
+                    {{ job.name }}
+                </p>
+
+                <p>
+                    <span class="opacity-70">Department:</span><br>
+                    <a href="{{ job.department.get_absolute_url }}" class="text-primary">
+                        {{ job.department.complete_name }}
+                    </a>
+                </p>
+
+                <p>
+                    <span class="opacity-70">Company:</span><br>
+                    {{ job.company.name }}
+                </p>
+            </div>
+        </div>
+
+        <!-- EMPLOYEES WITH THIS JOB -->
+        <div class="col-span-2">
+            <div class="card bg-base-100 shadow p-6">
+                <h3 class="text-xl font-semibold mb-4">Employees in this Job</h3>
+
+                {% with employees=job.employee_set.all %}
+                    {% if employees %}
+                        <ul class="space-y-2">
+                        {% for emp in employees %}
+                            <li>
+                                <a href="{{ emp.get_absolute_url }}" class="text-primary font-medium">
+                                    {{ emp.display_name }}
+                                </a>
+                            </li>
+                        {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p class="opacity-70">No employees assigned to this job.</p>
+                    {% endif %}
+                {% endwith %}
+            </div>
+        </div>
+
+    </div>
+
 </div>
 {% endblock %}

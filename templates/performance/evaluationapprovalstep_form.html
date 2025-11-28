@@ -1,0 +1,237 @@
+{% extends "base.html" %}
+
+{% block title %}Approval Step{% endblock %}
+{% block page_title %}Performance{% endblock %}
+{% block header_title %}Approval Workflow Step{% endblock %}
+{% block header_subtitle %}
+  {% if object %}
+    Edit approval step for evaluation type: {{ evaluation_type.name }}
+  {% else %}
+    Add a new approval step for evaluation type: {{ evaluation_type.name }}
+  {% endif %}
+{% endblock %}
+
+{% block page_actions %}
+  <a href="{% url 'performance:evaluation_type_detail' evaluation_type.id %}" class="btn btn-sm">
+    Back to Type
+  </a>
+{% endblock %}
+
+{% block content %}
+<div class="card bg-base-100 shadow">
+  <div class="card-body space-y-6">
+
+    {% if form.non_field_errors %}
+      <div class="alert alert-error text-sm">
+        <ul class="list-disc list-inside">
+          {% for error in form.non_field_errors %}
+            <li>{{ error }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+    {% endif %}
+
+    <div class="alert alert-info text-xs">
+      <span>
+        Approval steps are executed in order of <strong>Sequence</strong>.
+        The approver is determined based on <strong>Approver Type</strong>.
+      </span>
+    </div>
+
+    <form method="post" novalidate>
+      {% csrf_token %}
+
+      <div class="space-y-4">
+        <h2 class="text-sm font-semibold tracking-wide uppercase opacity-70">
+          Step Information
+        </h2>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {# Company (ثابتة) #}
+          {% if form.company %}
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text">Company</span>
+            </label>
+            {{ form.company }}
+            {% for error in form.company.errors %}
+              <p class="text-error text-xs mt-1">{{ error }}</p>
+            {% endfor %}
+          </div>
+          {% endif %}
+
+          {# Evaluation Type (ثابت) #}
+          {% if form.evaluation_type %}
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text">Evaluation Type</span>
+            </label>
+            {{ form.evaluation_type }}
+            {% for error in form.evaluation_type.errors %}
+              <p class="text-error text-xs mt-1">{{ error }}</p>
+            {% endfor %}
+          </div>
+          {% endif %}
+
+          {# Name #}
+          {% if form.name %}
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text">Step Name</span>
+            </label>
+            {{ form.name }}
+            {% for error in form.name.errors %}
+              <p class="text-error text-xs mt-1">{{ error }}</p>
+            {% endfor %}
+          </div>
+          {% endif %}
+
+          {# Sequence #}
+          {% if form.sequence %}
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text">Sequence</span>
+            </label>
+            {{ form.sequence }}
+            <label class="label">
+              <span class="label-text-alt text-xs opacity-70">
+                Lower numbers are executed first.
+              </span>
+            </label>
+            {% for error in form.sequence.errors %}
+              <p class="text-error text-xs mt-1">{{ error }}</p>
+            {% endfor %}
+          </div>
+          {% endif %}
+
+          {# Active #}
+          {% if form.active %}
+          <div class="form-control">
+            <label class="label cursor-pointer justify-start gap-3">
+              {{ form.active }}
+              <span class="label-text">Active</span>
+            </label>
+            {% for error in form.active.errors %}
+              <p class="text-error text-xs mt-1">{{ error }}</p>
+            {% endfor %}
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="space-y-4 mt-6">
+        <h2 class="text-sm font-semibold tracking-wide uppercase opacity-70">
+          Approver Configuration
+        </h2>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {# Approver Kind #}
+          {% if form.approver_kind %}
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text">Approver Type</span>
+            </label>
+            {{ form.approver_kind }}
+            <label class="label">
+              <span class="label-text-alt text-xs opacity-70">
+                Choose who should approve: direct manager, department manager, specific group or employee, etc.
+              </span>
+            </label>
+            {% for error in form.approver_kind.errors %}
+              <p class="text-error text-xs mt-1">{{ error }}</p>
+            {% endfor %}
+          </div>
+          {% endif %}
+
+          {# Manager Level (للـ MANAGER_CHAIN إن وجد) #}
+          {% if form.manager_level %}
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text">Manager Level</span>
+            </label>
+            {{ form.manager_level }}
+            <label class="label">
+              <span class="label-text-alt text-xs opacity-70">
+                Used when approver type is "Manager chain" (level 1 = direct manager, 2 = manager of manager, ...).
+              </span>
+            </label>
+            {% for error in form.manager_level.errors %}
+              <p class="text-error text-xs mt-1">{{ error }}</p>
+            {% endfor %}
+          </div>
+          {% endif %}
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {# Approver Employee #}
+          {% if form.approver_employee %}
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text">Approver Employee</span>
+            </label>
+            {{ form.approver_employee }}
+            <label class="label">
+              <span class="label-text-alt text-xs opacity-70">
+                Used when approver type is "Specific employee".
+              </span>
+            </label>
+            {% for error in form.approver_employee.errors %}
+              <p class="text-error text-xs mt-1">{{ error }}</p>
+            {% endfor %}
+          </div>
+          {% endif %}
+
+          {# Approver Group #}
+          {% if form.approver_group %}
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text">Approver Group</span>
+            </label>
+            {{ form.approver_group }}
+            <label class="label">
+              <span class="label-text-alt text-xs opacity-70">
+                Used when approver type is "Group" (any member can approve).
+              </span>
+            </label>
+            {% for error in form.approver_group.errors %}
+              <p class="text-error text-xs mt-1">{{ error }}</p>
+            {% endfor %}
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      {# أي حقول إضافية مستقبلية #}
+      {% for field in form %}
+        {% if field.name not in "company evaluation_type name sequence active approver_kind manager_level approver_employee approver_group" %}
+        <div class="form-control mt-4">
+          <label class="label">
+            <span class="label-text">{{ field.label }}</span>
+          </label>
+          {{ field }}
+          {% if field.help_text %}
+            <label class="label">
+              <span class="label-text-alt text-xs opacity-70">{{ field.help_text }}</span>
+            </label>
+          {% endif %}
+          {% for error in field.errors %}
+            <p class="text-error text-xs mt-1">{{ error }}</p>
+          {% endfor %}
+        </div>
+        {% endif %}
+      {% endfor %}
+
+      <div class="mt-8 flex items-center justify-between">
+        <p class="text-xs opacity-70">
+          Make sure the approver configuration matches your HR policy.
+        </p>
+        <button type="submit" class="btn btn-primary">
+          {% if object %}Save Changes{% else %}Create Step{% endif %}
+        </button>
+      </div>
+
+    </form>
+
+  </div>
+</div>
+{% endblock %}

@@ -1,59 +1,56 @@
-{# templates/hr/department_form.html #}
 {% extends "base.html" %}
 {% load widget_tweaks %}
-{% block title %}{{ object.pk|yesno:"Edit Department,New Department" }} · 360 Manager{% endblock %}
-{% block page_title %}Departments{% endblock %}
+
+{% block title %}
+    {% if form.instance.pk %}Edit Department{% else %}New Department{% endif %}
+{% endblock %}
 
 {% block content %}
-<div class="px-4 py-6">
-  <nav class="text-sm breadcrumbs mb-4">
-    <ul><li><a href="{% url 'hr:department_list' %}">Departments</a></li><li class="font-semibold">{{ object.pk|yesno:"Edit,New" }}</li></ul>
-  </nav>
 
-  {% if form.non_field_errors %}
-    <div class="alert alert-error mb-4">
-      <ul class="list-disc list-inside text-sm">{% for e in form.non_field_errors %}<li>{{ e }}</li>{% endfor %}</ul>
-    </div>
-  {% endif %}
+<div class="max-w-3xl mx-auto p-6">
 
-  <form method="post" class="grid gap-4 md:grid-cols-2">
-    {% csrf_token %}
-    <div class="md:col-span-2 card bg-base-100 border border-base-300">
-      <div class="card-body p-5 grid gap-4 md:grid-cols-2">
-        <div class="form-control">
-          <label class="label"><span class="label-text">Name</span></label>
-          {{ form.name|add_class:"input input-bordered w-full" }}
-          {% if form.name.errors %}<p class="text-error text-sm">{{ form.name.errors.0 }}</p>{% endif %}
-        </div>
-        <div class="form-control">
-          <label class="label"><span class="label-text">Company</span></label>
-          {{ form.company|add_class:"select select-bordered w-full" }}
-          {% if form.company.errors %}<p class="text-error text-sm">{{ form.company.errors.0 }}</p>{% endif %}
-        </div>
-        <div class="form-control">
-          <label class="label"><span class="label-text">Parent</span></label>
-          {{ form.parent|add_class:"select select-bordered w-full" }}
-          {% if form.parent.errors %}<p class="text-error text-sm">{{ form.parent.errors.0 }}</p>{% endif %}
-        </div>
-        <div class="form-control">
-          <label class="label"><span class="label-text">Manager</span></label>
-          {{ form.manager|add_class:"select select-bordered w-full" }}
-          {% if form.manager.errors %}<p class="text-error text-sm">{{ form.manager.errors.0 }}</p>{% endif %}
-        </div>
-        <div class="form-control">
-          <label class="label cursor-pointer">
-            <span class="label-text">Active</span>
-            {{ form.active|add_class:"toggle toggle-primary ml-3" }}
-          </label>
-          {% if form.active.errors %}<p class="text-error text-sm">{{ form.active.errors.0 }}</p>{% endif %}
-        </div>
-      </div>
-    </div>
+    <h1 class="text-3xl font-bold mb-6">
+        {% if form.instance.pk %}
+            Edit: {{ form.instance.name }}
+        {% else %}
+            New Department
+        {% endif %}
+    </h1>
 
-    <div class="md:col-span-2 flex items-center gap-2">
-      <button class="btn btn-primary">Save</button>
-      <a class="btn btn-ghost" href="{% url 'hr:department_list' %}">Cancel</a>
-    </div>
-  </form>
+    <form method="post">
+        {% csrf_token %}
+
+        <div class="card bg-base-100 shadow p-6 space-y-4">
+
+            <div>
+                <label class="label font-medium">Name</label>
+                {{ form.name|add_class:"input input-bordered w-full" }}
+            </div>
+
+            <div>
+                <label class="label font-medium">Parent Department</label>
+                {{ form.parent|add_class:"select select-bordered w-full" }}
+            </div>
+
+            <div>
+                <label class="label font-medium">Manager</label>
+                {{ form.manager|add_class:"select select-bordered w-full" }}
+            </div>
+
+            <div>
+                <label class="label font-medium">Company</label>
+                {{ form.company|add_class:"select select-bordered w-full" }}
+            </div>
+
+        </div>
+
+        <div class="mt-4 flex gap-3">
+            <button class="btn btn-primary">Save</button>
+            <a href="{% url 'hr:department_list' %}" class="btn btn-ghost">Cancel</a>
+        </div>
+
+    </form>
+
 </div>
+
 {% endblock %}

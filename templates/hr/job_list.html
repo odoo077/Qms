@@ -1,75 +1,71 @@
-{# templates/hr/job_list.html #}
 {% extends "base.html" %}
-{% block page_title %}Jobs{% endblock %}
-{% block page_actions %}
-  {% if can_add_job %}
-    <a href="{% url 'hr:job_create' %}" class="btn btn-primary btn-sm">+ New job</a>
-  {% endif %}
-{% endblock %}
 
-{% block title %}Jobs · 360 Manager{% endblock %}
+{% block title %}Job Positions{% endblock %}
+
 {% block content %}
-<div class="px-4 py-6">
-  <div class="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-    <div>
-      <h1 class="text-2xl font-bold">Jobs</h1>
-      {% include "base/includes/search_panel.html" %}
-      <p class="text-base-content/60 text-sm">
-        {% if current_company %}Scoped to <span class="badge badge-outline">{{ current_company.name }}</span> · {% endif %}
-        {{ page_obj.paginator.count }} result{{ page_obj.paginator.count|pluralize }}
-      </p>
-    </div>
+<div class="max-w-7xl mx-auto p-6">
 
-    <form method="get" class="flex items-center gap-2">
-      <input name="q" value="{{ request.GET.q }}" placeholder="Search by title, department, company…"
-             class="input input-bordered input-sm w-72" />
-      {% if request.GET.q %}<a href="." class="btn btn-ghost btn-sm">Reset</a>{% endif %}
-      <button class="btn btn-primary btn-sm">Search</button>
-    </form>
-  </div>
+    <!-- HEADER -->
+    <div class="flex justify-between items-center mb-6">
 
-  {% if object_list %}
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-      {% for j in object_list %}
-        <div class="card bg-base-100 border border-base-300 hover:shadow-md transition">
-          <div class="card-body p-4">
-            <a href="{% url 'hr:job_detail' j.pk %}" class="text-lg font-semibold hover:text-primary">{{ j.name }}</a>
-            <p class="text-sm text-base-content/60 mt-1">
-              {% if j.department %}Dept: {{ j.department.complete_name|default:j.department.name }}{% else %}—{% endif %}
+        <div>
+            <h1 class="text-3xl font-bold">Job Positions</h1>
+            <p class="opacity-70 text-sm">
+                {{ jobs|length }} jobs found
             </p>
-            <p class="text-sm text-base-content/60">Company: {{ j.company|default:"—" }}</p>
-
-            <div class="card-actions mt-4">
-              <a href="{% url 'hr:job_detail' j.pk %}" class="btn btn-sm">View</a>
-              {% if j.id in job_change_ids %}
-                <a href="{% url 'hr:job_edit' j.pk %}" class="btn btn-sm btn-outline">Edit</a>
-              {% endif %}
-            </div>
-          </div>
         </div>
-      {% endfor %}
+
+        <a href="{% url 'hr:job_create' %}" class="btn btn-primary">
+            + New Job
+        </a>
     </div>
 
-    {% if is_paginated %}
-      <div class="mt-6 flex items-center justify-center gap-1">
-        {% if page_obj.has_previous %}
-          <a href="?{% if request.GET.q %}q={{ request.GET.q }}&{% endif %}page={{ page_obj.previous_page_number }}" class="btn btn-sm">Prev</a>
-        {% else %}<button class="btn btn-sm btn-disabled">Prev</button>{% endif %}
-        <span class="px-3 py-2 text-sm rounded bg-base-100 border border-base-300">
-          Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
-        </span>
-        {% if page_obj.has_next %}
-          <a href="?{% if request.GET.q %}q={{ request.GET.q }}&{% endif %}page={{ page_obj.next_page_number }}" class="btn btn-sm">Next</a>
-        {% else %}<button class="btn btn-sm btn-disabled">Next</button>{% endif %}
-      </div>
-    {% endif %}
-  {% else %}
-    <div class="rounded-lg border border-dashed border-base-300 bg-base-100 p-10 text-center">
-      <p class="mb-2">No jobs found.</p>
-      {% if can_add_job %}
-        <a href="{% url 'hr:job_create' %}" class="btn btn-secondary btn-sm mt-3">+ New Job</a>
-      {% endif %}
+
+    <!-- JOB LIST -->
+    <div class="overflow-x-auto">
+        <table class="table table-zebra w-full">
+            <thead>
+                <tr>
+                    <th>Job Title</th>
+                    <th>Department</th>
+                    <th>Company</th>
+                    <th></th>
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for job in jobs %}
+                <tr>
+                    <td>
+                        <a href="{{ job.get_absolute_url }}"
+                           class="font-medium text-primary">
+                           {{ job.name }}
+                        </a>
+                    </td>
+
+                    <td>
+                        {% if job.department %}
+                            <a href="{{ job.department.get_absolute_url }}" class="text-primary">
+                                {{ job.department.complete_name }}
+                            </a>
+                        {% else %}
+                            <span class="opacity-60">No department</span>
+                        {% endif %}
+                    </td>
+
+                    <td>{{ job.company.name }}</td>
+
+                    <td>
+                        <a href="{{ job.get_edit_url }}" class="btn btn-xs btn-outline">
+                            Edit
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+
+        </table>
     </div>
-  {% endif %}
+
 </div>
 {% endblock %}

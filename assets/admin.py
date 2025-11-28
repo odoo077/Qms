@@ -52,6 +52,8 @@ class AssetCategoryAdmin(AppAdmin):
     autocomplete_fields = ("company", "parent")
     actions = (action_activate, action_deactivate)
 
+    inlines = [ObjectACLInline]
+
 
 # ============================================================
 # Asset
@@ -93,6 +95,8 @@ class AssetAdmin(AppAdmin):
 
 @admin.register(m.AssetAssignment)
 class AssetAssignmentAdmin(AppAdmin):
+    inlines = [ObjectACLInline]
+
     """
     إدارة سجلات إسناد الأصول (assets.assignment)
     - تعرض كل السجلات دون تقييد صلاحيات الكائن.

@@ -1,105 +1,127 @@
 {% extends "base/users/auth_base.html" %}
 {% load widget_tweaks %}
+
 {% block title %}Sign in{% endblock %}
 
-{% block page_title %}Welcome back{% endblock %}
-{% block page_subtitle %}Sign in to access your dashboard.{% endblock %}
+{# العنوان الرئيسي في الكارد (من auth_base) #}
+{% block page_title %}Sign in to 360 Manager{% endblock %}
+{% block page_subtitle %}
+Use your company email to access employees, departments, assets, skills, performance and payroll.
+{% endblock %}
+
+{# زر صغير في أعلى الكارد #}
+{% block card_action %}
+  <a href="{% url 'base:register' %}"
+     class="btn btn-ghost btn-sm rounded-full normal-case text-xs">
+    Request access
+  </a>
+{% endblock %}
 
 {% block content %}
-  {% if form.non_field_errors %}
-    <div class="alert alert-error text-sm mb-4">
-      {% for err in form.non_field_errors %}<span>{{ err }}</span>{% endfor %}
-    </div>
-  {% endif %}
-
-  <form method="post" class="space-y-4" novalidate>
+  <form method="post" class="space-y-5" novalidate>
     {% csrf_token %}
 
-    <!-- Username / Email -->
+    {# أخطاء عامة غير مرتبطة بحقل معيّن (مثل بريد/كلمة مرور غير صحيحة) #}
+    {% if form.non_field_errors %}
+      <div class="alert alert-error shadow-sm text-sm">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M12 9v4m0 4h.01M4.93 19.07A10 10 0 1119.07 4.93 10 10 0 014.93 19.07z" />
+        </svg>
+        <div class="flex flex-col gap-1">
+          {% for err in form.non_field_errors %}
+            <span>{{ err }}</span>
+          {% endfor %}
+        </div>
+      </div>
+    {% endif %}
+
+    <!-- Work email -->
     <div class="form-control">
-      <label for="{{ form.username.id_for_label }}" class="label py-1">
-        <span class="label-text">Email</span>
-      </label>
-      {{ form.username|add_class:"input input-bordered w-full rounded-xl bg-base-200/60 focus:bg-base-100 focus:outline-none focus:ring focus:ring-primary/30 placeholder:text-base-content/40" }}
+      <div class="label py-1 px-0">
+        <span class="label-text text-sm font-medium">Work email</span>
+      </div>
+      {{ form.username|add_class:"input-auth" }}
       {% if form.username.errors %}
-        <p class="mt-1 text-xs text-error">{{ form.username.errors|join:", " }}</p>
+        <p class="mt-1 text-xs text-error">
+          {{ form.username.errors|join:", " }}
+        </p>
+      {% else %}
+        <p class="mt-1 text-xs text-base-content/60">
+          Use the email assigned by your organization.
+        </p>
       {% endif %}
     </div>
 
     <!-- Password -->
     <div class="form-control">
-      <label for="{{ form.password.id_for_label }}" class="label py-1">
-        <span class="label-text">Password</span>
-        <a href="{% url 'base:password_reset' %}" class="link link-primary text-xs">Forgot password?</a>
-      </label>
+      <div class="label py-1 px-0 flex items-center justify-between">
+        <span class="label-text text-sm font-medium">Password</span>
+        <a href="{% url 'base:password_reset' %}"
+           class="link link-primary text-xs font-medium">
+          Forgot password?
+        </a>
+      </div>
 
       <div class="relative">
-        {{ form.password|add_class:"input input-bordered w-full pr-12 rounded-xl bg-base-200/60 focus:bg-base-100 focus:outline-none focus:ring focus:ring-primary/30 placeholder:text-base-content/40"|attr:"id:id_password" }}
+        {{ form.password|add_class:"input-auth pr-12"|attr:"id:id_password" }}
         <button type="button"
-                class="btn btn-ghost btn-xs absolute right-2 top-1/2 -translate-y-1/2"
+                class="btn btn-ghost btn-xs absolute right-2 top-1/2 -translate-y-1/2 rounded-full border border-transparent hover:border-base-300"
                 data-target="#id_password"
                 aria-label="Toggle password visibility"
                 aria-pressed="false">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 pointer-events-none" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-            <path stroke-width="2" d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/>
-            <circle cx="12" cy="12" r="3" stroke-width="2"/>
+          <svg xmlns="http://www.w3.org/2000/svg"
+               class="h-4 w-4 pointer-events-none"
+               viewBox="0 0 24 24"
+               fill="none" stroke="currentColor">
+            <path stroke-width="2"
+                  d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
+            <circle cx="12" cy="12" r="3" stroke-width="2" />
           </svg>
         </button>
       </div>
+
       {% if form.password.errors %}
-        <p class="mt-1 text-xs text-error">{{ form.password.errors|join:", " }}</p>
+        <p class="mt-1 text-xs text-error">
+          {{ form.password.errors|join:", " }}
+        </p>
       {% endif %}
     </div>
 
     <!-- Remember me + next -->
-    <div class="flex items-center justify-between">
+    <div class="flex items-center justify-between pt-1">
       <label class="label cursor-pointer gap-3 p-0">
         <input type="checkbox" name="remember" class="checkbox checkbox-sm" />
-        <span class="label-text text-sm">Remember me</span>
+        <span class="label-text text-sm">Keep me signed in on this device</span>
       </label>
-      <input type="hidden" name="next" value="{{ next|default:'' }}" />
+      <input type="hidden" name="next" value="{{ next|default:'' }}">
     </div>
 
-    <!-- Submit -->
-    <div class="pt-2">
-      <button type="submit" class="btn btn-primary btn-block rounded-xl">
+    <!-- زر الدخول -->
+    <div class="pt-3 space-y-3">
+      <button type="submit"
+              class="btn btn-primary btn-block rounded-xl gap-2 font-semibold tracking-wide">
         <span class="loading loading-spinner loading-xs hidden" aria-hidden="true"></span>
-        Sign in
+        <span>Sign in</span>
       </button>
+
+      <p class="text-center text-sm text-base-content/60">
+        Need access?
+        <a href="{% url 'base:register' %}" class="link link-primary font-medium">
+          Request an account
+        </a>
+      </p>
     </div>
-
-    <p class="text-center text-sm text-base-content/60">
-      Don’t have an account?
-      <a href="{% url 'base:register' %}" class="link link-primary">Create one</a>.
-    </p>
   </form>
-
-  <!-- Optional: SSO buttons (hide if not used) -->
-  {% if sso_providers %}
-  <div class="divider my-8">or continue with</div>
-  <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-    {% for provider in sso_providers %}
-      <a href="{{ provider.url }}" class="btn btn-outline gap-2">
-        <img src="{{ provider.icon }}" alt="" class="size-4" />
-        {{ provider.name }}
-      </a>
-    {% endfor %}
-  </div>
-  {% endif %}
 {% endblock %}
 
 {% block below_form %}
+  <p class="mt-4 text-xs text-base-content/60 text-center">
+    Having trouble signing in? Contact your HR or system administrator.
+  </p>
 {% endblock %}
-
-{% block head_extra %}{% endblock %}
-
-{% block card_action %}{% endblock %}
-
-{% block header_actions %}{% endblock %}
 
 {% block extra_scripts %}
-{% endblock %}
-
 <script>
   // Password toggle + submit spinner
   (function () {
@@ -136,3 +158,4 @@
     }
   })();
 </script>
+{% endblock %}

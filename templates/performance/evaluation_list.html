@@ -1,122 +1,277 @@
-{# templates/performance/evaluation_list.html #}
 {% extends "base.html" %}
-{% load static %}
+{% load performance_permissions %}
 
-{% block title %}Performance Evaluations · 360 Manager{% endblock %}
-{% block page_title %}Performance Evaluations{% endblock %}
+{% block title %}Evaluations{% endblock %}
+{% block page_title %}Evaluations{% endblock %}
+{% block header_title %}Employee Evaluations{% endblock %}
+{% block header_subtitle %}
+  Browse, filter, and manage employee performance evaluations.
+{% endblock %}
 
 {% block page_actions %}
-  {% if can_add_evaluation %}
-    <a href="{% url 'performance:evaluation_create' %}" class="btn btn-primary btn-sm">+ New Evaluation</a>
+  {% can_add_evaluation user as can_add %}
+  {% if can_add %}
+    <div class="flex flex-wrap gap-2">
+      <a href="{% url 'performance:evaluation_bulk_create' %}" class="btn btn-primary btn-sm">
+        Bulk Create
+      </a>
+      <a href="{% url 'performance:evaluation_create' %}" class="btn btn-outline btn-sm">
+        New Evaluation
+      </a>
+    </div>
   {% endif %}
 {% endblock %}
 
 {% block content %}
-<div class="px-4 py-6 space-y-6">
+<div class="card bg-base-100 shadow">
+  <div class="card-body space-y-6">
 
-  <!-- Search + Filters -->
-  <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-    <form method="get" class="flex items-center gap-2">
-      <input type="text" name="q" value="{{ request.GET.q }}" placeholder="Search by employee, manager, or template"
-             class="input input-bordered input-sm w-64 md:w-80" />
-      {% if request.GET.q %}
-        <a href="." class="btn btn-ghost btn-sm">Reset</a>
-      {% endif %}
-      <button type="submit" class="btn btn-primary btn-sm">Search</button>
+    {# شريط الفلاتر #}
+    <form method="get" class="space-y-4">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+
+        <div class="form-control">
+          <label class="label">
+            <span class="label-text">Company</span>
+          </label>
+          <select name="company" class="select select-sm select-bordered">
+            <option value="">All</option>
+            {% for c in companies %}
+              <option value="{{ c.id }}"
+                      {% if current_filters.company == c.id|stringformat:"s" %}selected{% endif %}>
+                {{ c.name }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="form-control">
+          <label class="label">
+            <span class="label-text">Employee</span>
+          </label>
+          <select name="employee" class="select select-sm select-bordered">
+            <option value="">All</option>
+            {% for e in employees_filter %}
+              <option value="{{ e.id }}"
+                      {% if current_filters.employee == e.id|stringformat:"s" %}selected{% endif %}>
+                {{ e.name }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="form-control">
+          <label class="label">
+            <span class="label-text">Evaluation Type</span>
+          </label>
+          <select name="type" class="select select-sm select-bordered">
+            <option value="">All</option>
+            {% for t in evaluation_types_filter %}
+              <option value="{{ t.id }}"
+                      {% if current_filters.type == t.id|stringformat:"s" %}selected{% endif %}>
+                {{ t.name }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="form-control">
+          <label class="label">
+            <span class="label-text">State</span>
+          </label>
+          <select name="state" class="select select-sm select-bordered">
+            <option value="">All</option>
+            {% for value, label in states %}
+              <option value="{{ value }}"
+                      {% if current_filters.state == value %}selected{% endif %}>
+                {{ label }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div class="form-control">
+          <label class="label">
+            <span class="label-text">From (End Date ≥)</span>
+          </label>
+          <input type="date"
+                 name="from_date"
+                 value="{{ current_filters.from_date }}"
+                 class="input input-sm input-bordered" />
+        </div>
+
+        <div class="form-control">
+          <label class="label">
+            <span class="label-text">To (Start Date ≤)</span>
+          </label>
+          <input type="date"
+                 name="to_date"
+                 value="{{ current_filters.to_date }}"
+                 class="input input-sm input-bordered" />
+        </div>
+
+        <div class="form-control md:col-span-2">
+          <label class="label">
+            <span class="label-text">Search</span>
+          </label>
+          <input type="text"
+                 name="q"
+                 value="{{ current_filters.q }}"
+                 placeholder="Search by employee, type, template…"
+                 class="input input-sm input-bordered w-full" />
+        </div>
+      </div>
+
+      <div class="flex items-center justify-between gap-4 text-sm">
+        <p class="opacity-70">
+          Use filters to narrow down evaluations by company, employee, period, or status.
+        </p>
+        <div class="space-x-2">
+          <a href="{% url 'performance:evaluation_list' %}" class="btn btn-ghost btn-sm">
+            Reset
+          </a>
+          <button type="submit" class="btn btn-primary btn-sm">
+            Filter
+          </button>
+        </div>
+      </div>
     </form>
 
-    {% include "base/includes/search_panel.html" %}
-  </div>
-
-  <!-- List of Evaluations -->
-  {% if object_list %}
-  <div class="overflow-x-auto rounded-2xl border border-base-300 bg-base-100 shadow-md">
-    <table class="table table-zebra w-full text-sm">
-      <thead class="bg-base-200 text-base-content/80">
-        <tr>
-          <th>#</th>
-          <th>Employee</th>
-          <th>Manager</th>
-          <th>Template</th>
-          <th>Period</th>
-          <th>Status</th>
-          <th>Score</th>
-          <th class="text-right">Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for e in object_list %}
-        <tr>
-          <td>{{ forloop.counter }}</td>
-          <td class="font-medium">
-            <a href="{% url 'performance:evaluation_detail' e.id %}" class="hover:text-primary">
-              {{ e.employee.name }}
-            </a>
-          </td>
-          <td>{{ e.manager.name|default:"—" }}</td>
-          <td>{{ e.template.name|default:"—" }}</td>
-          <td>{{ e.period_start|date:"Y-m-d" }} → {{ e.period_end|date:"Y-m-d" }}</td>
-
-          <td>
-            <span class="badge
-              {% if e.state == 'draft' %}badge-ghost
-              {% elif e.state == 'in_progress' %}badge-info
-              {% elif e.state == 'done' %}badge-success
-              {% elif e.state == 'cancelled' %}badge-error
-              {% endif %}">
-              {{ e.get_state_display }}
-            </span>
-          </td>
-
-          <td>
-            {% if e.overall_score %}
-              <span class="font-semibold text-success">{{ e.overall_score|floatformat:1 }}%</span>
-            {% else %}
-              <span class="text-base-content/50">—</span>
-            {% endif %}
-          </td>
-
-          <td class="text-right">
-            <div class="flex items-center justify-end gap-2">
-              <a href="{% url 'performance:evaluation_detail' e.id %}" class="btn btn-xs btn-outline">View</a>
-              {% if e.id in evaluation_change_ids %}
-                <a href="{% url 'performance:evaluation_edit' e.id %}" class="btn btn-xs btn-primary">Edit</a>
-              {% endif %}
-            </div>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-
-  <!-- Pagination -->
-  {% if is_paginated %}
-  <div class="mt-6 flex items-center justify-center gap-2">
-    {% if page_obj.has_previous %}
-      <a href="?page={{ page_obj.previous_page_number }}" class="btn btn-sm">Prev</a>
-    {% else %}
-      <button class="btn btn-sm btn-disabled">Prev</button>
-    {% endif %}
-
-    <span class="px-3 py-2 text-sm rounded bg-base-100 border border-base-300">
-      Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
-    </span>
-
-    {% if page_obj.has_next %}
-      <a href="?page={{ page_obj.next_page_number }}" class="btn btn-sm">Next</a>
-    {% else %}
-      <button class="btn btn-sm btn-disabled">Next</button>
-    {% endif %}
-  </div>
-  {% endif %}
-  {% else %}
-    <div class="rounded-lg border border-dashed border-base-300 bg-base-100 p-10 text-center">
-      <p class="mb-3 text-sm text-base-content/70">No evaluations found.</p>
-      {% if can_add_evaluation %}
-        <a href="{% url 'performance:evaluation_create' %}" class="btn btn-primary btn-sm">+ Create Evaluation</a>
-      {% endif %}
+    {# Legend صغيرة للحالات #}
+    <div class="flex flex-wrap items-center gap-2 text-xs opacity-80">
+      <span class="font-semibold mr-1">States legend:</span>
+      <span class="badge badge-ghost badge-sm">Draft</span>
+      <span class="badge badge-info badge-sm">Submitted / In Progress</span>
+      <span class="badge badge-warning badge-sm">Calibrated</span>
+      <span class="badge badge-success badge-sm">Approved</span>
+      <span class="badge badge-neutral badge-sm">Locked</span>
     </div>
-  {% endif %}
+
+    <div class="overflow-x-auto">
+      <table class="table table-zebra w-full text-sm">
+        <thead>
+          <tr>
+            <th>Evaluation</th>
+            <th>Employee</th>
+            <th>Type</th>
+            <th>Period</th>
+            <th>Template</th>
+            <th class="text-center">Score</th>
+            <th class="text-center">State</th>
+            <th class="text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for obj in object_list %}
+          <tr>
+            <td>
+              <div class="flex flex-col">
+                <span class="font-semibold">
+                  {{ obj.display_name|default:obj }}
+                </span>
+                <span class="text-xs opacity-70">
+                  #{{ obj.id }}
+                </span>
+              </div>
+            </td>
+
+            <td>
+              <div class="flex flex-col">
+                <span>{{ obj.employee }}</span>
+                <span class="text-xs opacity-70">
+                  {{ obj.company }}
+                </span>
+              </div>
+            </td>
+
+            <td>
+              {% if obj.evaluation_type %}
+                <span class="badge badge-outline badge-sm">
+                  {{ obj.evaluation_type.name }}
+                </span>
+              {% else %}
+                <span class="text-xs opacity-60">—</span>
+              {% endif %}
+            </td>
+
+            <td>
+              <div class="flex flex-col">
+                <span>{{ obj.date_start }} → {{ obj.date_end }}</span>
+              </div>
+            </td>
+
+            <td>
+              {% if obj.template %}
+                <span>{{ obj.template }}</span>
+              {% else %}
+                <span class="text-xs opacity-60">—</span>
+              {% endif %}
+            </td>
+
+            <td class="text-center">
+              {% if obj.final_score_pct %}
+                <span class="font-semibold">
+                  {{ obj.final_score_pct }}%
+                </span>
+              {% else %}
+                <span class="text-xs opacity-60">—</span>
+              {% endif %}
+            </td>
+
+            <td class="text-center">
+              {% if obj.state == "draft" %}
+                <span class="badge badge-ghost badge-sm">Draft</span>
+              {% elif obj.state == "submitted" or obj.state == "in_progress" %}
+                <span class="badge badge-info badge-sm">In Review</span>
+              {% elif obj.state == "calibrated" %}
+                <span class="badge badge-warning badge-sm">Calibrated</span>
+              {% elif obj.state == "approved" %}
+                <span class="badge badge-success badge-sm">Approved</span>
+              {% elif obj.state == "locked" %}
+                <span class="badge badge-neutral badge-sm">Locked</span>
+              {% else %}
+                <span class="badge badge-ghost badge-sm">{{ obj.state }}</span>
+              {% endif %}
+            </td>
+
+            <td class="text-right space-x-1">
+              <a href="{% url 'performance:evaluation_detail' obj.id %}"
+                 class="btn btn-ghost btn-xs">
+                View
+              </a>
+
+              {% can_edit_evaluation user obj as can_edit %}
+              {% if can_edit %}
+                <a href="{% url 'performance:evaluation_update' obj.id %}"
+                   class="btn btn-outline btn-xs">
+                  Edit
+                </a>
+              {% endif %}
+
+              {% can_delete_evaluation user obj as can_del %}
+              {% if can_del %}
+                <a href="{% url 'performance:evaluation_delete' obj.id %}"
+                   class="btn btn-error btn-xs">
+                  Delete
+                </a>
+              {% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="8" class="text-center opacity-70 py-6">
+              No evaluations found for the selected filters.
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% include "partials/paginator.html" %}
+
+  </div>
 </div>
 {% endblock %}

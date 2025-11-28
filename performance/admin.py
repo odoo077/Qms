@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+# performance/admin.py
 """
 لوحة الإدارة — مستثناة من صلاحيات الكائن عبر AppAdmin (مثل بقية التطبيقات).
 """
@@ -9,10 +9,22 @@ from base.admin_mixins import AppAdmin  # ✅ الاستثناء من صلاحي
 from base.admin import ObjectACLInline
 
 from performance.models import (
-    Objective, KPI, Task,
-    ObjectiveDepartmentAssignment, ObjectiveEmployeeAssignment, ObjectiveParticipant,
-    EvaluationTemplate, EvaluationParameter, Evaluation, EvaluationParameterResult,
+    Objective,
+    KPI,
+    Task,
+    ObjectiveDepartmentAssignment,
+    ObjectiveEmployeeAssignment,
+    ObjectiveParticipant,
+    EvaluationType,
+    EvaluationApprovalStep,
+    EvaluationTemplate,
+    EvaluationParameter,
+    Evaluation,
+    EvaluationParameterResult, EmployeeObjectiveScore, DailyRating, DailyRatingItem, DailyRatingFactor,
+    EvaluationExceptionAdjustment, PerformanceException, PerformanceExceptionType, QualityIncident, EvaluationFeedback,
+    EvaluationCalibration, EmployeeObjectiveScoringPolicy,
 )
+
 
 USE_AUTOCOMPLETE = True
 
@@ -64,7 +76,10 @@ class KPIInline(admin.TabularInline):
 class TaskInline(admin.TabularInline):
     model = Task
     extra = 0
-    fields = ["title","assignee","status","percent_complete","due_date","kpi","active"]
+    fields = [
+        "title", "assignee", "status", "percent_complete", "due_date", "kpi", "task_kind",
+        "priority", "estimated_minutes", "actual_minutes", "quality_score_pct", "active"
+    ]
     if USE_AUTOCOMPLETE: autocomplete_fields = ["assignee","kpi"]
     else:                 raw_id_fields = ["assignee","kpi"]
 
@@ -72,7 +87,7 @@ class TaskInline(admin.TabularInline):
 # -------- Objective --------
 @admin.register(Objective)
 class ObjectiveAdmin(AppAdmin):
-    list_display = ("id", "company", "code", "title", "date_start", "date_end", "status",
+    list_display = ("id", "company", "code", "title", "parent", "hierarchy_level", "rollup_strategy", "date_start", "date_end", "status",
                     "target_kind", "target_department", "target_employee",
                     "weight_pct", "progress_pct", "score_pct", "active",
                     "created_at", "updated_at", "created_by", "updated_by")
@@ -80,7 +95,7 @@ class ObjectiveAdmin(AppAdmin):
     search_fields = ("code","title","description")
     ordering = ("-id",)
     if USE_AUTOCOMPLETE:
-        autocomplete_fields = ["company", "reviewer", "target_department", "target_employee"]
+        autocomplete_fields = ["company", "reviewer","parent", "target_department", "target_employee"]
     else:
         raw_id_fields = ["company", "reviewer", "target_department", "target_employee"]
 
@@ -131,9 +146,13 @@ class KPIAdmin(AppAdmin):
 # -------- Task --------
 @admin.register(Task)
 class TaskAdmin(AppAdmin):
-    list_display = ("id","company","objective","title","assignee","status","percent_complete",
-                    "due_date","kpi","active","created_at","updated_at","created_by","updated_by")
-    list_filter  = ("company","status","due_date","objective","active","created_at","updated_at")
+    list_display = (
+        "id", "company", "objective", "title", "assignee", "status", "percent_complete",
+        "due_date", "kpi",
+        "task_kind", "priority", "estimated_minutes", "actual_minutes", "quality_score_pct",
+        "active", "created_at", "updated_at", "created_by", "updated_by"
+    )
+    list_filter  = ("company","status","due_date","task_kind","priority","objective","active","created_at","updated_at")
     search_fields = ("title","description")
     ordering = ("-id",)
     if USE_AUTOCOMPLETE: autocomplete_fields = ["company","objective","assignee","kpi"]
@@ -178,7 +197,102 @@ class ObjectiveParticipantAdmin(AppAdmin):
     def has_change_permission(self, request, obj=None): return False
 
 
+@admin.register(EmployeeObjectiveScore)
+class EmployeeObjectiveScoreAdmin(AppAdmin):
+    list_display = ("objective", "employee", "contribution_pct", "tasks_progress_pct", "kpi_score_pct", "final_score_pct", "created_at")
+    list_filter = ("objective", "employee")
+    search_fields = ("objective__title", "employee__name")
+    ordering = ("-final_score_pct",)
+
+
+@admin.register(EmployeeObjectiveScoringPolicy)
+class EmployeeObjectiveScoringPolicyAdmin(AppAdmin):
+    list_display = (
+        "company",
+        "name",
+        "code",
+        "active",
+        "tasks_weight_pct",
+        "kpi_weight_pct",
+        "timeliness_weight_pct",
+        "efficiency_weight_pct",
+        "quality_weight_pct",
+        "created_at",
+        "updated_at",
+    )
+    list_filter = ("company", "active")
+    search_fields = ("name", "code")
+    ordering = ("company", "name")
+    readonly_fields = ("created_at", "updated_at")
+
+    if USE_AUTOCOMPLETE:
+        autocomplete_fields = ["company"]
+    else:
+        raw_id_fields = ["company"]
+
 # -------- Templates / Parameters / Evaluations / Results --------
+
+@admin.register(EvaluationType)
+class EvaluationTypeAdmin(AppAdmin):
+    list_display = (
+        "id",
+        "company",
+        "name",
+        "code",
+        "sequence",
+        "frequency_label",
+        "active",
+        "created_at",
+        "updated_at",
+        "created_by",
+        "updated_by",
+    )
+    list_filter = ("company", "active", "created_at", "updated_at")
+    search_fields = ("name", "code", "description")
+    ordering = ("company", "sequence", "name")
+
+    if USE_AUTOCOMPLETE:
+        autocomplete_fields = ["company"]
+    else:
+        raw_id_fields = ["company"]
+
+    readonly_fields = ("created_at", "updated_at", "created_by", "updated_by")
+
+@admin.register(EvaluationApprovalStep)
+class EvaluationApprovalStepAdmin(AppAdmin):
+    list_display = (
+        "id",
+        "company",
+        "evaluation_type",
+        "name",
+        "approver_kind",
+        "manager_level",
+        "approver_employee",
+        "approver_group",
+        "sequence",
+        "active",
+        "created_at",
+        "updated_at",
+    )
+    list_filter = (
+        "company",
+        "evaluation_type",
+        "approver_kind",
+        "active",
+        "created_at",
+        "updated_at",
+    )
+    search_fields = ("name", "code", "evaluation_type__name")
+    ordering = ("evaluation_type", "sequence", "id")
+
+    if USE_AUTOCOMPLETE:
+        autocomplete_fields = ["company", "evaluation_type", "approver_employee", "approver_group"]
+    else:
+        raw_id_fields = ["company", "evaluation_type", "approver_employee", "approver_group"]
+
+    readonly_fields = ("created_at", "updated_at", "created_by", "updated_by")
+
+
 @admin.register(EvaluationTemplate)
 class EvaluationTemplateAdmin(AppAdmin):
     list_display = ("id","company","name","active","created_at","updated_at","created_by","updated_by")
@@ -220,35 +334,105 @@ class EvaluationParameterAdmin(AppAdmin):
 
 @admin.register(Evaluation)
 class EvaluationAdmin(AppAdmin):
-    list_display = ("id","company","employee","evaluator","date_start","date_end","template",
-                    "final_score_pct","overall_rating","active","created_at","updated_at","created_by","updated_by")
-    list_filter  = ("company","template","date_start","date_end","active","created_at","updated_at")
-    search_fields = ("employee__name","evaluator__name","overall_rating","calibration_notes")
-    ordering = ("-date_end","-id")
-    if USE_AUTOCOMPLETE: autocomplete_fields = ["company","employee","evaluator","template"]
-    else:                 raw_id_fields = ["company","employee","evaluator","template"]
-    readonly_fields = ("created_at","updated_at","created_by","updated_by")
+    list_display = (
+        "id",
+        "company",
+        "employee",
+        "evaluator",
+        "date_start",
+        "date_end",
+        "template",
+        "evaluation_type",
+        "final_score_pct",        # نتيجة النظام الآلية
+        "calibrated_score_pct",   # نتيجة المعايرة (إن وجدت)
+        "effective_score",        # الدرجة المعتمدة فعلياً (final أو calibrated)
+        "overall_rating",
+        "active",
+        "created_at",
+        "updated_at",
+        "created_by",
+        "updated_by",
+    )
+    list_filter = (
+        "company",
+        "template",
+        "evaluation_type",
+        "date_start",
+        "date_end",
+        "active",
+        "created_at",
+        "updated_at",
+    )
+    search_fields = (
+        "employee__name",
+        "evaluator__name",
+        "overall_rating",
+        "calibration_reason",   # بدلاً من calibration_notes
+    )
+    ordering = ("-date_end", "-id")
+    if USE_AUTOCOMPLETE:
+        autocomplete_fields = ["company", "employee", "evaluator", "template", "evaluation_type"]
+    else:
+        raw_id_fields = ["company", "employee", "evaluator", "template", "evaluation_type"]
+
+    readonly_fields = (
+        "created_at",
+        "updated_at",
+        "created_by",
+        "updated_by",
+        # نجعل حقول المعايرة للقراءة فقط لأن تعديلها يتم عبر EvaluationCalibration
+        "final_score_pct",
+        "calibrated_score_pct",
+        "calibration_reason",
+        "calibration_applied_at",
+        "calibration_applied_by",
+    )
 
     class EvaluationParameterResultInline(admin.TabularInline):
         model = EvaluationParameterResult
         extra = 0
-        fields = ["parameter","raw_value_number","raw_value_json","score_pct",
-                  "created_at","updated_at","created_by","updated_by"]
-        readonly_fields = ("created_at","updated_at","created_by","updated_by")
-        if USE_AUTOCOMPLETE: autocomplete_fields = ["parameter"]
-        else:                 raw_id_fields = ["parameter"]
+        fields = [
+            "parameter",
+            "raw_value_number",
+            "raw_value_json",
+            "score_pct",
+            "created_at",
+            "updated_at",
+            "created_by",
+            "updated_by",
+        ]
+        readonly_fields = ("created_at", "updated_at", "created_by", "updated_by")
+        if USE_AUTOCOMPLETE:
+            autocomplete_fields = ["parameter"]
+        else:
+            raw_id_fields = ["parameter"]
 
     inlines = [ObjectACLInline, EvaluationParameterResultInline]
 
     actions = ["recompute_evaluations", action_activate, action_deactivate]
 
+    @admin.display(description="Effective Score")
+    def effective_score(self, obj):
+        """
+        الدرجة المعتمدة فعلياً في التقارير:
+          - إن كانت calibrated_score_pct موجودة تُستخدم
+          - وإلا تُستخدم final_score_pct
+        """
+        return obj.calibrated_score_pct if obj.calibrated_score_pct is not None else obj.final_score_pct
+
     @admin.action(description="Recompute selected evaluations (final score + results)")
     def recompute_evaluations(self, request, queryset):
+        """
+        يعيد احتساب نتائج الـ EvaluationParameterResult والـ final_score_pct
+        بدون لمس أي حقول معايرة (calibrated_*).
+        """
         with transaction.atomic():
             for ev in queryset:
                 ev.recompute()
-                ev.save(update_fields=["final_score_pct"])
+                # نحفظ فقط نتيجة النظام الآلية ولا نلمس حقول المعايرة
+                ev.save(update_fields=["final_score_pct", "updated_at", "updated_by"])
         messages.success(request, "Evaluations recomputed successfully.")
+
 
 @admin.register(EvaluationParameterResult)
 class EvaluationParameterResultAdmin(AppAdmin):
@@ -262,3 +446,96 @@ class EvaluationParameterResultAdmin(AppAdmin):
 
     inlines = [ObjectACLInline]
 
+
+
+@admin.register(DailyRatingFactor)
+class DailyRatingFactorAdmin(AppAdmin):
+    list_display = ("id", "company", "name", "weight_pct", "active", "created_at")
+    list_filter  = ("company", "active")
+    search_fields = ("name", "description")
+    ordering = ("company", "name")
+    if USE_AUTOCOMPLETE:
+        autocomplete_fields = ["company"]
+
+
+class DailyRatingItemInline(admin.TabularInline):
+    model = DailyRatingItem
+    extra = 0
+    fields = ["factor", "score_pct", "comment"]
+    if USE_AUTOCOMPLETE:
+        autocomplete_fields = ["factor"]
+
+
+@admin.register(DailyRating)
+class DailyRatingAdmin(AppAdmin):
+    list_display = ("id", "company", "employee", "rated_by", "date", "overall_score_pct", "created_at")
+    list_filter  = ("company", "date")
+    search_fields = ("employee__name",)
+    ordering = ("-date",)
+    if USE_AUTOCOMPLETE:
+        autocomplete_fields = ["company", "employee", "rated_by"]
+
+    inlines = [DailyRatingItemInline]
+
+
+@admin.register(PerformanceExceptionType)
+class PerformanceExceptionTypeAdmin(AppAdmin):
+    list_display = ("id", "company", "name", "multiplier", "is_positive", "max_impact_pct", "active")
+    list_filter  = ("company", "active")
+    search_fields = ("name",)
+    ordering = ("company", "name")
+    if USE_AUTOCOMPLETE: autocomplete_fields = ["company"]
+
+
+@admin.register(PerformanceException)
+class PerformanceExceptionAdmin(AppAdmin):
+    list_display = ("id", "company", "employee", "type", "date_start", "date_end", "impact_pct")
+    list_filter  = ("company", "type", "date_start")
+    search_fields = ("employee__name",)
+    ordering = ("-date_start",)
+    if USE_AUTOCOMPLETE: autocomplete_fields = ["company", "employee", "type"]
+
+
+@admin.register(EvaluationExceptionAdjustment)
+class EvaluationExceptionAdjustmentAdmin(AppAdmin):
+    list_display = ("id", "evaluation", "exception", "adjustment_pct", "created_at")
+    list_filter  = ("evaluation",)
+    search_fields = ("evaluation__employee__name",)
+    ordering = ("-id",)
+
+
+@admin.register(QualityIncident)
+class QualityIncidentAdmin(AppAdmin):
+    list_display = ("id", "company", "employee", "severity", "impact_score_pct", "date")
+    list_filter = ("company", "severity", "date")
+    search_fields = ("employee__name", "description")
+    ordering = ("-date",)
+    if USE_AUTOCOMPLETE:
+        autocomplete_fields = ["company", "employee"]
+
+@admin.register(EvaluationFeedback)
+class EvaluationFeedbackAdmin(AppAdmin):
+    list_display = ("id", "company", "evaluation", "role", "overall_score_pct", "from_employee", "created_at")
+    list_filter = ("company", "role")
+    search_fields = ("evaluation__employee__name", "from_employee__name", "comment")
+    ordering = ("-created_at",)
+    if USE_AUTOCOMPLETE:
+        autocomplete_fields = ["company", "evaluation", "from_employee"]
+
+
+@admin.register(EvaluationCalibration)
+class EvaluationCalibrationAdmin(AppAdmin):
+    list_display = (
+        "id",
+        "company",
+        "evaluation",
+        "old_score_pct",
+        "new_score_pct",
+        "applied_by",
+        "created_at",
+    )
+    list_filter = ("company",)
+    search_fields = ("evaluation__employee__name", "reason")
+    ordering = ("-created_at",)
+    if USE_AUTOCOMPLETE:
+        autocomplete_fields = ["company", "evaluation", "applied_by"]

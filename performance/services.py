@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+# performance/services.py
 """
 خدمات الأداء:
 - سجلّ Adapters لمصادر خارجية EXTERNAL_METRIC
@@ -123,3 +123,79 @@ def avg_task_progress_for(evaluation, objective) -> int:
     if not n:
         return 0
     return int(round(sum(t.percent_complete for t in qs) / n))
+
+
+# ============================================================
+# Workflow Services (NEW)
+# ============================================================
+def user_can_approve_step(user, evaluation) -> bool:
+    """
+    هل هذا المستخدم مخوّل باعتماد الخطوة الحالية؟
+    (يدعم approver الفردي أو مجموعة role)
+    """
+    emp = getattr(user, "employee", None)
+    if not emp:
+        return False
+
+    # إذا التقييم ليس في progress → لا يوجد موافقة
+    if evaluation.state not in ("in_progress",):
+        return False
+
+    # جلب الخطوات
+    steps = evaluation._get_steps()
+    if not steps or evaluation.current_step <= 0:
+        return False
+
+    step = steps[evaluation.current_step - 1]
+
+    # نوع الموافقة = مجموعة
+    if step.approver_kind == step.ApproverKind.GROUP:
+        # أي عضو من المجموعة يمكنه الموافقة
+        if step.approver_group and user.groups.filter(id=step.approver_group_id).exists():
+            return True
+        return False
+
+    # نوع الموافقة = موظف فردي
+    if evaluation.current_approver_id == emp.id:
+        return True
+
+    return False
+
+
+def submit_evaluation(evaluation, by_user):
+    """
+    تقديم التقييم لأول مرة.
+    """
+    emp = getattr(by_user, "employee", None)
+    evaluation.submit(by=emp)
+    return evaluation
+
+
+def approve_step(evaluation, by_user) -> bool:
+    """
+    اعتماد خطوة في workflow.
+    """
+    emp = getattr(by_user, "employee", None)
+    if not emp:
+        return False
+
+    if not user_can_approve_step(by_user, evaluation):
+        return False
+
+    evaluation.approve_step(emp)
+    return True
+
+
+def reject_step(evaluation, by_user) -> bool:
+    """
+    إعادة التقييم خطوة للخلف (Reject).
+    """
+    emp = getattr(by_user, "employee", None)
+    if not emp:
+        return False
+
+    if not user_can_approve_step(by_user, evaluation):
+        return False
+
+    evaluation.reject_step(emp)
+    return True

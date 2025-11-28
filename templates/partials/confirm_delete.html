@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+
+{% block title %}Delete {{ object_label|default:object }}{% endblock %}
+{% block page_title %}Delete{% endblock %}
+{% block header_title %}Confirm Deletion{% endblock %}
+{% block header_subtitle %}
+  This action cannot be undone. Please review the details before proceeding.
+{% endblock %}
+
+{% block page_actions %}
+  {% if back_url %}
+    <a href="{{ back_url }}" class="btn btn-sm">
+      Cancel
+    </a>
+  {% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto">
+  <div class="card bg-base-100 shadow-xl border border-base-300">
+    <div class="card-body space-y-6">
+
+      {# تحذير علوي واضح #}
+      <div class="alert alert-error shadow-sm">
+        <div>
+          <span class="font-semibold">
+            You are about to permanently delete this item.
+          </span>
+          <span class="text-sm opacity-80 block">
+            This operation cannot be undone. Any related data may also be affected.
+          </span>
+        </div>
+      </div>
+
+      {# ملخص العنصر المراد حذفه #}
+      <div class="space-y-3">
+        <h2 class="text-lg font-semibold">
+          Confirm deletion
+        </h2>
+
+        <div class="bg-base-200 rounded-box p-4 text-sm space-y-2">
+          <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+            <div>
+              <p class="font-semibold">
+                {{ object_label|default:object }}
+              </p>
+              <p class="text-xs opacity-70">
+                This is the item that will be removed.
+              </p>
+            </div>
+            <div class="text-right text-xs opacity-70">
+              {% if object.pk %}
+                <span class="inline-flex items-center gap-1">
+                  <span class="font-semibold">ID:</span> {{ object.pk }}
+                </span>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {# نص توضيحي إضافي #}
+      <p class="text-sm opacity-80">
+        If you are not sure, you can go back and review the details before deleting.
+      </p>
+
+      {# أزرار التنفيذ #}
+      <form method="post" class="mt-2">
+        {% csrf_token %}
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div class="text-xs opacity-70">
+            Deleting is irreversible. Make sure this is the correct record.
+          </div>
+          <div class="flex flex-wrap gap-2 justify-end">
+            {% if back_url %}
+              <a href="{{ back_url }}" class="btn btn-ghost">
+                Cancel
+              </a>
+            {% endif %}
+            <button type="submit" class="btn btn-error">
+              {{ confirm_label|default:"Yes, delete permanently" }}
+            </button>
+          </div>
+        </div>
+      </form>
+
+    </div>
+  </div>
+</div>
+{% endblock %}

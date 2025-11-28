@@ -1,3 +1,5 @@
+# base/models.py
+
 from __future__ import annotations
 from django.core.validators import RegexValidator
 from django.db import models
@@ -102,6 +104,37 @@ class AddressMixin(models.Model):
     class Meta:
         abstract = True
 
+# ---------- تتبّع المستخدم (create_uid/write_uid على طريقة Odoo) ----------
+class UserStampedMixin(models.Model):
+    """حقول created_by / updated_by مرتبطة بمستخدم base.User."""
+    created_by = models.ForeignKey(
+        "base.User",
+        null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name="%(class)s_created",
+    )
+    updated_by = models.ForeignKey(
+        "base.User",
+        null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name="%(class)s_updated",
+    )
+
+    class Meta:
+        abstract = True
+
+class BaseModel(TimeStampedMixin, ActivableMixin, UserStampedMixin, models.Model):
+    """
+    Unified abstract base model used by all business models.
+    Provides:
+      - created_at / updated_at
+      - active
+      - created_by / updated_by
+      - (optional) company if inherited from CompanyOwnedMixin
+    """
+    class Meta:
+        abstract = True
+
 
 # ---------- شركات وسكوب ----------
 class CompanyOwnedMixin(models.Model):
@@ -188,24 +221,6 @@ class CompanyOwnedMixin(models.Model):
         super().save(*args, **kwargs)
 
 
-# ---------- تتبّع المستخدم (create_uid/write_uid على طريقة Odoo) ----------
-class UserStampedMixin(models.Model):
-    """حقول created_by / updated_by مرتبطة بمستخدم base.User."""
-    created_by = models.ForeignKey(
-        "base.User",
-        null=True, blank=True,
-        on_delete=models.SET_NULL,
-        related_name="%(class)s_created",
-    )
-    updated_by = models.ForeignKey(
-        "base.User",
-        null=True, blank=True,
-        on_delete=models.SET_NULL,
-        related_name="%(class)s_updated",
-    )
-
-    class Meta:
-        abstract = True
 
 # ------------ Company models -----------
 
@@ -517,6 +532,23 @@ class User(TimeStampedMixin, ActivableMixin, AbstractUser):
         related_name="users",
         blank=True,
     )
+
+    # -------------------------------------------------------------
+    #  Compatibility helper: company_ids (Odoo-like)
+    #  Needed by all HR views (departments / employees / jobs)
+    # -------------------------------------------------------------
+    @property
+    def company_ids(self):
+        """
+        Returns a list of company IDs the user is allowed to access.
+        Combines:
+            - primary company (company_id)
+            - allowed companies (companies M2M)
+        """
+        primary = [self.company_id] if self.company_id else []
+        m2m = list(self.companies.values_list("id", flat=True))
+        return list(set(primary + m2m))
+
 
     # مدير
     objects = UserManager()

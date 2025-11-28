@@ -1,25 +1,47 @@
 # assets/views.py
-from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.urls import reverse_lazy
-from django.views.generic import ListView, CreateView, UpdateView, DetailView
+from django.views.generic import ListView
 
-from base.views import BaseScopedListView, apply_search_filters
+from base.views import (
+    BaseScopedListView,
+    BaseScopedDetailView,
+    BaseScopedCreateView,
+    BaseScopedUpdateView,
+    apply_search_filters, BaseScopedDeleteView, ConfirmDeleteMixin,
+)
+from base.acl_service import has_perm
 from . import models as m
 from .forms import AssetCategoryForm, AssetForm, AssetAssignmentForm
 
 
-# =======================
+# ============================================================
 # Categories
-# =======================
-class AssetCategoryListView(LoginRequiredMixin, BaseScopedListView, ListView):
+# ============================================================
+
+class AssetCategoryListView(LoginRequiredMixin, BaseScopedListView):
     model = m.AssetCategory
     template_name = "assets/category_list.html"
     paginate_by = 24
 
     def get_queryset(self):
-        base = m.AssetCategory.acl_objects.with_acl("view")
-        qs = m.AssetCategory.objects.filter(pk__in=base.values("pk")).select_related("company", "parent")
-        qs = apply_search_filters(self.request, qs, search_fields=["name", "parent__name"])
+        """
+        BaseScopedListView already applies:
+          - ACL with 'view' (via _apply_acl_on_queryset)
+          - company scope (via _enforce_company_on_queryset)
+        Here we only add select_related + search.
+        """
+        base_qs = super().get_queryset()
+        qs = (
+            base_qs
+            .select_related("company", "parent")
+            .order_by("name")
+        )
+        qs = apply_search_filters(
+            self.request,
+            qs,
+            search_fields=["name", "parent__name"],
+        )
         return qs
 
     def get_context_data(self, **kwargs):
@@ -30,61 +52,100 @@ class AssetCategoryListView(LoginRequiredMixin, BaseScopedListView, ListView):
         return ctx
 
 
-class AssetCategoryCreateView(LoginRequiredMixin, CreateView):
+class AssetCategoryCreateView(
+    LoginRequiredMixin,
+    PermissionRequiredMixin,
+    BaseScopedCreateView,
+):
     model = m.AssetCategory
     form_class = AssetCategoryForm
     template_name = "assets/category_form.html"
     success_url = reverse_lazy("assets:category_list")
+    permission_required = "assets.add_assetcategory"
 
     def get_form_kwargs(self):
         kw = super().get_form_kwargs()
+        # pass request to form for company-based filtering or other logic
         kw["request"] = self.request
         return kw
 
 
-class AssetCategoryUpdateView(LoginRequiredMixin, UpdateView):
+class AssetCategoryUpdateView(
+    LoginRequiredMixin,
+    PermissionRequiredMixin,
+    BaseScopedUpdateView,
+):
     model = m.AssetCategory
     form_class = AssetCategoryForm
     template_name = "assets/category_form.html"
     success_url = reverse_lazy("assets:category_list")
+    permission_required = ["assets.change_assetcategory", "assets.delete_assetcategory"]
 
     def get_queryset(self):
-        base = m.AssetCategory.acl_objects.with_acl("change")
-        return (m.AssetCategory.objects
-                .filter(pk__in=base.values("pk"))
-                .select_related("company", "parent"))
+        base_qs = super().get_queryset()
+        return base_qs.select_related("company", "parent")
 
 
-class AssetCategoryDetailView(LoginRequiredMixin, DetailView):
+
+class AssetCategoryDetailView(LoginRequiredMixin, BaseScopedDetailView):
     model = m.AssetCategory
     template_name = "assets/category_detail.html"
 
     def get_queryset(self):
-        base = m.AssetCategory.acl_objects.with_acl("view")
-        return (m.AssetCategory.objects
-                .filter(pk__in=base.values("pk"))
-                .select_related("company", "parent"))
+        base_qs = super().get_queryset()
+        return base_qs.select_related("company", "parent")
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        obj = ctx.get("object")
+        ctx["can_edit_object"] = bool(obj and has_perm(obj, self.request.user, "change"))
+        ctx["can_delete_object"] = bool(obj and has_perm(obj, self.request.user, "delete"))
+        return ctx
+
+class AssetCategoryDeleteView(
+    LoginRequiredMixin,
+    PermissionRequiredMixin,
+    ConfirmDeleteMixin,
+    BaseScopedDeleteView,
+):
+    model = m.AssetCategory
+    permission_required = "assets.delete_assetcategory"
+    back_url_name = "assets:category_list"
+    object_label_field = "name"
 
 
-# =======================
+
+# ============================================================
 # Assets
-# =======================
-class AssetListView(LoginRequiredMixin, BaseScopedListView, ListView):
+# ============================================================
+
+class AssetListView(LoginRequiredMixin, BaseScopedListView):
     model = m.Asset
     template_name = "assets/asset_list.html"
     paginate_by = 24
 
     def get_queryset(self):
-        base = m.Asset.acl_objects.with_acl("view")
+        """
+        - BaseScopedListView handles ACL + company scope.
+        - Here we enrich with select_related + search + ordering.
+        """
+        base_qs = super().get_queryset()
         qs = (
-            m.Asset.objects.filter(pk__in=base.values("pk"))
+            base_qs
             .select_related("company", "category", "department", "holder", "parent")
             .order_by("code", "name")
         )
         qs = apply_search_filters(
             self.request,
             qs,
-            search_fields=["code", "name", "serial", "holder__name", "department__name", "category__name"],
+            search_fields=[
+                "code",
+                "name",
+                "serial",
+                "holder__name",
+                "department__name",
+                "category__name",
+            ],
         )
         return qs
 
@@ -96,11 +157,16 @@ class AssetListView(LoginRequiredMixin, BaseScopedListView, ListView):
         return ctx
 
 
-class AssetCreateView(LoginRequiredMixin, CreateView):
+class AssetCreateView(
+    LoginRequiredMixin,
+    PermissionRequiredMixin,
+    BaseScopedCreateView,
+):
     model = m.Asset
     form_class = AssetForm
     template_name = "assets/asset_form.html"
     success_url = reverse_lazy("assets:asset_list")
+    permission_required = "assets.add_asset"
 
     def get_form_kwargs(self):
         kw = super().get_form_kwargs()
@@ -108,49 +174,75 @@ class AssetCreateView(LoginRequiredMixin, CreateView):
         return kw
 
 
-class AssetUpdateView(LoginRequiredMixin, UpdateView):
+class AssetUpdateView(
+    LoginRequiredMixin,
+    PermissionRequiredMixin,
+    BaseScopedUpdateView,
+):
     model = m.Asset
     form_class = AssetForm
     template_name = "assets/asset_form.html"
     success_url = reverse_lazy("assets:asset_list")
+    permission_required = ["assets.change_asset", "assets.delete_asset"]
 
     def get_queryset(self):
-        base = m.Asset.acl_objects.with_acl("change")
-        return (m.Asset.objects
-                .filter(pk__in=base.values("pk"))
-                .select_related("company", "category", "department", "holder", "parent"))
+        base_qs = super().get_queryset()
+        return base_qs.select_related("company", "category", "department", "holder", "parent")
 
 
-class AssetDetailView(LoginRequiredMixin, DetailView):
+
+class AssetDetailView(LoginRequiredMixin, BaseScopedDetailView):
     model = m.Asset
     template_name = "assets/asset_detail.html"
 
     def get_queryset(self):
-        base = m.Asset.acl_objects.with_acl("view")
-        return (m.Asset.objects
-                .filter(pk__in=base.values("pk"))
-                .select_related("company", "category", "department", "holder", "parent"))
+        base_qs = super().get_queryset()
+        return base_qs.select_related("company", "category", "department", "holder", "parent")
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        obj = ctx.get("object")
+        ctx["can_edit_object"] = bool(obj and has_perm(obj, self.request.user, "change"))
+        ctx["can_delete_object"] = bool(obj and has_perm(obj, self.request.user, "delete"))
+        return ctx
+
+class AssetDeleteView(
+    LoginRequiredMixin,
+    PermissionRequiredMixin,
+    ConfirmDeleteMixin,
+    BaseScopedDeleteView,
+):
+    model = m.Asset
+    permission_required = "assets.delete_asset"
+    back_url_name = "assets:asset_list"
+    object_label_field = "name"
 
 
-# =======================
+# ============================================================
 # Assignments
-# =======================
-class AssetAssignmentListView(LoginRequiredMixin, BaseScopedListView, ListView):
+# ============================================================
+
+class AssetAssignmentListView(LoginRequiredMixin, BaseScopedListView):
     model = m.AssetAssignment
     template_name = "assets/assignment_list.html"
     paginate_by = 24
 
     def get_queryset(self):
-        base = m.AssetAssignment.acl_objects.with_acl("view")
+        base_qs = super().get_queryset()
         qs = (
-            m.AssetAssignment.objects.filter(pk__in=base.values("pk"))
+            base_qs
             .select_related("asset", "employee", "company")
             .order_by("-id")
         )
         qs = apply_search_filters(
             self.request,
             qs,
-            search_fields=["asset__code", "asset__name", "employee__name", "note"],
+            search_fields=[
+                "asset__code",
+                "asset__name",
+                "employee__name",
+                "note",
+            ],
         )
         return qs
 
@@ -162,11 +254,16 @@ class AssetAssignmentListView(LoginRequiredMixin, BaseScopedListView, ListView):
         return ctx
 
 
-class AssetAssignmentCreateView(LoginRequiredMixin, CreateView):
+class AssetAssignmentCreateView(
+    LoginRequiredMixin,
+    PermissionRequiredMixin,
+    BaseScopedCreateView,
+):
     model = m.AssetAssignment
     form_class = AssetAssignmentForm
     template_name = "assets/assignment_form.html"
     success_url = reverse_lazy("assets:assignment_list")
+    permission_required = "assets.add_assetassignment"
 
     def get_form_kwargs(self):
         kw = super().get_form_kwargs()
@@ -174,25 +271,46 @@ class AssetAssignmentCreateView(LoginRequiredMixin, CreateView):
         return kw
 
 
-class AssetAssignmentUpdateView(LoginRequiredMixin, UpdateView):
+class AssetAssignmentUpdateView(
+    LoginRequiredMixin,
+    PermissionRequiredMixin,
+    BaseScopedUpdateView,
+):
     model = m.AssetAssignment
     form_class = AssetAssignmentForm
     template_name = "assets/assignment_form.html"
     success_url = reverse_lazy("assets:assignment_list")
+    permission_required = ["assets.change_assetassignment", "assets.delete_assetassignment"]
 
     def get_queryset(self):
-        base = m.AssetAssignment.acl_objects.with_acl("change")
-        return (m.AssetAssignment.objects
-                .filter(pk__in=base.values("pk"))
-                .select_related("asset", "employee", "company"))
+        base_qs = super().get_queryset()
+        return base_qs.select_related("asset", "employee", "company")
 
 
-class AssetAssignmentDetailView(LoginRequiredMixin, DetailView):
+
+class AssetAssignmentDetailView(LoginRequiredMixin, BaseScopedDetailView):
     model = m.AssetAssignment
     template_name = "assets/assignment_detail.html"
 
     def get_queryset(self):
-        base = m.AssetAssignment.acl_objects.with_acl("view")
-        return (m.AssetAssignment.objects
-                .filter(pk__in=base.values("pk"))
-                .select_related("asset", "employee", "company"))
+        base_qs = super().get_queryset()
+        return base_qs.select_related("asset", "employee", "company")
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        obj = ctx.get("object")
+        ctx["can_edit_object"] = bool(obj and has_perm(obj, self.request.user, "change"))
+        ctx["can_delete_object"] = bool(obj and has_perm(obj, self.request.user, "delete"))
+        return ctx
+
+class AssetAssignmentDeleteView(
+    LoginRequiredMixin,
+    PermissionRequiredMixin,
+    ConfirmDeleteMixin,
+    BaseScopedDeleteView,
+):
+    model = m.AssetAssignment
+    permission_required = "assets.delete_assetassignment"
+    back_url_name = "assets:assignment_list"
+    object_label_field = "asset"  # يظهر اسم الأصل المرتبط
+

@@ -328,80 +328,184 @@ def _get_base_department_for_obj(obj):
 
     return None
 
-
 def apply_default_acl(obj):
     """
-    Best-practice ACL application:
-      - owner = full access
-      - HR groups = full access
-      - employee himself = view+change
-      - managers in ancestor chain = operational (view+change) on descendant objects
-      - base_dept.manager (i.e. team leader) = view-only on parents (context)
-      - for Department objects: managers of sibling teams get view-only on this dept (coordination)
+    =====================================================================
+    Default ACL Rules (Odoo-style) applied on ANY object saved in system.
+    =====================================================================
+
+    GLOBAL POLICY:
+    1) Owner (created_by) → full access
+    2) HR Managers        → full access   (permission: hr.manage_all_hr)
+    3) Employee          → view + change (his own Employee record)
+    4) Department Manager Hierarchy:
+         - Manager of department of object  → view/change/approve/assign
+         - Manager of parent departments    → view/change/approve/assign
+         - Manager of the department itself → also gets inheritance rules
+    5) For Department objects:
+         - Managers of sibling departments get view-only (coordination)
+         - Manager of this department gets view-only on parents
+
+    ASSETS SPECIFIC:
+    6) Asset.holder.user:
+         → view + change on Asset
+    7) AssetAssignment.employee.user:
+         → view on Assignment
+         → view + change on related Asset
+
+    NOTE:
+    - ACL must never crash object save, therefore exceptions are swallowed
+      where needed.
+    - All permissions are additive (never revoked here).
+    =====================================================================
     """
+
+    # Lazy imports inside function (to avoid circular dependencies)
+    from django.contrib.auth.models import Group, Permission
+    try:
+        from assets.models import Asset, AssetAssignment
+    except Exception:
+        Asset = None
+        AssetAssignment = None
+
+    try:
+        from performance.models import Evaluation
+    except Exception:
+        Evaluation = None
+
+    # Nothing to apply on objects without PK
     if not getattr(obj, "pk", None):
         return
 
-    # (1) owner
+    # ============================================================
+    # (1) Owner (created_by) → full access
+    # ============================================================
     owner = getattr(obj, "created_by", None)
     if owner:
         grant_access(
             obj,
             user=owner,
-            view=True, change=True, delete=True, approve=True, assign=True, share=True
+            view=True, change=True, delete=True,
+            approve=True, assign=True, share=True,
         )
 
-    # (2) HR managers groups (full access)
+    # ============================================================
+    # (2) HR Managers Groups → full access
+    # ============================================================
     try:
-        perm = Permission.objects.get(content_type__app_label="hr", codename="manage_all_hr")
+        perm = Permission.objects.get(
+            content_type__app_label="hr",
+            codename="manage_all_hr"
+        )
         hr_groups = Group.objects.filter(permissions=perm)
         for g in hr_groups:
             grant_access(
                 obj,
                 group=g,
-                view=True, change=True, delete=True, approve=True, assign=True, share=True,
+                view=True, change=True, delete=True,
+                approve=True, assign=True, share=True,
             )
     except Permission.DoesNotExist:
         pass
 
-    # (3) employee itself
+    # ============================================================
+    # (3) Employee itself → view + change
+    # ============================================================
     if isinstance(obj, Employee) and getattr(obj, "user_id", None):
-        grant_access(obj, user=obj.user, view=True, change=True)
+        grant_access(
+            obj,
+            user=obj.user,
+            view=True,
+            change=True,
+        )
 
-    # (4) main hierarchical managers: managers of base_dept and its ancestors
+    # ============================================================
+    # (4) Asset holder → view + change on Asset
+    # ============================================================
+    if Asset and isinstance(obj, Asset):
+        holder = getattr(obj, "holder", None)
+        holder_user = getattr(holder, "user", None) if holder else None
+        if holder_user:
+            grant_access(
+                obj,
+                user=holder_user,
+                view=True,
+                change=True,
+            )
+
+    # ============================================================
+    # (5) AssetAssignment.employee:
+    #       → view on Assignment
+    #       → view + change on related Asset
+    # ============================================================
+    if AssetAssignment and isinstance(obj, AssetAssignment):
+        emp = getattr(obj, "employee", None)
+        emp_user = getattr(emp, "user", None) if emp else None
+        if emp_user:
+            grant_access(
+                obj,
+                user=emp_user,
+                view=True,
+            )
+            asset = getattr(obj, "asset", None)
+            if asset:
+                grant_access(
+                    asset,
+                    user=emp_user,
+                    view=True,
+                    change=True,
+                )
+
+    # ============================================================
+    # (5.1) Evaluation.employee.user → view on Evaluation
+    # ============================================================
+    if Evaluation and isinstance(obj, Evaluation):
+        emp = getattr(obj, "employee", None)
+        emp_user = getattr(emp, "user", None) if emp else None
+        if emp_user:
+            grant_access(
+                obj,
+                user=emp_user,
+                view=True,
+            )
+
+    # ============================================================
+    # (6) Department hierarchy managers → operational rights
+    # ============================================================
     base_dept = _get_base_department_for_obj(obj)
     if not isinstance(base_dept, Department):
-        return
+        return  # Objects without department hierarchy stop here
 
     seen = set()
     cur = base_dept
-    # climb up: for each ancestor dept, its manager gets operational rights on obj (they manage below)
     while cur:
-        if getattr(cur, "manager_id", None):
-            manager_user = getattr(getattr(cur, "manager", None), "user", None)
-            if manager_user and manager_user.pk not in seen:
-                grant_access(
-                    obj,
-                    user=manager_user,
-                    view=True,
-                    change=True,
-                    approve=True,
-                    assign=True,
-                )
-                seen.add(manager_user.pk)
+        mgr = getattr(cur, "manager", None)
+        mgr_user = getattr(mgr, "user", None) if mgr else None
+        if mgr_user and mgr_user.pk not in seen:
+            grant_access(
+                obj,
+                user=mgr_user,
+                view=True,
+                change=True,
+                approve=True,
+                assign=True,
+            )
+            seen.add(mgr_user.pk)
         cur = cur.parent
 
-    # (5) base_dept.manager should be able to VIEW parents (context), but not change them
+    # ============================================================
+    # (7) Manager of this department → view-only on parents
+    # ============================================================
     try:
         base_mgr = getattr(base_dept, "manager", None)
         base_mgr_user = getattr(base_mgr, "user", None) if base_mgr else None
         if base_mgr_user:
-            p = base_dept.parent
+            parent = base_dept.parent
             seen_view = set()
-            while p:
+            while parent:
                 if base_mgr_user.pk not in seen_view:
                     grant_access(
-                        p,
+                        parent,
                         user=base_mgr_user,
                         view=True,
                         change=False,
@@ -410,13 +514,13 @@ def apply_default_acl(obj):
                         share=False,
                     )
                     seen_view.add(base_mgr_user.pk)
-                p = p.parent
+                parent = parent.parent
     except Exception:
-        # swallow to not break saving flow
         pass
 
-    # (6) For Department objects: let sibling team managers view this department (coordination)
-    #     i.e., if obj is a Department, give the managers of other children of obj.parent view-only on obj
+    # ============================================================
+    # (8) Department objects → sibling managers get view-only
+    # ============================================================
     if isinstance(obj, Department):
         parent = getattr(obj, "parent", None)
         if parent:
@@ -434,8 +538,6 @@ def apply_default_acl(obj):
                         )
             except Exception:
                 pass
-
-    # done
 
 
 # === TEAM VISIBILITY (manager + peers) =======================================

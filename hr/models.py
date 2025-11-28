@@ -97,6 +97,25 @@ class Department(AccessControlledMixin,CompanyOwnedMixin, ActivableMixin, TimeSt
     note = models.TextField(blank=True)
     color = models.IntegerField(default=0)
 
+    # ---------------------------------------------------------
+    #  Department level (division / department / section / team)
+    # ---------------------------------------------------------
+    @property
+    def level(self):
+        """
+        Computes department level based on parent depth.
+        Used for UI and org-tree styling.
+        """
+        if not self.parent:
+            return "division"
+        depth = self.parent_path.count("/") - 1
+        if depth == 1:
+            return "department"
+        elif depth == 2:
+            return "section"
+        else:
+            return "team"
+
     objects = CompanyScopeManager()
     acl_objects = ACLManager()
 
@@ -116,6 +135,17 @@ class Department(AccessControlledMixin,CompanyOwnedMixin, ActivableMixin, TimeSt
     def member_count(self) -> int:
         """عدد الموظفين النشِطين في القسم (سلوك Odoo)."""
         return self.members.filter(active=True).count()
+
+    @property
+    def employee_count(self):
+        """Count all employees inside this department subtree."""
+        return self.members.filter(active=True).count() + \
+               Employee.objects.filter(
+                   department__parent_path__startswith=self.parent_path,
+                   active=True,
+                   company_id=self.company_id
+               ).count()
+
 
     # ---------- منطق الشجرة ----------
     def _recompute_lineage_fields(self):
@@ -144,6 +174,29 @@ class Department(AccessControlledMixin,CompanyOwnedMixin, ActivableMixin, TimeSt
             node.parent_path = "/".join(ids) + "/"
             node.save(update_fields=["complete_name", "parent_path"])
             stack.extend(list(node.children.all().only("pk", "name", "parent")))
+
+    # ---------------------------------------------------------
+    #  Tree helpers (used by views + templates)
+    # ---------------------------------------------------------
+
+    @property
+    def children_list(self):
+        """Return active direct children."""
+        return self.children.filter(active=True).order_by("name")
+
+    def get_descendants(self):
+        """Return all departments under this department."""
+        return Department.objects.filter(
+            parent_path__startswith=self.parent_path,
+            active=True,
+            company_id=self.company_id
+        ).exclude(pk=self.pk)
+
+    def get_ancestors(self):
+        """Return all parents up to root."""
+        ids = [int(x) for x in self.parent_path.split("/") if x]
+        return Department.objects.filter(pk__in=ids).order_by("parent_path")
+
 
     # ---------- lifecycle ----------
     def save(self, *args, **kwargs):
@@ -952,7 +1005,52 @@ class Employee(AccessControlledMixin, CompanyOwnedMixin, ActivableMixin, TimeSta
         """
         return self.days_off.filter(active=True, date=the_date).exists()
 
+    # ---------------------------------------------------------
+    # Subordinates (direct)
+    # ---------------------------------------------------------
+    @property
+    def subordinates(self):
+        return self.managed_employees.filter(active=True)
+
+    # ---------------------------------------------------------
+    # Full managerial tree (all indirect subordinates)
+    # ---------------------------------------------------------
+    @property
+    def all_subordinates(self):
+        stack = list(self.subordinates)
+        result = []
+        while stack:
+            emp = stack.pop()
+            result.append(emp)
+            stack.extend(emp.subordinates)
+        return result
 
     def __str__(self):
         return self.name
 
+
+
+# -------------------------------------------------------------
+# Company-wide tree builder
+# -------------------------------------------------------------
+def get_root_departments(company_id):
+    """Return root divisions for the company."""
+    return Department.objects.filter(
+        company_id=company_id,
+        parent__isnull=True,
+        active=True
+    ).order_by("name")
+
+
+def build_department_tree(nodes):
+    """
+    Convert queryset of root departments into full tree data structure.
+    Used in department_list template.
+    """
+    def build(node):
+        return {
+            "id": node.id,
+            "obj": node,
+            "children": [build(child) for child in node.children_list],
+        }
+    return [build(n) for n in nodes]

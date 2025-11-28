@@ -1,22 +1,47 @@
 @import "tailwindcss";
 
 /**
-  * ملفات القوالب والبايثون والـ JS التي تحتوي كلاسات Tailwind
-  */
-@source "../../../**/*.{html,py,js}";
-
-/**
-  * تفعيل DaisyUI مع الثيمات التي نريدها
-  * نجعل corporate هو الافتراضي
-  */
+ * تفعيل DaisyUI مع الثيمات التي نريدها
+ * - corporate هو الافتراضي (Light)
+ * - business للوضع الداكن الاحترافي
+ * - cyberpunk كثيم جذاب (يمكن استخدامه لاحقاً إذا أحببت)
+ */
 @plugin "daisyui" {
-  themes: corporate --default, business;
+  themes:
+    corporate --default,
+    business,
+    cyberpunk;
 }
 
-/* تخصيصات إضافية للثيم الداكن (business) */
+/**
+ * ملفات القوالب والـ Python والـ JS التي تحتوي كلاسات Tailwind
+ */
+@source "../../../**/*.{html,py,js}";
+
+
+/* =========================================================
+ * Base layer
+ * =======================================================*/
 @layer base {
+  html {
+    @apply scroll-smooth;
+  }
+
+  body {
+    @apply min-h-screen font-sans antialiased bg-base-100 text-base-content;
+  }
+
+  a {
+    @apply underline-offset-4;
+  }
+
+  a:hover {
+    @apply underline;
+  }
+
+  /* تحسين المظهر في الثيم الداكن (business) */
   [data-theme="business"] body {
-    @apply text-gray-100;
+    @apply text-gray-100 bg-base-100;
   }
 
   [data-theme="business"] h1,
@@ -24,5 +49,108 @@
   [data-theme="business"] h3,
   [data-theme="business"] th {
     @apply text-white;
+  }
+
+  /* لمسات بسيطة للثيم النيوني cyberpunk (اختياري) */
+  [data-theme="cyberpunk"] body {
+    @apply bg-base-100 text-base-content;
+  }
+
+  [data-theme="cyberpunk"] .auth-glow {
+    @apply shadow-[0_0_30px_rgba(244,114,182,0.6)];
+  }
+}
+
+
+/* =========================================================
+ * Components layer
+ *  مكوّنات بسيطة نستخدمها في صفحات الـ Auth
+ *  ملاحظة مهمّة: لا نستخدم @apply مع كلاس من DaisyUI مثل btn أو input
+ * =======================================================*/
+@layer components {
+  /* زر أساسي أكبر قليلاً للـ Auth (يمكن استخدامه لاحقاً) */
+  .btn-auth-primary {
+    @apply w-full rounded-xl px-4 py-2.5 text-sm font-semibold
+           bg-primary text-primary-content
+           hover:bg-primary/90 active:scale-[.99]
+           transition-colors duration-150;
+  }
+
+  /* بطاقة مخصّصة لصفحات الـ Auth (تُستخدم في auth_base.html) */
+  .card-auth {
+    @apply bg-base-100/80 backdrop-blur
+           border border-base-200/70
+           shadow-2xl rounded-2xl;
+  }
+
+  /* حقل إدخال قياسي للفورمات (نستخدمه مع widget_tweaks: input-auth) */
+  .input-auth {
+    @apply w-full rounded-xl
+           border border-base-300/70
+           bg-base-100
+           px-3 py-2.5 text-sm
+           focus:outline-none focus:ring-2
+           focus:ring-primary/40 focus:border-primary/60
+           placeholder:text-base-content/40;
+  }
+}
+
+
+/* =========================================================
+ * Utilities إضافية بسيطة
+ * =======================================================*/
+@layer utilities {
+  /* حدود ناعمة للبطاقات */
+  .soft-border {
+    @apply border border-base-300/70;
+  }
+
+  /* خلفية متدرجة ناعمة يمكن استخدامها في الـ Auth layout */
+  .bg-auth-gradient {
+    @apply bg-gradient-to-tr from-primary/15 via-secondary/15 to-accent/15;
+  }
+}
+
+/* =========================================================
+ * Animated background utilities (auth pages)
+ * =======================================================*/
+@layer utilities {
+  @keyframes float-orbit {
+    0% {
+      transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
+      opacity: 0.9;
+    }
+    25% {
+      transform: translate3d(20px, -30px, 0) rotate(3deg) scale(1.03);
+      opacity: 1;
+    }
+    50% {
+      transform: translate3d(-10px, 40px, 0) rotate(-2deg) scale(0.98);
+      opacity: 0.85;
+    }
+    75% {
+      transform: translate3d(-30px, -20px, 0) rotate(2deg) scale(1.04);
+      opacity: 0.95;
+    }
+    100% {
+      transform: translate3d(10px, 10px, 0) rotate(-3deg) scale(1);
+      opacity: 0.9;
+    }
+  }
+
+  .animate-orbit-slow {
+    animation: float-orbit 26s ease-in-out infinite alternate;
+  }
+
+  .animate-orbit-medium {
+    animation: float-orbit 20s ease-in-out infinite alternate-reverse;
+  }
+
+  .animate-orbit-fast {
+    animation: float-orbit 14s ease-in-out infinite alternate;
+  }
+
+  .glass-surface {
+    @apply bg-base-100/80 backdrop-blur-xl border border-base-200/70 shadow-[0_24px_80px_rgba(15,23,42,0.45)] rounded-3xl;
   }
 }

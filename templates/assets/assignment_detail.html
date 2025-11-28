@@ -1,22 +1,57 @@
 {# templates/assets/assignment_detail.html #}
 {% extends "base.html" %}
-{% block title %}Assignment · {{ object.asset.code }}{% endblock %}
+{% load assets_access %}
+
+{% block title %}Assignment Details{% endblock %}
+{% block page_title %}Assignment Details{% endblock %}
+{% block header_title %}Assignment Details{% endblock %}
+{% block header_subtitle %}View complete assignment information{% endblock %}
+
+{% block page_actions %}
+  <a href="{% url 'assets:assignment_list' %}" class="btn btn-sm">Back</a>
+
+  {% if can_edit_object %}
+    <a href="{% url 'assets:assignment_edit' object.pk %}"
+       class="btn btn-primary btn-sm">Edit</a>
+  {% endif %}
+
+  {% if can_delete_object %}
+    <a href="{% url 'assets:assignment_delete' object.pk %}"
+       class="btn btn-error btn-sm">Delete</a>
+  {% endif %}
+{% endblock %}
+
 {% block content %}
-<div class="px-4 py-6">
-  <div class="mb-4 flex items-center justify-between">
-    <h1 class="text-2xl font-bold">{{ object.asset }} → {{ object.employee }}</h1>
-    <div class="flex gap-2">
-      <a class="btn btn-outline btn-sm" href="{% url 'assets:assignment_edit' object.pk %}">Edit</a>
-      <a class="btn btn-sm" href="{% url 'assets:assignment_list' %}">Back</a>
+<div class="card bg-base-100 shadow">
+  <div class="card-body grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+
+    <div class="opacity-70">Asset</div>
+    <div>{{ object.asset }}</div>
+
+    <div class="opacity-70">Employee</div>
+    <div>{{ object.employee }}</div>
+
+    <div class="opacity-70">Company</div>
+    <div>{{ object.company|default:"—" }}</div>
+
+    <div class="opacity-70">Date From</div>
+    <div>{{ object.date_from|date:"Y-m-d" }}</div>
+
+    <div class="opacity-70">Date To</div>
+    <div>{{ object.date_to|date:"Y-m-d"|default:"—" }}</div>
+
+    <div class="opacity-70">Active</div>
+    <div>
+      {% if object.active %}
+        <span class="badge badge-success badge-sm">Active</span>
+      {% else %}
+        <span class="badge badge-ghost badge-sm">Archived</span>
+      {% endif %}
     </div>
-  </div>
-  <div class="card bg-base-100 border border-base-300">
-    <div class="card-body grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-      <div><div class="text-base-content/60">Company</div><div class="font-medium">{{ object.company }}</div></div>
-      <div><div class="text-base-content/60">Dates</div><div class="font-medium">{{ object.date_from|date:"Y-m-d" }} → {{ object.date_to|default:"Open" }}</div></div>
-      <div class="md:col-span-2"><div class="text-base-content/60">Note</div><div class="font-medium">{{ object.note|default:"—" }}</div></div>
-      <div><div class="text-base-content/60">Active</div><div class="font-medium">{{ object.active|yesno:"Yes,No" }}</div></div>
-    </div>
+
+    <div class="opacity-70">Note</div>
+    <div>{{ object.note|default:"—" }}</div>
+
   </div>
 </div>
 {% endblock %}

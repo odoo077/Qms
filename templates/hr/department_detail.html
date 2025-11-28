@@ -1,31 +1,112 @@
-{# templates/hr/department_detail.html #}
 {% extends "base.html" %}
-{% block title %}Department · {{ object.complete_name|default:object.name }}{% endblock %}
-{% block page_title %}Departments{% endblock %}
+
+{% block title %}Department: {{ department.name }}{% endblock %}
 
 {% block content %}
-<div class="px-4 py-6">
-  <nav class="text-sm breadcrumbs mb-4">
-    <ul><li><a href="{% url 'hr:department_list' %}">Departments</a></li><li class="font-semibold">{{ object.name }}</li></ul>
-  </nav>
 
-  <div class="mb-4 flex items-center justify-between">
-    <h1 class="text-2xl font-bold">{{ object.complete_name|default:object.name }}</h1>
-    <div class="flex items-center gap-2">
-      {% if object.id in dept_change_ids %}
-        <a class="btn btn-outline btn-sm" href="{% url 'hr:department_edit' object.pk %}">Edit</a>
-      {% endif %}
-      <a class="btn btn-sm" href="{% url 'hr:department_list' %}">Back</a>
-    </div>
-  </div>
+<div class="max-w-7xl mx-auto p-6">
 
-  <div class="card bg-base-100 border border-base-300">
-    <div class="card-body p-5 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-      <div><div class="text-base-content/60">Company</div><div class="font-medium">{{ object.company|default:"—" }}</div></div>
-      <div><div class="text-base-content/60">Parent</div><div class="font-medium">{{ object.parent|default:"—" }}</div></div>
-      <div><div class="text-base-content/60">Manager</div><div class="font-medium">{{ object.manager|default:"—" }}</div></div>
-      <div><div class="text-base-content/60">Active</div><div class="font-medium">{{ object.active|yesno:"Yes,No" }}</div></div>
+    <!-- BREADCRUMB -->
+    <div class="text-sm breadcrumbs mb-4">
+        <ul>
+            <li><a href="{% url 'hr:department_list' %}">Organization</a></li>
+            {% for anc in ancestors %}
+                <li><a href="{{ anc.get_absolute_url }}">{{ anc.name }}</a></li>
+            {% endfor %}
+            <li>{{ department.name }}</li>
+        </ul>
     </div>
-  </div>
+
+    <!-- TITLE -->
+    <div class="flex justify-between items-center mb-6">
+        <h1 class="text-3xl font-bold">{{ department.name }}</h1>
+
+        {% if department.id in editable_ids %}
+            <a href="{{ department.get_edit_url }}" class="btn btn-primary">
+                Edit Department
+            </a>
+        {% endif %}
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        <!-- LEFT TREE -->
+        <div class="col-span-1">
+            <div class="card bg-base-100 shadow">
+                <div class="card-body p-4">
+                    <h3 class="font-semibold mb-3">Hierarchy</h3>
+
+                    <ul>
+                        {% for root in tree %}
+                            {% include "hr/includes/department_tree_node.html"
+                               with node=root active_id=department.id editable_ids=editable_ids %}
+                        {% endfor %}
+                    </ul>
+
+                </div>
+            </div>
+        </div>
+
+        <!-- RIGHT MAIN -->
+        <div class="col-span-2 space-y-6">
+
+            <!-- MANAGER INFO -->
+            <div class="card bg-base-100 shadow p-6">
+                <h3 class="text-xl font-semibold mb-4">Department Manager</h3>
+
+                {% if department.manager %}
+                    <a href="{{ department.manager.get_absolute_url }}"
+                       class="font-medium text-primary">
+                        {{ department.manager.display_name }}
+                    </a>
+                {% else %}
+                    <p class="opacity-70">No manager assigned.</p>
+                {% endif %}
+            </div>
+
+            <!-- SUB DEPARTMENTS -->
+            <div class="card bg-base-100 shadow p-6">
+                <h3 class="text-xl font-semibold mb-4">Sub Departments</h3>
+
+                {% if children %}
+                    <ul class="space-y-2">
+                        {% for d in children %}
+                            <li>
+                                <a class="text-primary font-medium"
+                                   href="{{ d.get_absolute_url }}">
+                                    {{ d.name }}
+                                </a>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="opacity-70">No sub-departments.</p>
+                {% endif %}
+            </div>
+
+            <!-- EMPLOYEES -->
+            <div class="card bg-base-100 shadow p-6">
+                <h3 class="text-xl font-semibold mb-4">Employees</h3>
+
+                {% if employees %}
+                    <ul class="space-y-2">
+                        {% for emp in employees %}
+                            <li>
+                                <a href="{{ emp.get_absolute_url }}"
+                                   class="font-medium text-primary">
+                                    {{ emp.display_name }}
+                                </a>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="opacity-70">No employees.</p>
+                {% endif %}
+            </div>
+
+        </div>
+    </div>
+
 </div>
+
 {% endblock %}
