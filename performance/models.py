@@ -8,7 +8,6 @@
 
 from django.db import models, transaction
 from django.core.exceptions import ValidationError
-from django.utils import timezone
 from base.acl import AccessControlledMixin, ACLManager
 from django.utils import timezone
 
@@ -20,30 +19,325 @@ from base.models import (
     UserStampedMixin, CompanyScopeManager, ScopedACLManager,  # created_by / updated_by
 )
 
-# خدمات مساعدة (Adapters + Utilities)
-from performance.services import (
-    get_adapter,
-    clamp_to_pct,
-    objective_applies,
-    avg_task_progress_for,
-)
-
 
 # ------------------------------------------------------------
 # Task
 # ------------------------------------------------------------
-class Task(AccessControlledMixin,TimeStampedMixin, UserStampedMixin, ActivableMixin):
+
+class TaskStatus(ActivableMixin, TimeStampedMixin, UserStampedMixin, models.Model):
     """
-    مهام تنفيذية تحت Objective (قد ترتبط بـ KPI).
+    حالة المهمة: ديناميكية يتم إدارتها من الـ Admin.
+    أمثلة: To Do, In Progress, Blocked, Done, Cancelled.
     """
-    STATUS = [
-        ("todo", "To Do"),
-        ("in_progress", "In Progress"),
-        ("blocked", "Blocked"),
-        ("done", "Done"),
-        ("cancelled", "Cancelled"),
+    name = models.CharField(max_length=255)
+    code = models.CharField(max_length=32, unique=True, db_index=True)
+    sequence = models.PositiveIntegerField(default=10)
+
+    is_closed = models.BooleanField(default=False, help_text="Does this status close the task?")
+    is_blocking = models.BooleanField(default=False, help_text="Is this a blocking state?")
+
+    class Meta:
+        db_table = "perf_task_status"
+        ordering = ("sequence", "name")
+        indexes = [models.Index(fields=["active", "code"])]
+
+    def __str__(self):
+        return self.name
+
+class TaskType(ActivableMixin, TimeStampedMixin, UserStampedMixin, models.Model):
+    """
+    نوع المهمة: Planned, Ad-hoc, BAU, Incident Review, etc.
+    """
+    name = models.CharField(max_length=255)
+    code = models.CharField(max_length=64, unique=True, db_index=True)
+    description = models.TextField(blank=True)
+
+    class Meta:
+        db_table = "perf_task_type"
+        ordering = ("name",)
+        indexes = [models.Index(fields=["active", "code"])]
+
+    def __str__(self):
+        return self.name
+
+class TaskCategory(ActivableMixin, TimeStampedMixin, UserStampedMixin, models.Model):
+    """
+    تصنيف المهمة: Quality, Operational, Development, Training, etc.
+    """
+    name = models.CharField(max_length=255)
+    code = models.CharField(max_length=64, unique=True, db_index=True)
+    description = models.TextField(blank=True)
+
+    class Meta:
+        db_table = "perf_task_category"
+        ordering = ("name",)
+        indexes = [models.Index(fields=["active", "code"])]
+
+    def __str__(self):
+        return self.name
+
+class TaskSLAPolicy(CompanyOwnedMixin, ActivableMixin, TimeStampedMixin, UserStampedMixin, models.Model):
+    """
+    سياسة SLA لحساب timeliness / delay penalties / blocked handling.
+    """
+    name = models.CharField(max_length=255)
+    code = models.CharField(max_length=64, unique=True)
+    description = models.TextField(blank=True)
+
+    # thresholds
+    on_time_pct = models.PositiveIntegerField(default=100)
+    mild_delay_pct = models.PositiveIntegerField(default=80)
+    severe_delay_pct = models.PositiveIntegerField(default=50)
+
+    allow_blocked_external_no_penalty = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = "perf_task_sla_policy"
+        ordering = ("company", "name")
+        indexes = [models.Index(fields=["company","active"])]
+
+    def __str__(self):
+        return self.name
+
+class TaskProgressPolicy(ActivableMixin, TimeStampedMixin, UserStampedMixin, models.Model):
+    """
+    قواعد حساب progress للمهمة:
+    - by status
+    - by subtasks
+    - by time spent
+    - by manual rules
+    """
+    name = models.CharField(max_length=255)
+    code = models.CharField(max_length=64, unique=True)
+    description = models.TextField(blank=True)
+
+    use_subtasks = models.BooleanField(default=False)
+    use_time_ratio = models.BooleanField(default=False)
+    use_status_mapping = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = "perf_task_progress_policy"
+        ordering = ("name",)
+
+# ------------------------------------------------------------
+# TaskRecurringDefinition
+# ------------------------------------------------------------
+class TaskRecurringDefinition(
+    AccessControlledMixin,
+    CompanyOwnedMixin,
+    TimeStampedMixin,
+    UserStampedMixin,
+    ActivableMixin,
+    models.Model
+):
+    """
+    تعريف المهام الدورية (يُنشأ يدوياً من الـ Admin ثم تُستخدم خدمة RecurringTaskService لتوليد المهام).
+    """
+
+    SCHEDULE_KIND = [
+        ("monthly", "Monthly"),
+        ("weekly", "Weekly"),
+        ("custom", "Custom Period"),
     ]
 
+    company = models.ForeignKey(
+        "base.Company",
+        on_delete=models.PROTECT,
+        related_name="recurring_task_definitions"
+    )
+
+    name = models.CharField(max_length=255)
+    code = models.CharField(max_length=64, blank=True, db_index=True)
+
+    schedule_kind = models.CharField(
+        max_length=16,
+        choices=SCHEDULE_KIND,
+        default="monthly",
+        db_index=True
+    )
+
+    # نوع المهمة + التصنيف
+    task_type = models.ForeignKey(
+        "performance.TaskType",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="recurring_definitions"
+    )
+
+    task_category = models.ForeignKey(
+        "performance.TaskCategory",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="recurring_definitions"
+    )
+
+    # سياسات التطبيق
+    progress_policy = models.ForeignKey(
+        "performance.TaskProgressPolicy",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="recurring_definitions"
+    )
+
+    sla_policy = models.ForeignKey(
+        "performance.TaskSLAPolicy",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="recurring_definitions"
+    )
+
+    # الربط مع الهدف
+    objective = models.ForeignKey(
+        "performance.Objective",
+        on_delete=models.CASCADE,
+        related_name="recurring_task_definitions"
+    )
+
+    # نطاق القسم / الفريق (اختياري)
+    department = models.ForeignKey(
+        "hr.Department",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="recurring_definitions_department",
+    )
+
+    team = models.ForeignKey(
+        "hr.Department",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="recurring_definitions_team",
+    )
+
+    # عدد التكرار (مثلاً 864 مكالمة شهرياً)
+    target_count = models.PositiveIntegerField(default=0)
+
+    # وصف المهمة التي ستولد
+    description = models.TextField(blank=True)
+
+    # استثناء موظفين
+    excluded_employees = models.ManyToManyField(
+        "hr.Employee",
+        blank=True,
+        related_name="excluded_from_recurring_tasks"
+    )
+
+    class Meta:
+        db_table = "perf_task_recurring_definition"
+        ordering = ("company", "name")
+        indexes = [
+            models.Index(fields=["company", "active"]),
+            models.Index(fields=["schedule_kind"]),
+        ]
+
+    def __str__(self):
+        return self.name
+
+# ------------------------------------------------------------
+# TaskWatcher
+# ------------------------------------------------------------
+class TaskWatcher(
+    AccessControlledMixin,
+    CompanyOwnedMixin,
+    TimeStampedMixin,
+    UserStampedMixin,
+    ActivableMixin,
+    models.Model
+):
+    """
+    مستخدمون يراقبون المهمة (Watchers) – يتلقون إشعارات أو لديهم صلاحية متابعة.
+    """
+
+    company = models.ForeignKey(
+        "base.Company",
+        on_delete=models.PROTECT,
+        related_name="task_watchers"
+    )
+
+    task = models.ForeignKey(
+        "performance.Task",
+        on_delete=models.CASCADE,
+        related_name="watcher_links"
+    )
+
+    employee = models.ForeignKey(
+        "hr.Employee",
+        on_delete=models.CASCADE,
+        related_name="task_watcher_links"
+    )
+
+    class Meta:
+        db_table = "perf_task_watcher"
+        unique_together = [("task", "employee")]
+        indexes = [
+            models.Index(fields=["task", "employee"]),
+        ]
+
+    def __str__(self):
+        return f"{self.employee.name} watching {self.task.title}"
+
+# ------------------------------------------------------------
+# TaskDependency
+# ------------------------------------------------------------
+class TaskDependency(
+    AccessControlledMixin,
+    CompanyOwnedMixin,
+    TimeStampedMixin,
+    UserStampedMixin,
+    ActivableMixin,
+    models.Model
+):
+    """
+    علاقة اعتماد: مهمة لا تبدأ قبل اكتمال مهمة أخرى (depends_on)
+    """
+
+    company = models.ForeignKey(
+        "base.Company",
+        on_delete=models.PROTECT,
+        related_name="task_dependencies"
+    )
+
+    task = models.ForeignKey(
+        "performance.Task",
+        on_delete=models.CASCADE,
+        related_name="dependencies"
+    )
+
+    depends_on = models.ForeignKey(
+        "performance.Task",
+        on_delete=models.CASCADE,
+        related_name="unlocking"
+    )
+
+    class Meta:
+        db_table = "perf_task_dependency"
+        unique_together = [("task", "depends_on")]
+        indexes = [
+            models.Index(fields=["task", "depends_on"]),
+        ]
+
+    def __str__(self):
+        return f"{self.task.title} depends on {self.depends_on.title}"
+
+
+# ------------------------------------------------------------
+# Task (الدعم الكامل بعد المرحلة الثانية)
+# ------------------------------------------------------------
+
+class Task( AccessControlledMixin,TimeStampedMixin, UserStampedMixin, ActivableMixin, models.Model ):
+    """
+    مهمة تنفيذية داخل Objective، مع دعم SLA، Subtasks،
+    السياسات الديناميكية، التقدم، الجودة، الكفاءة، والمراجعين.
+    """
+
+    # -----------------------------------------
+    # العلاقات الأساسية
+    # -----------------------------------------
     company   = models.ForeignKey("base.Company", on_delete=models.PROTECT, related_name="perf_tasks")
     objective = models.ForeignKey("performance.Objective", on_delete=models.CASCADE, related_name="tasks")
     kpi       = models.ForeignKey("performance.KPI", null=True, blank=True, on_delete=models.SET_NULL, related_name="tasks")
@@ -51,223 +345,314 @@ class Task(AccessControlledMixin,TimeStampedMixin, UserStampedMixin, ActivableMi
     title       = models.CharField(max_length=255)
     description = models.TextField(blank=True)
 
-    # ------------------------------
-    # نوع المهمة (مخططة / مؤقتة / تشغيل يومي)
-    # ------------------------------
-    TASK_KIND = [
-        ("planned", "Planned Objective Task"),
-        ("temporary", "Temporary / Ad-hoc Task"),
-        ("bau", "BAU / Daily Operations Task"),
-    ]
-
-    task_kind = models.CharField(
-        max_length=16,
-        choices=TASK_KIND,
-        default="planned",
-        db_index=True,
+    # -----------------------------------------
+    # حالة ديناميكية
+    # -----------------------------------------
+    status = models.ForeignKey(
+        "performance.TaskStatus",
+        on_delete=models.PROTECT,
+        related_name="tasks",
+        null=True,
+        blank=False,
     )
 
-    # أولوية المهمة
-    PRIORITY = [
-        ("low", "Low"),
-        ("normal", "Normal"),
-        ("high", "High"),
-        ("critical", "Critical"),
-    ]
-
-    priority = models.CharField(
-        max_length=16,
-        choices=PRIORITY,
-        default="normal",
-        db_index=True,
-    )
-
-    # ----------------------------------------
-    # تقدير الوقت (بالدقائق) – High precision
-    # ----------------------------------------
-    estimated_minutes = models.PositiveIntegerField(
-        default=0,
-        help_text="Estimated effort for this task (minutes)."
-    )
-
-    actual_minutes = models.PositiveIntegerField(
-        default=0,
-        help_text="Actual effort spent (minutes). Optional."
-    )
-
-    # ----------------------------------------
-    # تتبّع الزمن الفعلي (لبدء وإنهاء المهمة)
-    # ----------------------------------------
-    started_at = models.DateTimeField(
+    # -----------------------------------------
+    # نوع وتصنيف المهمة (Global)
+    # -----------------------------------------
+    task_type = models.ForeignKey(
+        "performance.TaskType",
         null=True,
         blank=True,
-        help_text="When the assignee actually started working on this task."
+        on_delete=models.SET_NULL,
+        related_name="tasks"
     )
 
-    completed_at = models.DateTimeField(
+    task_category = models.ForeignKey(
+        "performance.TaskCategory",
         null=True,
         blank=True,
-        help_text="When the task was actually completed or cancelled."
+        on_delete=models.SET_NULL,
+        related_name="tasks"
     )
 
-
-    # ----------------------------------------
-    # جودة تنفيذ المهمة
-    # ----------------------------------------
-    quality_score_pct = models.PositiveIntegerField(
-        default=0,
-        help_text="Quality score (0–100), can be set manually or by QA process."
+    # -----------------------------------------
+    # سياسة SLA وسياسة التقدم
+    # -----------------------------------------
+    sla_policy = models.ForeignKey(
+        "performance.TaskSLAPolicy",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="tasks"
     )
+
+    progress_policy = models.ForeignKey(
+        "performance.TaskProgressPolicy",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="tasks"
+    )
+
+    # -----------------------------------------
+    # الوقت والتقديرات
+    # -----------------------------------------
+    estimated_minutes = models.PositiveIntegerField(default=0)
+    actual_minutes    = models.PositiveIntegerField(default=0)
+
+    started_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    due_date = models.DateField(null=True, blank=True)
+
+    # -----------------------------------------
+    # الجودة ومراجعة الجودة
+    # -----------------------------------------
+    quality_score_pct = models.PositiveIntegerField(default=0)
+    quality_pct       = models.PositiveIntegerField(default=100)
+
     quality_reviewer = models.ForeignKey(
         "hr.Employee",
         null=True,
         blank=True,
         on_delete=models.SET_NULL,
-        related_name="reviewed_performance_tasks",
-        help_text="Who reviewed/validated the quality of this task."
+        related_name="reviewed_performance_tasks"
     )
+    quality_reviewed_at = models.DateTimeField(null=True, blank=True)
+    quality_notes = models.TextField(blank=True)
 
-    quality_reviewed_at = models.DateTimeField(
+    # -----------------------------------------
+    # مؤشرات الأداء الديناميكية
+    # -----------------------------------------
+    timeliness_pct = models.PositiveIntegerField(default=100)
+    efficiency_pct = models.PositiveIntegerField(default=100)
+
+    # -----------------------------------------
+    # البلوك (مع تحديد داخلي/خارجي)
+    # -----------------------------------------
+    blocked_reason = models.TextField(blank=True)
+    blocked_external = models.BooleanField(default=False)
+
+    # -----------------------------------------
+    # Subtasks / Dependencies
+    # -----------------------------------------
+    parent_task = models.ForeignKey(
+        "self",
         null=True,
         blank=True,
-        help_text="When the quality of this task was reviewed."
+        on_delete=models.CASCADE,
+        related_name="subtasks"
     )
 
-    quality_notes = models.TextField(
+    depends_on = models.ManyToManyField(
+        "self",
         blank=True,
-        help_text="Optional notes about quality, findings, or corrections."
+        symmetrical=False,
+        related_name="blocking_tasks"
     )
 
-
-    # ----------------------------------------
-    # مصدر المهمة المؤقتة (NMS, CRM, Email)
-    # ----------------------------------------
-    temporary_source_type = models.CharField(
-        max_length=32,
+    # -----------------------------------------
+    # المالك والمتابعون
+    # -----------------------------------------
+    owner = models.ForeignKey(
+        "hr.Employee",
+        null=True,
         blank=True,
-        help_text="Source of temporary task: NMS Incident, CRM Ticket, etc."
+        on_delete=models.SET_NULL,
+        related_name="owned_tasks"
     )
 
-    temporary_source_ref = models.CharField(
-        max_length=64,
+    assignee = models.ForeignKey(
+        "hr.Employee",
+        null=True,
         blank=True,
-        help_text="External reference ID (IncidentID, TicketID, etc.)"
+        on_delete=models.SET_NULL,
+        related_name="performance_tasks"
     )
 
-    # ----------------------------------------
-    # تفاصيل البلوك (للتفريق بين تأخير داخلي/خارجي)
-    # ----------------------------------------
-    blocked_reason = models.TextField(
+    watchers = models.ManyToManyField(
+        "hr.Employee",
         blank=True,
-        help_text="Reason for blocked status (waiting for another team, customer, system issue, etc.)."
+        related_name="watched_tasks",
+        through = "TaskWatcher"
     )
 
-    blocked_external = models.BooleanField(
-        default=False,
-        help_text="If True, delay is caused by external factors (should not fully penalize the employee)."
-    )
-
-
-    assignee = models.ForeignKey("hr.Employee", null=True, blank=True, on_delete=models.SET_NULL, related_name="performance_tasks")
-    due_date = models.DateField(null=True, blank=True)
-    status   = models.CharField(max_length=12, choices=STATUS, default="todo", db_index=True)
-
-    # 0..100; تُستخدم لتجميع تقدّم الـ Objective
+    # -----------------------------------------
+    # نسب الإنجاز
+    # -----------------------------------------
     percent_complete = models.PositiveIntegerField(default=0)
 
-    objects = ACLManager()
-    acl_objects = ScopedACLManager()
+    # -----------------------------------------
+    # تجميد المهمة
+    # -----------------------------------------
+    is_locked = models.BooleanField(default=False)
+    locked_at = models.DateTimeField(null=True, blank=True)
+
+    # -----------------------------------------
+    # مصدر المهمة المؤقتة
+    # -----------------------------------------
+    temporary_source_type = models.CharField(max_length=32, blank=True)
+    temporary_source_ref = models.CharField(max_length=64, blank=True)
 
     class Meta:
         db_table = "perf_task"
         indexes = [
-            models.Index(fields=["company", "objective", "status"]),
+            models.Index(fields=["company", "objective"]),
             models.Index(fields=["due_date"]),
+            models.Index(fields=["status"]),
         ]
         constraints = [
             models.CheckConstraint(
                 check=models.Q(percent_complete__gte=0, percent_complete__lte=100),
                 name="chk_task_percent_0_100",
-            ),
-        ]
-        permissions = [
-            ("assign_task", "Can assign task to employee"),
-            ("update_task_progress", "Can update task progress"),
+            )
         ]
 
     def __str__(self):
         return self.title
 
+    # ------------------------------------------------------------
+    # VALIDATION
+    # ------------------------------------------------------------
     def clean(self):
         super().clean()
+
         if self.objective and self.company and self.objective.company_id != self.company_id:
-            raise ValidationError({"objective": "Objective must belong to the same company."})
-        if self.kpi and self.kpi.objective_id != self.objective_id:
-            raise ValidationError({"kpi": "KPI must belong to the same Objective."})
-        if self.assignee and self.assignee.company_id != self.company_id:
-            raise ValidationError({"assignee": "Assignee must belong to the same company."})
-        if self.quality_reviewer and self.quality_reviewer.company_id != self.company_id:
-            raise ValidationError({"quality_reviewer": "Quality reviewer must belong to the same company."})
+            raise ValidationError({"objective": "Objective must belong to same company."})
+
         if self.kpi and self.kpi.company_id != self.company_id:
-            raise ValidationError({"kpi": "KPI must belong to the same company."})
+            raise ValidationError({"kpi": "KPI must belong to same company."})
 
+        if self.assignee and self.assignee.company_id != self.company_id:
+            raise ValidationError({"assignee": "Assignee must belong to same company."})
 
+        if self.quality_reviewer and self.quality_reviewer.company_id != self.company_id:
+            raise ValidationError({"quality_reviewer": "Reviewer must belong to same company."})
+
+        if self.is_locked:
+            raise ValidationError("Cannot modify locked tasks.")
+
+    # ------------------------------------------------------------
+    # SAVE LOGIC
+    # ------------------------------------------------------------
     def save(self, *args, **kwargs):
-        """
-        منطق الحفظ:
-        - ضبط percent_complete بما يتناسب مع الحالة (status).
-        - ضبط started_at و completed_at تلقائياً عند الانتقال.
-        - استدعاء إعادة تجميع الـ Objective بعد الحفظ.
-        """
 
-        # 1) ربط status مع percent_complete
-        if self.status == "todo":
-            # مهمة لم تبدأ بعد
-            self.percent_complete = 0
+        # --------------------------------------------------------
+        # 1) منع التعديل إذا كانت المهمة مجمّدة
+        # --------------------------------------------------------
+        if self.is_locked:
+            raise ValidationError("Cannot modify a locked task.")
 
-        elif self.status == "in_progress":
-            # مهمة قيد التنفيذ: يجب أن تكون بين 1 و 99
-            if self.percent_complete <= 0:
-                self.percent_complete = 10  # قيمة افتراضية بسيطة كبداية
-            elif self.percent_complete >= 100:
-                self.percent_complete = 99
-
-        elif self.status in ("done", "cancelled"):
-            # إذا أُنجزت: 100%، إذا أُلغيت: 0% (يمكنك تعديل المنطق حسب سياستك)
-            if self.status == "done":
-                self.percent_complete = 100
-            else:
-                # cancelled
-                self.percent_complete = 0
-
-        # 2) ضبط started_at و completed_at تلقائياً
         now = timezone.now()
 
-        # إذا أصبحت In Progress أو Done ولا يوجد started_at → عيّنه الآن
-        if self.status in ("in_progress", "done") and self.started_at is None:
-            self.started_at = now
+        # --------------------------------------------------------
+        # 2) ضبط started_at و completed_at حسب الحالة
+        #    (نترك منطقك الحالي كما هو)
+        # --------------------------------------------------------
+        if self.status:
+            if self.status.code == "in_progress" and not self.started_at:
+                self.started_at = now
 
-        # إذا أصبحت Done أو Cancelled ولا يوجد completed_at → عيّنه الآن
-        if self.status in ("done", "cancelled") and self.completed_at is None:
-            self.completed_at = now
+            if self.status.is_closed and not self.completed_at:
+                self.completed_at = now
 
-        # 3) إذا تم وضع quality_score_pct > 0 ولم يوجد quality_reviewed_at → اعتبر أنه قد تم مراجعته الآن
-        if self.quality_score_pct and self.quality_score_pct > 0 and self.quality_reviewed_at is None:
+        # --------------------------------------------------------
+        # 3) مراجعة الجودة
+        # --------------------------------------------------------
+        if self.quality_score_pct > 0 and not self.quality_reviewed_at:
             self.quality_reviewed_at = now
 
-        # حفظ المهمة أولاً
+        # --------------------------------------------------------
+        # 4) تطبيق جميع السياسات (SLA + Efficiency + Progress + Dependencies + Quality)
+        # --------------------------------------------------------
+        from performance import services  # LAZY IMPORT
+        services.TaskPolicyEngine.apply(self)
+
+        # --------------------------------------------------------
+        # 5) حفظ المهمة فعلياً
+        # --------------------------------------------------------
         super().save(*args, **kwargs)
 
-        # 4) رفع التجميع إلى الـ Objective (progress + score)
+        # --------------------------------------------------------
+        # 6) رفع التجميع إلى الـ Objective
+        # --------------------------------------------------------
         if self.objective_id:
             self.objective.recompute_progress_and_score()
             self.objective.save(update_fields=["progress_pct", "score_pct"])
 
 
-
 # ------------------------------------------------------------
 # KPI
 # ------------------------------------------------------------
+
+class KPIType(ActivableMixin, TimeStampedMixin, UserStampedMixin, models.Model):
+    """
+    نوع KPI (Global): Quality, Productivity, SLA, Financial...
+    """
+    name = models.CharField(max_length=255)
+    code = models.CharField(max_length=64, unique=True, db_index=True)
+    description = models.TextField(blank=True)
+
+    class Meta:
+        db_table = "perf_kpi_type"
+        ordering = ("name",)
+        indexes = [
+            models.Index(fields=["active"]),
+            models.Index(fields=["code"]),
+        ]
+
+    def __str__(self):
+        return self.name
+
+class KPICategory(ActivableMixin, TimeStampedMixin, UserStampedMixin, models.Model):
+    """
+    تصنيف KPI (Global): Strategic, Operational, Technical...
+    """
+    name = models.CharField(max_length=255)
+    code = models.CharField(max_length=64, unique=True, db_index=True)
+    description = models.TextField(blank=True)
+
+    class Meta:
+        db_table = "perf_kpi_category"
+        ordering = ("name",)
+        indexes = [
+            models.Index(fields=["active"]),
+            models.Index(fields=["code"]),
+        ]
+
+    def __str__(self):
+        return self.name
+
+class KPICalculationMethod(ActivableMixin, TimeStampedMixin, UserStampedMixin, models.Model):
+    """
+    طريقة حساب KPI: Dynamic formula definition stored in DB.
+    """
+
+    code = models.CharField(max_length=64, unique=True, db_index=True)
+    name = models.CharField(max_length=255)
+
+    FORMULA_CHOICES = [
+        ("ratio", "current / target"),
+        ("inverse_ratio", "target / current"),
+        ("progressive", "progressive scaling upto 200%"),
+        ("manual", "Manual score (entered directly)"),
+    ]
+
+    formula_type = models.CharField(max_length=32, choices=FORMULA_CHOICES, default="ratio")
+
+    green_threshold_pct = models.PositiveIntegerField(default=90)
+    yellow_threshold_pct = models.PositiveIntegerField(default=70)
+
+    description = models.TextField(blank=True)
+
+    class Meta:
+        db_table = "perf_kpi_calc_method"
+        ordering = ("name",)
+
+    def __str__(self):
+        return self.name
+
+
 class KPI(AccessControlledMixin, TimeStampedMixin, UserStampedMixin, ActivableMixin):
     """
     مؤشر أداء رئيسي داخل Objective، مع تخزين نتائج attainment/score.
@@ -288,6 +673,21 @@ class KPI(AccessControlledMixin, TimeStampedMixin, UserStampedMixin, ActivableMi
     name        = models.CharField(max_length=255)
     description = models.TextField(blank=True)
 
+    kpi_type = models.ForeignKey(
+        "performance.KPIType",
+        null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name="kpis"
+    )
+
+    category = models.ForeignKey(
+        "performance.KPICategory",
+        null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name="kpis"
+    )
+
+
     unit             = models.CharField(max_length=10, choices=UNIT_CHOICES, default="#")
     higher_is_better = models.BooleanField(default=True, help_text="If False, lower values score higher")
 
@@ -295,8 +695,41 @@ class KPI(AccessControlledMixin, TimeStampedMixin, UserStampedMixin, ActivableMi
     baseline_value = models.DecimalField(max_digits=16, decimal_places=4, null=True, blank=True)
     current_value  = models.DecimalField(max_digits=16, decimal_places=4, null=True, blank=True)
 
+    calculation_method = models.ForeignKey(
+        "performance.KPICalculationMethod",
+        null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name="kpis",
+        help_text="Dynamic calculation rule for KPI."
+    )
+
+
     # وزن داخل الـ Objective
     weight_pct = models.PositiveIntegerField(default=100)
+
+    owner = models.ForeignKey(
+        "hr.Employee",
+        null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name="owned_kpis",
+        help_text="Employee responsible for updating KPI data."
+    )
+
+    data_source = models.CharField(
+        max_length=16,
+        choices=[("manual", "Manual"), ("external", "External System")],
+        default="manual"
+    )
+
+    external_source_ref = models.CharField(
+        max_length=128,
+        blank=True,
+        help_text="Reference if KPI data comes from external system."
+    )
+
+    is_locked = models.BooleanField(default=False)
+    locked_at = models.DateTimeField(null=True, blank=True)
+
 
     # Stored computes
     attainment_pct = models.PositiveIntegerField(default=0, help_text="0..100% of target achieved", db_index=True)
@@ -340,129 +773,292 @@ class KPI(AccessControlledMixin, TimeStampedMixin, UserStampedMixin, ActivableMi
 
     def recompute(self):
         """
-        attainment: مقارنة (current vs target) مع مراعاة اتجاه الأفضلية.
-        score: قصّ إلى 0..100.
+        حساب KPI يعتمد الآن على طريقة الحساب المخزنة في DB.
         """
+
+        # Locked KPIs cannot be updated
+        if self.is_locked:
+            return
+
+        # Manual calculation: score entered externally / admin
+        if self.calculation_method and self.calculation_method.formula_type == "manual":
+            return  # no automatic changes
+
         if self.current_value is None or self.target_value in (None, 0):
             self.attainment_pct = 0
             self.score_pct = 0
             return
 
-        try:
-            cur = float(self.current_value)
-            tgt = float(self.target_value)
-            if tgt == 0:
-                att = 100.0 if cur == 0 else 0.0
-            else:
-                if self.higher_is_better:
-                    att = (cur / tgt) * 100.0
-                else:
-                    att = (tgt / cur) * 100.0 if cur > 0 else 100.0
-        except Exception:
-            att = 0.0
+        cur = float(self.current_value)
+        tgt = float(self.target_value)
 
-        att = max(0.0, min(200.0, att))  # سقف للتمدد
-        self.attainment_pct = int(round(min(att, 200.0)))
-        self.score_pct      = int(round(max(0.0, min(100.0, att))))
+        method = self.calculation_method.formula_type if self.calculation_method else "ratio"
+
+        if method == "ratio":
+            att = (cur / tgt) * 100.0
+
+        elif method == "inverse_ratio":
+            att = (tgt / cur) * 100.0 if cur > 0 else 100.0
+
+        elif method == "progressive":
+            # cap to 200%
+            att = min((cur / tgt) * 100.0, 200.0)
+
+        else:  # fallback
+            att = (cur / tgt) * 100.0
+
+        self.attainment_pct = int(round(min(att, 200)))
+        self.score_pct = int(round(max(0, min(100, att))))
+
 
     def save(self, *args, **kwargs):
+
+        if self.is_locked:
+            return  # locked KPIs cannot be modified
+
         super().save(*args, **kwargs)
+
         self.recompute()
+
         super().save(update_fields=["attainment_pct", "score_pct"])
-        # رفع التجميع إلى الـ Objective
+
         self.objective.recompute_progress_and_score()
         self.objective.save(update_fields=["progress_pct", "score_pct"])
 
 
-# ------------------------------------------------------------
-# Objective
-# ------------------------------------------------------------
-class Objective(AccessControlledMixin, CompanyOwnedMixin, TimeStampedMixin, UserStampedMixin, ActivableMixin):
 
-    """
-    الهدف: وعاء KPIs/Tasks + تجميع progress/score + مادة للمشاركين.
-    """
-    STATUS = [
-        ("draft", "Draft"),
-        ("active", "Active"),
-        ("paused", "Paused"),
-        ("done", "Done"),
-        ("cancelled", "Cancelled"),
-    ]
+# ------------------------------------------------------------------
+# Objective , ObjectiveStatus , ObjectiveType and ObjectiveCategory
+# ------------------------------------------------------------------
 
-    company  = models.ForeignKey("base.Company", on_delete=models.PROTECT, related_name="objectives")
-    reviewer = models.ForeignKey("hr.Employee", null=True, blank=True, on_delete=models.SET_NULL, related_name="reviewed_objectives")
+class ObjectiveStatus(ActivableMixin, TimeStampedMixin, UserStampedMixin, models.Model):
+    """
+    حالة الهدف: ديناميكية، Global (غير مرتبطة بشركة معيّنة).
+    مثل: Draft, Active, Paused, Done, Cancelled, Archived...
+    """
+
+    name = models.CharField(max_length=255)
+    code = models.CharField(max_length=64, unique=True, db_index=True)
+    sequence = models.PositiveIntegerField(default=10, help_text="Sorting order")
+    description = models.TextField(blank=True)
+
+    class Meta:
+        db_table = "perf_objective_status"
+        ordering = ("sequence", "name")
+        indexes = [
+            models.Index(fields=["active"]),
+            models.Index(fields=["code"]),
+        ]
+
+    def __str__(self):
+        return self.name
+
+class ObjectiveType(ActivableMixin, TimeStampedMixin, UserStampedMixin, models.Model):
+    """
+    نوع الهدف (Global): جودة، إنتاجية، تشغيلي، تطوير، سلوكي...
+    يمكن استخدامه لتجميع الأهداف حسب النوع
+    وربطه بسياسة احتساب افتراضية تختلف من نوع لآخر.
+    """
+
+    name = models.CharField(max_length=255)
+    code = models.CharField(max_length=64, blank=True, db_index=True)
+    description = models.TextField(blank=True)
+
+    # سياسة احتساب افتراضية لهذا النوع (اختياري)
+    default_scoring_policy = models.ForeignKey(
+        "performance.EmployeeObjectiveScoringPolicy",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="objective_type_defaults",
+        help_text="Optional default scoring policy for all Objectives of this type.",
+    )
+
+    class Meta:
+        db_table = "perf_objective_type"
+        indexes = [
+            models.Index(fields=["active"]),
+            models.Index(fields=["code"]),
+        ]
+        ordering = ("name",)
+
+    def __str__(self):
+        return self.name
+
+class ObjectiveCategory(ActivableMixin, TimeStampedMixin, UserStampedMixin, models.Model):
+    """
+    تصنيف الهدف (Global): استراتيجي، تشغيلي، تطوير، جودة، مبادرة...
+    يُستخدم للتحليل والتقارير وتصفية الأهداف.
+    """
+
+    name = models.CharField(max_length=255)
+    code = models.CharField(max_length=64, blank=True, db_index=True)
+    description = models.TextField(blank=True)
+
+    class Meta:
+        db_table = "perf_objective_category"
+        indexes = [
+            models.Index(fields=["active"]),
+            models.Index(fields=["code"]),
+        ]
+        ordering = ("name",)
+
+    def __str__(self):
+        return self.name
+
+class Objective( AccessControlledMixin, CompanyOwnedMixin, TimeStampedMixin, UserStampedMixin, ActivableMixin, models.Model):
+    """
+    الهدف: وعاء KPIs/Tasks + تجميع progress/score + مشاركين + Rollup.
+    """
+    # -------------------
+    # العلاقات الأساسية
+    # -------------------
+    company = models.ForeignKey(
+        "base.Company",
+        on_delete=models.PROTECT,
+        related_name="objectives",
+    )
+
+    reviewer = models.ForeignKey(
+        "hr.Employee",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="reviewed_objectives",
+    )
 
     code        = models.CharField(max_length=32, blank=True)
     title       = models.CharField(max_length=255)
     description = models.TextField(blank=True)
 
-    # ---------------------------------------
-    # Hierarchy (parent → child objectives)
-    # ---------------------------------------
+    # -------------------
+    # نوع الهدف + تصنيفه
+    # -------------------
+    objective_type = models.ForeignKey(
+        "performance.ObjectiveType",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="objectives",
+        help_text="Type of this objective (Quality, Productivity, Operations, etc.)",
+    )
+
+    category = models.ForeignKey(
+        "performance.ObjectiveCategory",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="objectives",
+        help_text="Category (Strategic, Operational, Development, etc.)",
+    )
+
+    # -------------------
+    # Hierarchy (Company → Division → Department → Section → Team → Employee)
+    # -------------------
     parent = models.ForeignKey(
         "self",
         null=True,
         blank=True,
         on_delete=models.SET_NULL,
         related_name="children",
-        help_text="Parent objective for hierarchical planning."
+        help_text="Parent objective in the hierarchy.",
     )
 
     hierarchy_level = models.PositiveIntegerField(
         default=1,
-        help_text="1 = Company, 2 = Division, 3 = Department, 4 = Section, 5 = Team, 6 = Employee"
+        help_text="1 = Company, 2 = Division, 3 = Department, 4 = Section, 5 = Team, 6 = Employee",
     )
 
     ROLLUP_CHOICES = [
         ("average", "Average of children"),
         ("weighted", "Weighted by child weight_pct"),
-        ("none", "No rollup (objective computed from own KPIs/Tasks only)"),
+        ("none", "Compute from own KPIs/Tasks only"),
     ]
 
     rollup_strategy = models.CharField(
         max_length=16,
         choices=ROLLUP_CHOICES,
-        default="none"
+        default="none",
     )
 
+    # -------------------
+    # المدة الزمنية
+    # -------------------
     date_start = models.DateField()
     date_end   = models.DateField(null=True, blank=True)
 
-    status = models.CharField(max_length=12, choices=STATUS, default="draft", db_index=True)
+    status = models.ForeignKey(
+        "performance.ObjectiveStatus",
+        on_delete=models.PROTECT,
+        related_name="objectives",
+        null=True,
+        blank=False,
+        help_text="Dynamic status of the objective",
+    )
 
-    # ---- Target Scope (Company / Department / Employee) ----
+    # -------------------
+    # Target Scope
+    # -------------------
     TARGET = [
-        ("company", "Company"),
-        ("department", "Department"),
-        ("employee", "Employee"),
+        ("company",   "Company"),
+        ("department","Department"),
+        ("employee",  "Employee"),
     ]
-    target_kind = models.CharField(max_length=12, choices=TARGET, default="company", db_index=True)
+
+    target_kind = models.CharField(
+        max_length=12,
+        choices=TARGET,
+        default="company",
+        db_index=True,
+    )
 
     target_department = models.ForeignKey(
-        "hr.Department", null=True, blank=True, on_delete=models.PROTECT, related_name="target_objectives"
+        "hr.Department",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="target_objectives",
     )
+
     target_employee = models.ForeignKey(
-        "hr.Employee", null=True, blank=True, on_delete=models.PROTECT, related_name="target_objectives"
+        "hr.Employee",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="target_objectives",
     )
 
-    # وزن داخل مجموع التقييمات
-    weight_pct = models.PositiveIntegerField(default=100, help_text="0..100 (%) weight")
+    # وزن الهدف داخل التقييم النهائي
+    weight_pct = models.PositiveIntegerField(
+        default=100,
+        help_text="0..100 (%) weight",
+    )
 
-    # تجمعات مخزنة
-    progress_pct = models.PositiveIntegerField(default=0, help_text="Aggregated from Tasks (0..100)", db_index=True)
-    score_pct    = models.PositiveIntegerField(default=0, help_text="Aggregated from KPIs (0..100)")
-
-    # سياسة احتساب درجة الموظف داخل هذا الهدف (اختياري)
+    # -------------------
+    # Scoring Policy Override
+    # -------------------
     scoring_policy = models.ForeignKey(
         "performance.EmployeeObjectiveScoringPolicy",
         null=True,
         blank=True,
         on_delete=models.SET_NULL,
         related_name="objectives",
-        help_text="Optional scoring policy for this objective. If empty, the company default policy will be used.",
+        help_text="Override scoring policy for this objective. If empty, use ObjectiveType or Company default.",
     )
 
+    # -------------------
+    # التجميعات المخزنة
+    # -------------------
+    progress_pct = models.PositiveIntegerField(
+        default=0,
+        help_text="Aggregated Tasks progress (0..100)",
+        db_index=True,
+    )
+
+    score_pct = models.PositiveIntegerField(
+        default=0,
+        help_text="Aggregated KPI score (0..100)",
+    )
 
     objects = ACLManager()
     acl_objects = ScopedACLManager()
@@ -471,10 +1067,11 @@ class Objective(AccessControlledMixin, CompanyOwnedMixin, TimeStampedMixin, User
         db_table = "perf_objective"
         indexes = [
             models.Index(fields=["company", "status"]),
+            models.Index(fields=["company", "objective_type"]),
+            models.Index(fields=["company", "category"]),
             models.Index(fields=["date_start", "date_end"]),
-            models.Index(fields=["company", "target_kind"]),
             models.Index(fields=["parent"]),
-            models.Index(fields=["hierarchy_level"])
+            models.Index(fields=["hierarchy_level"]),
         ]
         constraints = [
             models.CheckConstraint(
@@ -482,21 +1079,19 @@ class Objective(AccessControlledMixin, CompanyOwnedMixin, TimeStampedMixin, User
                 name="chk_objective_weight_0_100",
             ),
             models.CheckConstraint(
-                check=(models.Q(date_end__isnull=True) | models.Q(date_start__lte=models.F("date_end"))),
-                name="chk_objective_dates",
-            ),
-            models.UniqueConstraint(
-                fields=["company", "code", "date_start", "date_end"],
-                name="uniq_objective_code_company_period",
-                condition=~models.Q(code=""),
-            ),
-            models.CheckConstraint(
-                check=models.Q(progress_pct__gte=0, progress_pct__lte=100),
+                check=(models.Q(progress_pct__gte=0, progress_pct__lte=100)),
                 name="chk_objective_progress_0_100",
             ),
             models.CheckConstraint(
-                check=models.Q(score_pct__gte=0, score_pct__lte=100),
+                check=(models.Q(score_pct__gte=0, score_pct__lte=100)),
                 name="chk_objective_score_0_100",
+            ),
+            models.CheckConstraint(
+                check=(
+                    models.Q(date_end__isnull=True) |
+                    models.Q(date_start__lte=models.F("date_end"))
+                ),
+                name="chk_objective_dates",
             ),
         ]
         permissions = [
@@ -509,122 +1104,84 @@ class Objective(AccessControlledMixin, CompanyOwnedMixin, TimeStampedMixin, User
     def __str__(self):
         return self.title
 
+    # ------------------------------------------------------------
+    # Validation Logic
+    # ------------------------------------------------------------
     def clean(self):
         super().clean()
 
-        # تحقق من تطابق الشركة مع المراجع
+        # reviewer must belong to the same company
         if self.reviewer and self.reviewer.company_id != self.company_id:
             raise ValidationError({"reviewer": "Reviewer must belong to the same company."})
-        if self.target_department and self.target_department.company_id != self.company_id:
-            raise ValidationError({"target_department": "Department must belong to the same company."})
-        if self.target_employee and self.target_employee.company_id != self.company_id:
-            raise ValidationError({"target_employee": "Employee must belong to the same company."})
 
-        # Hierarchy validation
+        # parent must belong to same company
+        if self.parent and self.parent.company_id != self.company_id:
+            raise ValidationError({"parent": "Parent objective must belong to the same company."})
+
+        # prevent loops
+        if self.parent_id and self.parent_id == self.id:
+            raise ValidationError({"parent": "Objective cannot be parent of itself."})
+
+        # auto-set hierarchy based on parent
         if self.parent:
-            if self.parent.company_id != self.company_id:
-                raise ValidationError({"parent": "Parent Objective must belong to the same company."})
-
-            # Prevent infinite loops
-            if self.parent_id == self.id:
-                raise ValidationError({"parent": "Objective cannot be parent of itself."})
-
-            # Auto-set hierarchy level if not set manually
             self.hierarchy_level = (self.parent.hierarchy_level or 1) + 1
 
-        # التحقق من أن سياسة الاحتساب لنفس الشركة
-        if self.scoring_policy and self.scoring_policy.company_id != self.company_id:
-            raise ValidationError(
-                {"scoring_policy": "Scoring policy must belong to the same company as the Objective."}
-            )
-
-        # تحقق من منطق target_kind
+        # target validations
         if self.target_kind == "company":
             if self.target_department or self.target_employee:
-                raise ValidationError(
-                    "For company-wide objectives, please leave 'Target department' and 'Target employee' empty."
-                )
+                raise ValidationError("Company-wide objectives cannot have department or employee targets.")
+
         elif self.target_kind == "department":
             if not self.target_department:
-                raise ValidationError({"target_department": "Please select a department for department-level objective."})
+                raise ValidationError({"target_department": "Department must be selected."})
             if self.target_employee:
-                raise ValidationError(
-                    {"target_employee": "You cannot select an employee for a department-level objective."}
-                )
+                raise ValidationError({"target_employee": "Cannot select employee for department-level objective."})
+
         elif self.target_kind == "employee":
             if not self.target_employee:
-                raise ValidationError({"target_employee": "Please select an employee for employee-level objective."})
+                raise ValidationError({"target_employee": "Employee must be selected."})
             if self.target_department:
-                raise ValidationError(
-                    {"target_department": "You cannot select a department for an employee-level objective."}
-                )
+                raise ValidationError({"target_department": "Cannot select department for employee-level objective."})
+
+        if self.scoring_policy and self.scoring_policy.company_id != self.company_id:
+            raise ValidationError({"scoring_policy": "Scoring policy must belong to the same company."})
 
 
-    # -------- Aggregations --------
+    # ------------------------------------------------------------
+    # Recompute progress and score
+    # ------------------------------------------------------------
     def recompute_progress_and_score(self):
         """
-        NEW:
-        If the objective has children and rollup_strategy != none:
-            → compute score from children
-        Else:
-            → compute from its own tasks/KPIs (existing logic)
+        Aggregation logic:
+        1) If rollup and children exist → aggregate from children.
+        2) Otherwise → aggregate from own KPIs and Tasks.
         """
-
-        # إذا توجد أبناء
+        # Children rollup
         children = list(self.children.filter(active=True).all())
 
         if children and self.rollup_strategy != "none":
-            # Rollup from children
+
             if self.rollup_strategy == "average":
-                # simple average
-                if children:
-                    self.progress_pct = int(
-                        round(sum(c.progress_pct for c in children) / len(children))
-                    )
-                    self.score_pct = int(
-                        round(sum(c.score_pct for c in children) / len(children))
-                    )
-                else:
-                    self.progress_pct = 0
-                    self.score_pct = 0
+                self.progress_pct = int(round(sum(c.progress_pct for c in children) / len(children)))
+                self.score_pct = int(round(sum(c.score_pct for c in children) / len(children)))
 
             elif self.rollup_strategy == "weighted":
                 total_w = sum(c.weight_pct for c in children) or 1
-                self.progress_pct = int(
-                    round(sum(c.progress_pct * c.weight_pct for c in children) / total_w)
-                )
-                self.score_pct = int(
-                    round(sum(c.score_pct * c.weight_pct for c in children) / total_w)
-                )
+                self.progress_pct = int(round(sum(c.progress_pct * c.weight_pct for c in children) / total_w))
+                self.score_pct = int(round(sum(c.score_pct * c.weight_pct for c in children) / total_w))
 
             return
 
-        # ----------------------------------------------
-        # Otherwise: Task + KPI aggregation (local logic)
-        # ----------------------------------------------
-        tasks = Task.objects.filter(objective=self).exclude(status__in=["cancelled"])
+        # Original aggregation from own KPIs/Tasks
+        tasks = Task.objects.filter(objective=self).exclude(status="cancelled")
 
         if tasks.exists():
-            # استخدام estimated_minutes كوزن لكل مهمة لضمان عدالة أكبر
-            total_estimated = sum(t.estimated_minutes or 0 for t in tasks)
-
-            if total_estimated > 0:
-                # Weighted average based on estimated effort
-                num = sum(
-                    (t.percent_complete or 0) * (t.estimated_minutes or 0)
-                    for t in tasks
-                )
-                self.progress_pct = int(round(num / total_estimated))
-            else:
-                # fallback إلى متوسط بسيط إذا لم تُملأ التقديرات
-                self.progress_pct = int(
-                    round(sum(t.percent_complete or 0 for t in tasks) / tasks.count())
-                )
+            self.progress_pct = int(round(sum(t.percent_complete for t in tasks) / tasks.count()))
         else:
             self.progress_pct = 0
 
-        # تجميع KPIs كما في السابق (weighted by KPI weight_pct)
         kpis = KPI.objects.filter(objective=self)
+
         if kpis.exists():
             total_w = sum(k.weight_pct or 0 for k in kpis) or (kpis.count() * 100)
             num = sum((k.score_pct or 0) * (k.weight_pct or 100) for k in kpis)
@@ -632,63 +1189,56 @@ class Objective(AccessControlledMixin, CompanyOwnedMixin, TimeStampedMixin, User
         else:
             self.score_pct = 0
 
-
-    # -------- Participants materialization --------
+    # ------------------------------------------------------------
+    # Participants Collection
+    # ------------------------------------------------------------
     def _collect_department_ids(self):
-        """
-        تجميع الأقسام المستهدفة:
-        - إن كان target_kind=department نبدأ بالقسم الهدف (+ الأبناء عند وجود تعيين قسم بـ include_children=True).
-        - ثم نضيف تعيينات الأقسام (dept_assignments) الحالية.
-        """
         from hr.models import Department
+
         dept_ids = set()
 
-        # Seed from target_department
+        # target = department
         if self.target_kind == "department" and self.target_department_id:
             dept_ids.add(self.target_department_id)
-            # توسيع الأبناء عبر parent_path
+
             parent_path = self.target_department.parent_path or ""
             if parent_path:
                 q = Department.objects.filter(
                     company_id=self.company_id,
-                    parent_path__startswith=parent_path
+                    parent_path__startswith=parent_path,
                 ).values_list("id", flat=True)
                 dept_ids.update(q)
 
-        # Existing explicit assignments
+        # explicit department assignments
         for a in self.dept_assignments.select_related("department").all():
             if not a.department_id:
                 continue
             dept_ids.add(a.department_id)
+
             if a.include_children:
                 parent_path = a.department.parent_path or ""
                 if parent_path:
                     q = Department.objects.filter(
                         company_id=self.company_id,
-                        parent_path__startswith=parent_path
+                        parent_path__startswith=parent_path,
                     ).values_list("id", flat=True)
                     dept_ids.update(q)
 
         return dept_ids
 
     def _collect_employee_ids(self):
-        """
-        اتحاد:
-        - الموظف الهدف إن كان target_kind=employee
-        - موظفو الأقسام (مع الأبناء) من الناتج أعلاه
-        - التعيينات الصريحة لموظفين (employee_assignments)
-        """
         from hr.models import Employee
+
         emp_ids = set()
 
-        # Seed from target_employee
+        # direct target employee
         if self.target_kind == "employee" and self.target_employee_id:
             emp_ids.add(self.target_employee_id)
 
-        # Explicit employee assignments
+        # explicit employee assignments
         emp_ids.update(self.employee_assignments.values_list("employee_id", flat=True))
 
-        # Department-based employees
+        # employees from departments
         dept_ids = self._collect_department_ids()
         if dept_ids:
             q = Employee.objects.filter(
@@ -704,223 +1254,180 @@ class Objective(AccessControlledMixin, CompanyOwnedMixin, TimeStampedMixin, User
     def _rebuild_participants(self):
         target_ids  = set(self._collect_employee_ids())
         current_ids = set(self.participants.values_list("employee_id", flat=True))
+
         to_add = target_ids - current_ids
         to_del = current_ids - target_ids
+
         if to_del:
             ObjectiveParticipant.objects.filter(objective=self, employee_id__in=list(to_del)).delete()
+
         if to_add:
             ObjectiveParticipant.objects.bulk_create(
                 [ObjectiveParticipant(objective=self, employee_id=eid) for eid in to_add],
                 ignore_conflicts=True,
             )
 
+    # ------------------------------------------------------------
+    # Compute Employee Scores (Final – Using ObjectiveScoreEngine)
+    # ------------------------------------------------------------
     def compute_employee_scores(self):
         """
-        Computes EmployeeObjectiveScore for each participant, including:
-        - tasks_progress_pct
-        - kpi_score_pct
-        - contribution_pct
-        - timeliness_pct (on-time completion)
-        - efficiency_pct (estimated vs actual)
-        - quality_pct (avg task quality)
-        - final_score_pct (weighted combination)
+        Computes EmployeeObjectiveScore for each participant with:
+        - Dynamic scoring policies (Objective → Type → Company)
+        - KPI scores
+        - Task progress
+        - Timeliness / Efficiency / Quality (from TaskPolicyEngine)
+        - Contribution %
         """
+
         from performance.models import (
             EmployeeObjectiveScore,
             EmployeeObjectiveScoringPolicy,
             Task,
             KPI,
         )
+        from performance.services import ObjectiveScoreEngine
 
         participants = self.participants.select_related("employee").all()
         if not participants:
             return
 
-        # كل مهام الهدف (باستثناء الملغاة)
-        all_tasks = Task.objects.filter(objective=self).exclude(status="cancelled")
-        total_tasks_count = all_tasks.count()
+        # ------------------------------------------------------------
+        # 1) جمع كل المهام و KPIs
+        # ------------------------------------------------------------
+        all_tasks = Task.objects.filter(objective=self, active=True)
+        all_kpis = KPI.objects.filter(objective=self, active=True)
 
-        # كل KPIs للهدف
-        all_kpis = KPI.objects.filter(objective=self)
+        # ------------------------------------------------------------
+        # 2) تحديد سياسة الاحتساب (ثلاث مستويات)
+        # ------------------------------------------------------------
+        policy = None
 
+        # مستوى 1: السياسة المخصصة للهدف نفسه
+        if self.scoring_policy and self.scoring_policy.active:
+            policy = self.scoring_policy
+
+        # مستوى 2: سياسة النوع (ObjectiveType)
+        if (
+            policy is None
+            and self.objective_type
+            and self.objective_type.default_scoring_policy
+            and self.objective_type.default_scoring_policy.active
+            and self.objective_type.default_scoring_policy.company_id == self.company_id
+        ):
+            policy = self.objective_type.default_scoring_policy
+
+        # مستوى 3: سياسة الشركة الافتراضية
+        if policy is None:
+            policy = EmployeeObjectiveScoringPolicy.objects.filter(
+                company=self.company,
+                active=True,
+            ).order_by("-id").first()
+
+        # fallback weights (ضمان عدم حصول قسمة صفر)
+        if policy:
+            w_tasks = policy.tasks_weight_pct or 0
+            w_kpi = policy.kpi_weight_pct or 0
+            w_time = policy.timeliness_weight_pct or 0
+            w_eff = policy.efficiency_weight_pct or 0
+            w_qual = policy.quality_weight_pct or 0
+        else:
+            w_tasks, w_kpi, w_time, w_eff, w_qual = 30, 30, 15, 10, 15
+
+        total_w = w_tasks + w_kpi + w_time + w_eff + w_qual
+        if total_w <= 0:
+            total_w = 100
+            w_tasks, w_kpi, w_time, w_eff, w_qual = 30, 30, 15, 10, 15
+
+        # normalize
+        w_tasks_n = w_tasks / total_w
+        w_kpi_n = w_kpi / total_w
+        w_time_n = w_time / total_w
+        w_eff_n = w_eff / total_w
+        w_qual_n = w_qual / total_w
+
+        # ------------------------------------------------------------
+        # 3) حساب النتائج لكل موظف
+        # ------------------------------------------------------------
         for p in participants:
             emp = p.employee
 
-            # مهام هذا الموظف داخل الهدف (نفس منطقك السابق: مهام له + مهام عامة بدون assignee)
+            # ------------------------------
+            # progress من المهام
+            # ------------------------------
             emp_tasks = all_tasks.filter(
-                models.Q(assignee=emp) | models.Q(assignee__isnull=True)
+                models.Q(assignee=emp) |
+                models.Q(assignee__isnull=True)
             )
 
-            # ------------------------------
-            # 1) Tasks Progress (weighted)
-            # ------------------------------
             if emp_tasks.exists():
-                total_est = sum(t.estimated_minutes or 0 for t in emp_tasks)
-                if total_est > 0:
-                    num = sum(
-                        (t.percent_complete or 0) * (t.estimated_minutes or 0)
-                        for t in emp_tasks
-                    )
-                    tasks_progress = int(round(num / total_est))
-                else:
-                    tasks_progress = int(
-                        round(
-                            sum(t.percent_complete or 0 for t in emp_tasks)
-                            / emp_tasks.count()
-                        )
-                    )
+                tasks_progress = int(round(sum(t.percent_complete for t in emp_tasks) / emp_tasks.count()))
             else:
                 tasks_progress = 0
 
             # ------------------------------
-            # 2) KPI score (نفس السابق)
+            # KPI scoring
             # ------------------------------
             emp_kpis = [k.score_pct for k in all_kpis]
             kpi_score = int(round(sum(emp_kpis) / len(emp_kpis))) if emp_kpis else 0
 
-            # --------------------------------------------
-            # 3) Contribution كنسبة من عدد المهام في الهدف
-            # --------------------------------------------
-            if total_tasks_count > 0:
-                contr_pct = int(
-                    round((emp_tasks.count() / total_tasks_count) * 100)
-                )
+            # ------------------------------
+            # contribution %
+            # ------------------------------
+            if all_tasks.count() > 0:
+                contribution_pct = int(round((emp_tasks.count() / all_tasks.count()) * 100))
             else:
-                contr_pct = 0
+                contribution_pct = 0
 
-            # --------------------------------------------
-            # 4) Timeliness: الالتزام بالمواعيد
-            #    - نستثني المهام الملغاة
-            #    - نستثني المهام ذات blocked_external=True من العقاب
-            # --------------------------------------------
-            timeliness_pct = 100
-            base_qs = emp_tasks.exclude(status__in=["cancelled"]).filter(
-                blocked_external=False
-            )
+            # ------------------------------
+            # Timeliness / Efficiency / Quality
+            # ------------------------------
+            agg = ObjectiveScoreEngine.aggregate_for_employee(self, emp)
 
-            if base_qs.exists():
-                on_time_qs = base_qs.filter(
-                    models.Q(due_date__isnull=True)
-                    | models.Q(
-                        completed_at__isnull=False,
-                        completed_at__date__lte=models.F("due_date"),
-                    )
-                )
-                timeliness_pct = int(
-                    round((on_time_qs.count() / base_qs.count()) * 100)
-                )
+            timeliness_pct = agg["timeliness"]
+            efficiency_pct = agg["efficiency"]
+            quality_pct = agg["quality"]
 
-            # --------------------------------------------
-            # 5) Efficiency: estimated vs actual
-            # --------------------------------------------
-            efficiency_pct = 100
-            eff_qs = emp_tasks.exclude(status__in=["cancelled"])
-
-            total_est_eff = sum(t.estimated_minutes or 0 for t in eff_qs)
-            total_act_eff = sum(
-                (t.actual_minutes or 0) for t in eff_qs
-            )
-
-            if total_est_eff > 0 and total_act_eff > 0:
-                # ratio < 1 يعني الموظف أبطأ من المتوقع → أقل من 100
-                # ratio >= 1 نعتبرها 100 (لا نعطي أكثر من 100 من هذا المؤشر)
-                ratio = total_est_eff / float(total_act_eff)
-                ratio = max(0.0, min(1.0, ratio))
-                efficiency_pct = int(round(ratio * 100))
-
-            # --------------------------------------------
-            # 6) Quality: متوسط جودة مهام الموظف
-            # --------------------------------------------
-            quality_pct = 100
-            qual_qs = emp_tasks.exclude(status__in=["cancelled"]).filter(
-                quality_score_pct__gt=0
-            )
-            if qual_qs.exists():
-                quality_pct = int(
-                    round(
-                        sum(t.quality_score_pct for t in qual_qs)
-                        / qual_qs.count()
-                    )
-                )
-
-            # --------------------------------------------
-            # 7) Final Score داخل الهدف (باستخدام سياسة من DB)
-            # --------------------------------------------
-
-            # 7.1 محاولة استخدام سياسة الهدف نفسه إذا مخصّصة
-            policy = None
-            if getattr(self, "scoring_policy_id", None):
-                # self.scoring_policy قد لا تكون prefetched، فنستخدمها بحذر
-                if self.scoring_policy and self.scoring_policy.active:
-                    policy = self.scoring_policy
-
-            # 7.2 إذا لم توجد سياسة هدف مخصّصة → استخدم سياسة الشركة الافتراضية
-            if policy is None:
-                policy = EmployeeObjectiveScoringPolicy.objects.filter(
-                    company=self.company,
-                    active=True,
-                ).order_by("-id").first()
-
-            # 7.3 استخراج الأوزان (مع fallback آمن)
-            if policy:
-                w_tasks = policy.tasks_weight_pct or 0
-                w_kpi = policy.kpi_weight_pct or 0
-                w_time = policy.timeliness_weight_pct or 0
-                w_eff = policy.efficiency_weight_pct or 0
-                w_qual = policy.quality_weight_pct or 0
-            else:
-                # fallback في حالة عدم وجود أي سياسة في DB
-                w_tasks, w_kpi, w_time, w_eff, w_qual = 30, 30, 15, 10, 15
-
-            total_w = w_tasks + w_kpi + w_time + w_eff + w_qual
-            if total_w <= 0:
-                # fallback إضافي آمن
-                total_w = 100
-                w_tasks, w_kpi, w_time, w_eff, w_qual = 30, 30, 15, 10, 15
-
-            # تطبيع الأوزان (normalize) إلى 0..1
-            w_tasks_n = w_tasks / total_w
-            w_kpi_n = w_kpi / total_w
-            w_time_n = w_time / total_w
-            w_eff_n = w_eff / total_w
-            w_qual_n = w_qual / total_w
-
+            # ------------------------------
+            # Final Score (weighted formula)
+            # ------------------------------
             final = int(
                 round(
-                    (tasks_progress * w_tasks_n)
-                    + (kpi_score * w_kpi_n)
-                    + (timeliness_pct * w_time_n)
-                    + (efficiency_pct * w_eff_n)
-                    + (quality_pct * w_qual_n)
+                    (tasks_progress * w_tasks_n) +
+                    (kpi_score * w_kpi_n) +
+                    (timeliness_pct * w_time_n) +
+                    (efficiency_pct * w_eff_n) +
+                    (quality_pct * w_qual_n)
                 )
             )
 
-            # حفظ/تحديث EmployeeObjectiveScore
-            obj_score, _ = EmployeeObjectiveScore.objects.update_or_create(
+            # ------------------------------
+            # Save results
+            # ------------------------------
+            EmployeeObjectiveScore.objects.update_or_create(
                 objective=self,
                 employee=emp,
                 defaults={
                     "tasks_progress_pct": tasks_progress,
                     "kpi_score_pct": kpi_score,
-                    "contribution_pct": contr_pct,
+                    "contribution_pct": contribution_pct,
                     "timeliness_pct": timeliness_pct,
                     "efficiency_pct": efficiency_pct,
                     "quality_pct": quality_pct,
                     "final_score_pct": final,
-                },
+                }
             )
 
-
-    # -------- Save hook --------
+    # ------------------------------------------------------------
+    # Save Hook
+    # ------------------------------------------------------------
     def save(self, *args, **kwargs):
-        super().save(*args, **kwargs)  # PK
+        super().save(*args, **kwargs)
         self.recompute_progress_and_score()
         super().save(update_fields=["progress_pct", "score_pct"])
         self._rebuild_participants()
         self.compute_employee_scores()
 
-
-    # ------------------------------------------------------------
 
 # Objective Assignments & Participants
 # ------------------------------------------------------------
@@ -1186,6 +1693,11 @@ class EmployeeObjectiveScore(TimeStampedMixin, UserStampedMixin):
         return f"{self.employee.name} → {self.objective.title}: {self.final_score_pct}%"
 
 
+
+
+# ------------------------------------------------------------
+# EvaluationType ,and EvaluationApprovalStep
+# ------------------------------------------------------------
 class EvaluationType(CompanyOwnedMixin, ActivableMixin, TimeStampedMixin, UserStampedMixin, models.Model):
     """
     نوع تقييم (شهري، ربع سنوي، سنوي، أو Ad-hoc) قابل للإدارة من الـ Admin.
@@ -1355,6 +1867,13 @@ class EvaluationTemplate(AccessControlledMixin, TimeStampedMixin, UserStampedMix
     قالب تقييم رسمي (مثال: Call Center Q1 Form) يُستَخدم لبناء تقييمات لموظفين.
     """
     company = models.ForeignKey("base.Company", on_delete=models.PROTECT, related_name="evaluation_templates")
+    evaluation_type = models.ForeignKey(
+        "performance.EvaluationType",
+        on_delete=models.PROTECT,
+        related_name="templates",
+        null=True,
+        blank=True,
+    )
     name        = models.CharField(max_length=255)
     description = models.TextField(blank=True)
     active      = models.BooleanField(default=True)
@@ -1520,9 +2039,9 @@ class EvaluationParameterResult(AccessControlledMixin, TimeStampedMixin, UserSta
         return f"{self.evaluation} · {self.parameter.name}: {self.score_pct}%"
 
 
-# ------------------------------------------------------------
-# Evaluation
-# ------------------------------------------------------------
+# --------------------------------------------------
+# Evaluation , QualityIncident , EvaluationFeedback
+# --------------------------------------------------
 
 class QualityIncident(TimeStampedMixin, UserStampedMixin, CompanyOwnedMixin, models.Model):
     """
@@ -1758,38 +2277,61 @@ class Evaluation(AccessControlledMixin, CompanyOwnedMixin, TimeStampedMixin, Use
     # ---------------- Validation ----------------
     def clean(self):
         super().clean()
+
+        # Company consistency
         if self.employee and self.company and self.employee.company_id != self.company_id:
             raise ValidationError({"employee": "Employee must belong to the same company."})
+
         if self.template and self.template.company_id != self.company_id:
             raise ValidationError({"template": "Template must belong to the same company."})
+
         if self.evaluator and self.evaluator.company_id != self.company_id:
             raise ValidationError({"evaluator": "Evaluator must belong to the same company."})
+
         if self.submitted_by and self.submitted_by.company_id != self.company_id:
             raise ValidationError({"submitted_by": "Submitted-by must belong to the same company."})
+
         if self.calibrated_by and self.calibrated_by.company_id != self.company_id:
             raise ValidationError({"calibrated_by": "Calibrated-by must belong to the same company."})
+
         if self.approved_by and self.approved_by.company_id != self.company_id:
             raise ValidationError({"approved_by": "Approved-by must belong to the same company."})
+
+        # ------------------------------------------------
+        # NEW VALIDATION: Ensure template matches evaluation_type
+        # ------------------------------------------------
+        if self.template and self.evaluation_type:
+            # إذا كان الـ Template مرتبطاً بنوع معين، يجب أن يتطابق مع نوع التقييم
+            if self.template.evaluation_type_id and self.template.evaluation_type_id != self.evaluation_type_id:
+                raise ValidationError({
+                    "template": "Selected EvaluationTemplate does not match the chosen EvaluationType."
+                })
 
     # ============================================================
     #  Scoring Engine (unchanged)
     # ============================================================
     def _external_metric(self, param):
-        adapter = get_adapter(param.code) if param.code else None
+        from performance import services  # LAZY IMPORT
+
+        adapter = services.get_adapter(param.code) if param.code else None
+
         ctx = {
             "employee_id": self.employee_id,
-            "company_id":  self.company_id,
-            "date_start":  self.date_start,
-            "date_end":    self.date_end,
+            "company_id": self.company_id,
+            "date_start": self.date_start,
+            "date_end": self.date_end,
         }
+
         if adapter:
             return adapter(context=ctx, param=param)
 
-        generic = get_adapter("generic_model")
+        generic = services.get_adapter("generic_model")
         if not generic:
             return None, {"error": "no_generic_adapter"}
+
         if not (param.external_model and param.external_field and param.external_aggregation):
             return None, None
+
         return generic(
             app_model=param.external_model,
             field=param.external_field,
@@ -1799,13 +2341,16 @@ class Evaluation(AccessControlledMixin, CompanyOwnedMixin, TimeStampedMixin, Use
         )
 
     def _clamp(self, v, lo, hi) -> int:
-        return clamp_to_pct(v, lo, hi)
+        from performance import services  # LAZY IMPORT
+        return services.clamp_to_pct(v, lo, hi)
 
     def _objective_applies_to_employee(self, obj) -> bool:
-        return objective_applies(self, obj)
+        from performance import services  # LAZY IMPORT
+        return services.objective_applies(self, obj)
 
     def _avg_task_progress(self, objective) -> int:
-        return avg_task_progress_for(self, objective)
+        from performance import services  # LAZY IMPORT
+        return services.avg_task_progress_for(self, objective)
 
     @transaction.atomic
     def recompute(self):
@@ -2387,6 +2932,9 @@ class Evaluation(AccessControlledMixin, CompanyOwnedMixin, TimeStampedMixin, Use
         return self.calibrated_score_pct if self.calibrated_score_pct is not None else self.final_score_pct
 
 
+# -------------------------------------------------------------------------
+# EvaluationCalibration , DailyRatingFactor , DailyRating , DailyRatingItem
+# -------------------------------------------------------------------------
 
 class EvaluationCalibration(TimeStampedMixin, UserStampedMixin, CompanyOwnedMixin, models.Model):
     """
@@ -2557,6 +3105,10 @@ class DailyRatingItem(TimeStampedMixin, UserStampedMixin, models.Model):
         self.daily_rating.recompute()
         self.daily_rating.save(update_fields=["overall_score_pct"])
 
+
+# ---------------------------------------------------------------------------------
+# PerformanceExceptionType , PerformanceException  , EvaluationExceptionAdjustment
+# --------------------------------------------------------------------------------
 
 class PerformanceExceptionType(CompanyOwnedMixin, ActivableMixin, TimeStampedMixin, UserStampedMixin, models.Model):
     """

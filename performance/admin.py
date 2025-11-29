@@ -22,7 +22,9 @@ from performance.models import (
     Evaluation,
     EvaluationParameterResult, EmployeeObjectiveScore, DailyRating, DailyRatingItem, DailyRatingFactor,
     EvaluationExceptionAdjustment, PerformanceException, PerformanceExceptionType, QualityIncident, EvaluationFeedback,
-    EvaluationCalibration, EmployeeObjectiveScoringPolicy,
+    EvaluationCalibration, EmployeeObjectiveScoringPolicy, ObjectiveCategory, ObjectiveType, ObjectiveStatus, KPIType,
+    KPICategory, KPICalculationMethod, TaskProgressPolicy, TaskSLAPolicy, TaskCategory, TaskType, TaskStatus,
+    TaskDependency, TaskWatcher, TaskRecurringDefinition,
 )
 
 
@@ -78,90 +80,626 @@ class TaskInline(admin.TabularInline):
     extra = 0
     fields = [
         "title", "assignee", "status", "percent_complete", "due_date", "kpi", "task_kind",
-        "priority", "estimated_minutes", "actual_minutes", "quality_score_pct", "active"
+         "estimated_minutes", "actual_minutes", "quality_score_pct", "active"
     ]
     if USE_AUTOCOMPLETE: autocomplete_fields = ["assignee","kpi"]
     else:                 raw_id_fields = ["assignee","kpi"]
 
 
-# -------- Objective --------
+# ------------------------------------------------------------
+# ObjectiveStatus Admin
+# ------------------------------------------------------------
+
+@admin.register(ObjectiveStatus)
+class ObjectiveStatusAdmin(AppAdmin):
+    """
+    إدارة حالات الأهداف (Global) من لوحة الإدارة.
+    """
+
+    list_display = (
+        "id",
+        "code",
+        "name",
+        "sequence",
+        "active",
+        "created_at",
+        "updated_at",
+        "created_by",
+        "updated_by",
+    )
+    list_filter = ("active",)
+    search_fields = ("code", "name", "description")
+    ordering = ("sequence", "code")
+
+    readonly_fields = ("created_at", "updated_at", "created_by", "updated_by")
+
+
+# ------------------------------------------------------------
+# ObjectiveType Admin
+# ------------------------------------------------------------
+
+@admin.register(ObjectiveType)
+class ObjectiveTypeAdmin(AppAdmin):
+    """
+    أنواع الأهداف (Global): Quality, Productivity, Operations, ...
+    يمكن ربط نوع الهدف بسياسة احتساب افتراضية.
+    """
+
+    list_display = (
+        "id",
+        "code",
+        "name",
+        "default_scoring_policy",
+        "active",
+        "created_at",
+        "updated_at",
+        "created_by",
+        "updated_by",
+    )
+    list_filter = ("active",)
+    search_fields = ("code", "name", "description")
+    ordering = ("code",)
+
+    raw_id_fields = ("default_scoring_policy",)
+
+    readonly_fields = ("created_at", "updated_at", "created_by", "updated_by")
+
+
+# ------------------------------------------------------------
+# ObjectiveCategory Admin
+# ------------------------------------------------------------
+
+@admin.register(ObjectiveCategory)
+class ObjectiveCategoryAdmin(AppAdmin):
+    """
+    تصنيفات الأهداف (Global): Strategic, Operational, Development, ...
+    تُستخدم للتحليل والتقارير.
+    """
+
+    list_display = (
+        "id",
+        "code",
+        "name",
+        "active",
+        "created_at",
+        "updated_at",
+        "created_by",
+        "updated_by",
+    )
+    list_filter = ("active",)
+    search_fields = ("code", "name", "description")
+    ordering = ("code",)
+
+    readonly_fields = ("created_at", "updated_at", "created_by", "updated_by")
+
+
+# ------------------------------------------------------------
+# Objective Inlines
+# ------------------------------------------------------------
+
+class ObjectiveDepartmentAssignmentInline(admin.TabularInline):
+    model = ObjectiveDepartmentAssignment
+    extra = 0
+    raw_id_fields = ("department",)
+    can_delete = True
+
+
+class ObjectiveEmployeeAssignmentInline(admin.TabularInline):
+    model = ObjectiveEmployeeAssignment
+    extra = 0
+    raw_id_fields = ("employee",)
+    can_delete = True
+
+
+class ObjectiveParticipantInline(admin.TabularInline):
+    model = ObjectiveParticipant
+    extra = 0
+    raw_id_fields = ("employee",)
+    can_delete = False
+    readonly_fields = ("employee",)
+
+
+class ObjectiveKPIInline(admin.TabularInline):
+    model = KPI
+    extra = 0
+    raw_id_fields = ("company",)
+
+
+class ObjectiveTaskInline(admin.TabularInline):
+    model = Task
+    extra = 0
+    raw_id_fields = ("company", "assignee", "kpi")
+
+
+# ------------------------------------------------------------
+# Objective Admin
+# ------------------------------------------------------------
+
 @admin.register(Objective)
 class ObjectiveAdmin(AppAdmin):
-    list_display = ("id", "company", "code", "title", "parent", "hierarchy_level", "rollup_strategy", "date_start", "date_end", "status",
-                    "target_kind", "target_department", "target_employee",
-                    "weight_pct", "progress_pct", "score_pct", "active",
-                    "created_at", "updated_at", "created_by", "updated_by")
-    list_filter = ("company", "status", "target_kind", "active", "date_start", "date_end", "created_at", "updated_at")
-    search_fields = ("code","title","description")
-    ordering = ("-id",)
-    if USE_AUTOCOMPLETE:
-        autocomplete_fields = ["company", "reviewer","parent", "target_department", "target_employee"]
-    else:
-        raw_id_fields = ["company", "reviewer", "target_department", "target_employee"]
+    """
+    إدارة الأهداف: إعداد الهرمية، النوع، التصنيف، النطاق، المشاركين، والسياسات.
+    """
 
-    readonly_fields = ("created_at","updated_at","created_by","updated_by")
-    inlines = [ObjectACLInline, ObjectiveDepartmentAssignmentInline, ObjectiveEmployeeAssignmentInline, ObjectiveParticipantInline, KPIInline, TaskInline]
+    list_display = (
+        "id",
+        "company",
+        "code",
+        "title",
+        "objective_type",
+        "category",
+        "parent",
+        "hierarchy_level",
+        "rollup_strategy",
+        "date_start",
+        "date_end",
+        "status",
+        "target_kind",
+        "target_department",
+        "target_employee",
+        "weight_pct",
+        "progress_pct",
+        "score_pct",
+        "active",
+        "created_at",
+        "updated_at",
+        "created_by",
+        "updated_by",
+    )
 
-    actions = ["rebuild_participants","recompute_objectives",action_activate,action_deactivate]
+    list_filter = (
+        "company",
+        "objective_type",
+        "category",
+        "status",
+        "target_kind",
+        "active",
+        "date_start",
+        "date_end",
+        "created_at",
+        "updated_at",
+    )
 
-    @admin.action(description="Rebuild participants for selected objectives")
-    def rebuild_participants(self, request, queryset):
-        with transaction.atomic():
-            for obj in queryset: obj._rebuild_participants()
-        messages.success(request, f"Rebuilt participants for {queryset.count()} objective(s).")
+    search_fields = ("code", "title", "description")
 
-    @admin.action(description="Recompute progress/score for selected objectives")
-    def recompute_objectives(self, request, queryset):
-        with transaction.atomic():
-            for obj in queryset:
-                obj.recompute_progress_and_score()
-                obj.save(update_fields=["progress_pct","score_pct"])
-        messages.success(request, f"Recomputed {queryset.count()} objective(s).")
+    ordering = ("-date_start", "-id")
+
+    raw_id_fields = (
+        "company",
+        "reviewer",
+        "parent",
+        "target_department",
+        "target_employee",
+        "scoring_policy",
+        "objective_type",
+        "category",
+    )
+
+    readonly_fields = ("created_at", "updated_at", "created_by", "updated_by")
+
+    inlines = [
+        ObjectACLInline,
+        ObjectiveDepartmentAssignmentInline,
+        ObjectiveEmployeeAssignmentInline,
+        ObjectiveParticipantInline,
+        ObjectiveKPIInline,
+        ObjectiveTaskInline,
+    ]
 
 
 # -------- KPI --------
+
+@admin.register(KPIType)
+class KPITypeAdmin(AppAdmin):
+    list_display  = ("name", "code", "active")
+    search_fields = ("name", "code", "description")
+    list_filter   = ("active",)
+    ordering      = ("name",)
+
+
+@admin.register(KPICategory)
+class KPICategoryAdmin(AppAdmin):
+    list_display  = ("name", "code", "active")
+    search_fields = ("name", "code", "description")
+    list_filter   = ("active",)
+    ordering      = ("name",)
+
+
+@admin.register(KPICalculationMethod)
+class KPICalculationMethodAdmin(AppAdmin):
+    list_display  = (
+        "name",
+        "code",
+        "formula_type",
+        "green_threshold_pct",
+        "yellow_threshold_pct",
+        "active",
+    )
+    list_filter   = ("formula_type", "active")
+    search_fields = ("name", "code", "description")
+    ordering      = ("name",)
+
+
 @admin.register(KPI)
 class KPIAdmin(AppAdmin):
-    list_display = ("id","company","objective","name","unit","higher_is_better","weight_pct",
-                    "attainment_pct","score_pct","active","created_at","updated_at","created_by","updated_by")
-    list_filter  = ("company","unit","higher_is_better","objective","active","created_at","updated_at")
-    search_fields = ("name","description")
-    ordering = ("-id",)
-    if USE_AUTOCOMPLETE: autocomplete_fields = ["company","objective"]
-    else:                 raw_id_fields = ["company","objective"]
-    readonly_fields = ("created_at","updated_at","created_by","updated_by")
-    actions = ["recompute_kpis", action_activate, action_deactivate]
+    """
+    إدارة KPIs مع عرض النوع، التصنيف، طريقة الحساب، المالك، ومصدر البيانات.
+    """
+
+    list_display = (
+        "id",
+        "company",
+        "objective",
+        "name",
+        "kpi_type",
+        "category",
+        "calculation_method",
+        "unit",
+        "higher_is_better",
+        "target_value",
+        "current_value",
+        "weight_pct",
+        "attainment_pct",
+        "score_pct",
+        "data_source",
+        "owner",
+        "is_locked",
+        "active",
+        "created_at",
+        "updated_at",
+        "created_by",
+        "updated_by",
+    )
+
+    list_filter = (
+        "company",
+        "objective",
+        "kpi_type",
+        "category",
+        "calculation_method",
+        "unit",
+        "higher_is_better",
+        "data_source",
+        "is_locked",
+        "active",
+        "created_at",
+        "updated_at",
+    )
+
+    search_fields = (
+        "name",
+        "description",
+        "external_source_ref",
+        "objective__title",
+        "company__name",
+        "owner__name",
+    )
+
+    ordering = ("-created_at", "-id")
+
+    if USE_AUTOCOMPLETE:
+        autocomplete_fields = [
+            "company",
+            "objective",
+            "owner",
+            "kpi_type",
+            "category",
+            "calculation_method",
+        ]
+    else:
+        raw_id_fields = [
+            "company",
+            "objective",
+            "owner",
+            "kpi_type",
+            "category",
+            "calculation_method",
+        ]
+
+    readonly_fields = ("created_at", "updated_at", "created_by", "updated_by")
+
+    actions = ["action_recompute_kpis", action_activate, action_deactivate]
 
     inlines = [ObjectACLInline]
 
     @admin.action(description="Recompute selected KPIs")
-    def recompute_kpis(self, request, queryset):
+    def action_recompute_kpis(self, request, queryset):
+        """
+        إعادة احتساب KPIs المختارة باستخدام منطق الموديل،
+        مع احترام is_locked وعدم التلاعب بالقيم المجمدة.
+        """
+        from django.db import transaction
+        from django.contrib import messages
+
+        updated = 0
         with transaction.atomic():
-            for k in queryset:
-                k.recompute()
-                k.save(update_fields=["attainment_pct","score_pct"])
-        messages.success(request, "KPI values recomputed.")
+            # استخدام select_related لتقليل عدد الاستعلامات على objective
+            for kpi in queryset.select_related("objective"):
+                if kpi.is_locked:
+                    continue
+                # save() داخلياً سيستدعي recompute() ويحدث الـ Objective
+                kpi.save()
+                updated += 1
+
+        messages.success(request, f"Recomputed {updated} KPI(s).")
+
 
 
 # -------- Task --------
+# ----------------------------------------------------------------------
+# TaskStatus
+# ----------------------------------------------------------------------
+@admin.register(TaskStatus)
+class TaskStatusAdmin(AppAdmin):
+    list_display = ("name", "code", "sequence", "active")
+    ordering = ("sequence", "name")
+    search_fields = ("name", "code")
+    list_filter = ("active",)
+
+
+# ----------------------------------------------------------------------
+# TaskType
+# ----------------------------------------------------------------------
+@admin.register(TaskType)
+class TaskTypeAdmin(AppAdmin):
+    list_display = ("name", "code", "active")
+    search_fields = ("name", "code")
+    list_filter = ("active",)
+
+
+# ----------------------------------------------------------------------
+# TaskCategory
+# ----------------------------------------------------------------------
+@admin.register(TaskCategory)
+class TaskCategoryAdmin(AppAdmin):
+    list_display = ("name", "code", "active")
+    search_fields = ("name", "code")
+    list_filter = ("active",)
+
+
+# ----------------------------------------------------------------------
+# TaskSLAPolicy
+# ----------------------------------------------------------------------
+@admin.register(TaskSLAPolicy)
+class TaskSLAPolicyAdmin(AppAdmin):
+    list_display = (
+        "name",
+        "code",
+        "on_time_pct",
+        "mild_delay_pct",
+        "severe_delay_pct",
+        "allow_blocked_external_no_penalty",
+        "active",
+    )
+    list_filter = ("active",)
+    search_fields = ("name", "code")
+
+
+# ----------------------------------------------------------------------
+# TaskProgressPolicy
+# ----------------------------------------------------------------------
+@admin.register(TaskProgressPolicy)
+class TaskProgressPolicyAdmin(AppAdmin):
+    list_display = ("name", "code", "active")
+    list_filter = ("active",)
+    search_fields = ("name", "code")
+
+
+# ------------------------------------------------------------
+# Recurring Task Definition
+# ------------------------------------------------------------
+
+@admin.register(TaskRecurringDefinition)
+class TaskRecurringDefinitionAdmin(AppAdmin):
+
+    list_display = (
+        "id",
+        "company",
+        "name",
+        "code",
+        "schedule_kind",
+        "task_type",
+        "task_category",
+        "progress_policy",
+        "sla_policy",
+        "objective",
+        "department",
+        "target_count",
+        "active",
+        "created_at",
+    )
+
+    list_filter = (
+        "company",
+        "schedule_kind",
+        "task_type",
+        "task_category",
+        "active",
+        "department",
+        "objective",
+    )
+
+    search_fields = ("name", "code", "description")
+
+    if USE_AUTOCOMPLETE:
+        autocomplete_fields = [
+            "company",
+            "task_type",
+            "task_category",
+            "progress_policy",
+            "sla_policy",
+            "objective",
+            "department",
+            "excluded_employees",
+        ]
+    else:
+        raw_id_fields = [
+            "company",
+            "task_type",
+            "task_category",
+            "progress_policy",
+            "sla_policy",
+            "objective",
+            "department",
+            "excluded_employees",
+        ]
+
+    readonly_fields = ("created_at", "updated_at", "created_by", "updated_by")
+    ordering = ("name", "code")
+
+# ------------------------------------------------------------
+# Task Watchers Inline + Admin
+# ------------------------------------------------------------
+
+@admin.register(TaskWatcher)
+class TaskWatcherAdmin(AppAdmin):
+    list_display = ("task", "employee", "active", "created_at")
+    list_filter = ("active", "task", "employee")
+    search_fields = ("task__title", "employee__name")
+    ordering = ("-created_at",)
+
+    if USE_AUTOCOMPLETE:
+        autocomplete_fields = ["company", "task", "employee"]
+    else:
+        raw_id_fields = ["company", "task", "employee"]
+
+
+# ------------------------------------------------------------
+# Task Dependency Admin
+# ------------------------------------------------------------
+
+@admin.register(TaskDependency)
+class TaskDependencyAdmin(AppAdmin):
+    list_display = ("task", "depends_on", "active", "created_at")
+    list_filter = ("active",)
+    search_fields = ("task__title", "depends_on__title")
+
+    ordering = ("-created_at",)
+
+    if USE_AUTOCOMPLETE:
+        autocomplete_fields = ["company", "task", "depends_on"]
+    else:
+        raw_id_fields = ["company", "task", "depends_on"]
+
+
+# ----------------------------------------------------------------------
+# Inline: Task Watchers
+# ----------------------------------------------------------------------
+class TaskWatcherInline(admin.TabularInline):
+    model = TaskWatcher
+    extra = 0
+    autocomplete_fields = ["employee"]
+
+
+# ----------------------------------------------------------------------
+# Inline: Task Dependencies (Subtasks / Blocking)
+# ----------------------------------------------------------------------
+class TaskDependencyInline(admin.TabularInline):
+    model = TaskDependency
+    fk_name = "task"
+    extra = 0
+    autocomplete_fields = ["depends_on"]
+
+
+# ----------------------------------------------------------------------
+# TASK ADMIN (FINAL VERSION)
+# ----------------------------------------------------------------------
 @admin.register(Task)
 class TaskAdmin(AppAdmin):
+
     list_display = (
-        "id", "company", "objective", "title", "assignee", "status", "percent_complete",
-        "due_date", "kpi",
-        "task_kind", "priority", "estimated_minutes", "actual_minutes", "quality_score_pct",
-        "active", "created_at", "updated_at", "created_by", "updated_by"
+        "id",
+        "company",
+        "objective",
+        "title",
+        "assignee",
+        "status",
+        "percent_complete",
+        "due_date",
+        "task_type",
+        "task_category",
+        "estimated_minutes",
+        "actual_minutes",
+        "quality_score_pct",
+        "active",
+        "created_at",
+        "updated_at",
     )
-    list_filter  = ("company","status","due_date","task_kind","priority","objective","active","created_at","updated_at")
-    search_fields = ("title","description")
+
+    list_filter = (
+        "company",
+        "status",
+        "task_type",
+        "task_category",
+        "due_date",
+        "objective",
+        "active",
+        "created_at",
+        "updated_at",
+    )
+
+    search_fields = ("title", "description")
+
     ordering = ("-id",)
-    if USE_AUTOCOMPLETE: autocomplete_fields = ["company","objective","assignee","kpi"]
-    else:                 raw_id_fields = ["company","objective","assignee","kpi"]
-    readonly_fields = ("created_at","updated_at","created_by","updated_by")
-    actions = [action_activate, action_deactivate]
 
-    inlines = [ObjectACLInline]
+    # Best practice: use autocomplete if enabled
+    if USE_AUTOCOMPLETE:
+        autocomplete_fields = [
+            "company",
+            "objective",
+            "assignee",
+            "kpi",
+            "task_type",
+            "task_category",
+            "progress_policy",
+            "sla_policy",
+        ]
+    else:
+        raw_id_fields = [
+            "company",
+            "objective",
+            "assignee",
+            "kpi",
+            "task_type",
+            "task_category",
+            "progress_policy",
+            "sla_policy",
+        ]
 
+    readonly_fields = (
+        "created_at",
+        "updated_at",
+        "created_by",
+        "updated_by",
+        "started_at",
+        "completed_at",
+    )
+
+    actions = [
+        action_activate,
+        action_deactivate,
+        "recompute_selected_tasks",
+    ]
+
+    inlines = [
+        ObjectACLInline,
+        TaskWatcherInline,
+        TaskDependencyInline,
+    ]
+
+    # ------------------------------------------------------------
+    # ACTION: Recompute selected tasks
+    # ------------------------------------------------------------
+    @admin.action(description="Recompute selected Tasks")
+    def recompute_selected_tasks(self, request, queryset):
+        from performance.services import TaskPolicyEngine
+
+        with transaction.atomic():
+            for task in queryset:
+                TaskPolicyEngine.apply(task)
+                task.save(update_fields=["percent_complete"])
+
+        messages.success(request, "Task progress and SLA recalculated successfully.")
 
 # -------- Assignments/Participants --------
 @admin.register(ObjectiveDepartmentAssignment)
@@ -186,15 +724,45 @@ class ObjectiveEmployeeAssignmentAdmin(AppAdmin):
 
 @admin.register(ObjectiveParticipant)
 class ObjectiveParticipantAdmin(AppAdmin):
-    list_display = ("id","objective","employee","created_at","updated_at")
-    list_filter  = ("objective","created_at","updated_at")
-    search_fields = ("objective__title","employee__name")
+    list_display = (
+        "id",
+        "objective",
+        "employee",
+        "created_at",
+        "updated_at",
+    )
+
+    list_filter = (
+        "objective",
+        "employee",
+        "created_at",
+        "updated_at",
+    )
+
+    search_fields = (
+        "objective__title",
+        "objective__code",
+        "employee__name",
+        "employee__employee_id",
+    )
+
     ordering = ("-id",)
-    if USE_AUTOCOMPLETE: autocomplete_fields = ["objective","employee"]
-    else:                 raw_id_fields = ["objective","employee"]
-    readonly_fields = ("created_at","updated_at")
-    def has_add_permission(self, request): return False
-    def has_change_permission(self, request, obj=None): return False
+
+    if USE_AUTOCOMPLETE:
+        autocomplete_fields = ["objective", "employee"]
+    else:
+        raw_id_fields = ["objective", "employee"]
+
+    # Allow add/change/delete
+    def has_add_permission(self, request):
+        return True
+
+    def has_change_permission(self, request, obj=None):
+        return True
+
+    def has_delete_permission(self, request, obj=None):
+        return True
+
 
 
 @admin.register(EmployeeObjectiveScore)
@@ -295,12 +863,14 @@ class EvaluationApprovalStepAdmin(AppAdmin):
 
 @admin.register(EvaluationTemplate)
 class EvaluationTemplateAdmin(AppAdmin):
-    list_display = ("id","company","name","active","created_at","updated_at","created_by","updated_by")
-    list_filter  = ("company","active","created_at","updated_at")
+    list_display = ("id","company","evaluation_type","name","active","created_at","updated_at","created_by","updated_by")
+    list_filter  = ("company","evaluation_type","active","created_at","updated_at")
     search_fields = ("name","description")
     ordering = ("company","name")
-    if USE_AUTOCOMPLETE: autocomplete_fields = ["company"]
-    else:                 raw_id_fields = ["company"]
+    if USE_AUTOCOMPLETE:
+        autocomplete_fields = ["company", "evaluation_type"]
+    else:
+        raw_id_fields = ["company", "evaluation_type"]
     readonly_fields = ("created_at","updated_at","created_by","updated_by")
 
     class EvaluationParameterInline(admin.TabularInline):
