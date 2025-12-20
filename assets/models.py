@@ -73,13 +73,6 @@ class AssetCategory(AccessControlledMixin, models.Model):
     def __str__(self):
         return self.name
 
-# Automatically apply ACL to new categories
-@receiver(post_save, sender=AssetCategory)
-def apply_acl_to_category(sender, instance, created, **kwargs):
-    from base.acl_service import apply_default_acl
-    if created:
-        apply_default_acl(instance)
-
 
 # ============================================================
 # Asset
@@ -89,8 +82,6 @@ class Asset(AccessControlledMixin, models.Model):
     """
     الأصول – يمثل الأصل الرئيسي كما في Odoo
     """
-
-    objects = ACLManager()
 
     class Status(models.TextChoices):
         AVAILABLE = "available", _("Available")
@@ -221,7 +212,6 @@ class AssetAssignment(AccessControlledMixin, models.Model):
     - يعكس سجل تغيّر المالك كما في Odoo (ir.attachment / asset.log)
     """
 
-    objects = ACLManager()
 
     asset = models.ForeignKey(Asset, on_delete=models.CASCADE, related_name="assignments", verbose_name=_("Asset"))
     employee = models.ForeignKey(

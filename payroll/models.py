@@ -6,7 +6,7 @@ from django.core.exceptions import ValidationError
 from django.db.models import Sum
 
 from base.acl import ACLManager
-from base.models import TimeStampedMixin, CompanyScopeManager
+from base.models import TimeStampedMixin
 
 # ------------------------------------------------------------
 # PayslipLine
@@ -19,6 +19,11 @@ class PayslipLine(TimeStampedMixin):
     code = models.CharField(max_length=50)  # من SalaryRule.code
     name = models.CharField(max_length=200)
     category = models.ForeignKey("payroll.SalaryRuleCategory", on_delete=models.PROTECT, related_name="payslip_lines")
+    company = models.ForeignKey(
+        "base.Company",
+        on_delete=models.PROTECT,
+        related_name="payslip_lines"
+    )
     sequence = models.PositiveIntegerField(default=100)
 
     amount = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
@@ -35,6 +40,20 @@ class PayslipLine(TimeStampedMixin):
             models.CheckConstraint(check=~models.Q(rate__lt=0), name="psl_rate_nonneg"),
             models.CheckConstraint(check=~models.Q(quantity__lt=0), name="psl_qty_nonneg"),
         ]
+
+    def clean(self):
+        super().clean()
+
+        # If payslip not set yet, skip consistency check
+        if not self.payslip_id:
+            return
+
+        # Auto-sync line company with payslip company (Odoo-like snapshot)
+        if self.company_id is None:
+            self.company = self.payslip.company
+
+        if self.company_id != self.payslip.company_id:
+            raise ValidationError({"company": "Company must match payslip company."})
 
     def __str__(self):
         return f"{self.code} - {self.total}"
@@ -151,9 +170,15 @@ class Payslip(TimeStampedMixin):
         # company ↔ period.company
         if self.period_id and self.company_id and self.period.company_id != self.company_id:
             raise ValidationError({"company": "Company must match the payslip period company."})
+
         # company ↔ employee.company
         if self.employee_id and self.company_id and self.employee.company_id != self.company_id:
             raise ValidationError({"company": "Company must match the employee company."})
+
+        # Snapshot fields (Odoo-like behavior)
+        if self.employee_id:
+            self.department = self.employee.department
+            self.job = self.employee.job
 
     # ---- مجاميع السطور حسب الفئة (BASIC/ALW/DED) ----
     def _compute_totals(self):
@@ -164,6 +189,9 @@ class Payslip(TimeStampedMixin):
         return basic, alw, ded, (basic + alw - ded)
 
     def recompute(self, persist: bool = False):
+        if self.state != "draft":
+            raise ValidationError("Cannot recompute a non-draft payslip.")
+
         basic, allowances, deductions, net = self._compute_totals()
         self.basic = basic
         self.allowances = allowances
@@ -221,8 +249,9 @@ class EmployeeSalary(TimeStampedMixin):
         end = self.date_end
 
         overlaps = qs.filter(
-            Q(date_end__isnull=True, date_start__lte=end or self.date_start) |
-            Q(date_end__isnull=False, date_start__lte=(end or models.F("date_end")), date_end__gte=start)
+            Q(date_end__isnull=True, date_start__lte=(end or start)) |
+            Q(date_end__isnull=False, date_start__lte=(end or models.F("date_end")),
+              date_end__gte=start)
         ).exists()
 
         if overlaps:
@@ -242,6 +271,8 @@ class PayrollStructure(models.Model):
     use_worked_day_lines = models.BooleanField(default=False)
     company = models.ForeignKey("base.Company", on_delete=models.PROTECT, related_name="pay_structures")
 
+    objects = ACLManager()
+
     class Meta:
         db_table = "payroll_structure"
         unique_together = [("company", "code")]
@@ -255,13 +286,20 @@ class SalaryRuleCategory(models.Model):
     """
     يماثل hr.salary.rule.category (لتجميع النتائج: BASIC, ALW, DED, NET...)
     """
+    company = models.ForeignKey(
+        "base.Company",
+        on_delete=models.PROTECT,
+        related_name="salary_rule_categories"
+    )
+
     name = models.CharField(max_length=100)
-    code = models.CharField(max_length=30, unique=True)
+    code = models.CharField(max_length=30)
     sequence = models.PositiveSmallIntegerField(default=100)
 
     class Meta:
         db_table = "payroll_rule_category"
         ordering = ["sequence"]
+        unique_together = [("company", "code")]
 
     def __str__(self):
         return self.name
@@ -327,11 +365,16 @@ class SalaryRule(models.Model):
         unique_together = [("struct", "code")]  # ✅ لا تكرار لنفس الكود داخل نفس البنية
 
     def clean(self):
-        if self.unique_code_per_struct and SalaryRule.objects.filter(
+        super().clean()
+
+        if self.unique_code_per_struct and type(self).objects.filter(
             struct=self.struct, code=self.code
         ).exclude(pk=self.pk).exists():
             raise ValidationError("Duplicate rule code within the same structure.")
 
+        if self.struct_id and self.category_id:
+            if self.struct.company_id != self.category.company_id:
+                raise ValidationError("Rule category must belong to the same company as structure.")
 
 # ===== Odoo-like: Payslip Input Type / Input (no attendance dependency) =====
 class InputType(models.Model):
@@ -352,6 +395,13 @@ class InputType(models.Model):
 
 class PayslipInput(models.Model):
     """يماثل hr.payslip.input (يلتقط إدخالات يدوية/شهرية)"""
+
+    company = models.ForeignKey(
+        "base.Company",
+        on_delete=models.PROTECT,
+        related_name="payslip_inputs"
+    )
+
     payslip = models.ForeignKey("payroll.Payslip", on_delete=models.CASCADE, related_name="inputs")
     input_type = models.ForeignKey(InputType, on_delete=models.PROTECT, related_name="payslip_inputs")
     name = models.CharField(max_length=200, blank=True, default="")
@@ -369,6 +419,19 @@ class PayslipInput(models.Model):
             models.Index(fields=["payslip", "input_type"]),
             models.Index(fields=["payslip", "sequence"]),
         ]
+
+    def clean(self):
+        super().clean()
+
+        if not self.payslip_id:
+            return
+
+        # Auto-sync input company with payslip company
+        if self.company_id is None:
+            self.company = self.payslip.company
+
+        if self.company_id != self.payslip.company_id:
+            raise ValidationError({"company": "Company must match payslip company."})
 
     def __str__(self):
         return self.name or self.input_type.name

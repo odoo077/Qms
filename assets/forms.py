@@ -1,16 +1,13 @@
 # assets/forms.py
 from __future__ import annotations
-from typing import Any, Dict
 
 from django import forms
-from django.contrib.auth import get_user_model
+from django.apps import apps
 
 from base.company_context import get_company_id as get_current_company
 from base.models import Company
-from base.acl_service import has_perm
-from . import models as m
 
-User = get_user_model()
+from . import models as m
 
 
 # ============================================================
@@ -21,7 +18,7 @@ class _ScopedModelForm(forms.ModelForm):
     """
     Base reusable form that:
       - Receives request for company & ACL scoping.
-      - Filters foreign-key fields by active companies.
+      - Filters foreign-key fields by active/allowed companies.
       - Automatically sets default company on creation.
     """
 
@@ -30,25 +27,28 @@ class _ScopedModelForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
 
         # -------- 1) Filter "company" field by what the user can see --------
-        allowed_companies = Company.objects.with_acl("view")
         company_field = self.fields.get("company")
         if company_field:
+            allowed_companies = Company.objects.with_acl("view")
             company_field.queryset = allowed_companies
 
-        # -------- 2) Set default company for new records --------
-        cur_id = get_current_company(self.request)
-        if cur_id and company_field and allowed_companies.filter(pk=cur_id).exists():
-            if not getattr(self.instance, "pk", None):
-                self.fields["company"].initial = cur_id
+            # -------- 2) Set default company for new records --------
+            cur_id = get_current_company(self.request)
+            if cur_id and allowed_companies.filter(pk=cur_id).exists():
+                if not getattr(self.instance, "pk", None):
+                    company_field.initial = cur_id
 
     # ------------------------------------
-    # Helper: Filter related FKs by company
+    # Helper: detect company_id for filtering
     # ------------------------------------
-    def _filter_by_company(self, field_name: str, qs):
-        if field_name not in self.fields:
-            return
-
-        # Company for filtering
+    def _current_company_id_for_filtering(self):
+        """
+        Resolve company_id from:
+          1) posted data (company field)
+          2) initial
+          3) instance.company_id
+          4) request current company context
+        """
         company_id = None
 
         if "company" in self.fields:
@@ -58,13 +58,41 @@ class _ScopedModelForm(forms.ModelForm):
                 or getattr(self.instance, "company_id", None)
             )
 
+        if not company_id:
+            company_id = get_current_company(self.request)
+
+        return company_id
+
+    # ------------------------------------
+    # Helper: Filter related FKs by company
+    # ------------------------------------
+    def _filter_by_company(self, field_name: str, qs, *, active_only: bool = False):
+        """
+        Filter FK field queryset by resolved company_id.
+        If company_id is not resolvable, fallback to companies visible by ACL(view).
+        """
+        if field_name not in self.fields:
+            return
+
+        company_id = self._current_company_id_for_filtering()
+
+        if active_only and hasattr(qs.model, "active"):
+            qs = qs.filter(active=True)
+
         if company_id:
             self.fields[field_name].queryset = qs.filter(company_id=company_id)
         else:
-            # fallback: any company the user can see
-            self.fields[field_name].queryset = qs.filter(
-                company_id__in=Company.objects.with_acl("view").values("id")
-            )
+            allowed_ids = Company.objects.with_acl("view").values_list("id", flat=True)
+            self.fields[field_name].queryset = qs.filter(company_id__in=allowed_ids)
+
+    def _exclude_self(self, field_name: str):
+        """
+        If field points to same model (parent relation), exclude self to prevent self-parent selection.
+        """
+        if field_name not in self.fields:
+            return
+        if getattr(self.instance, "pk", None):
+            self.fields[field_name].queryset = self.fields[field_name].queryset.exclude(pk=self.instance.pk)
 
 
 # ============================================================
@@ -80,7 +108,12 @@ class AssetCategoryForm(_ScopedModelForm):
         super().__init__(*args, **kwargs)
 
         # Parent category must belong to same company
-        self._filter_by_company("parent", m.AssetCategory.objects.all())
+        self._filter_by_company("parent", m.AssetCategory.objects.all(), active_only=False)
+        self._exclude_self("parent")
+
+        # OPTIONAL: when editing, prevent company change (Odoo-like)
+        if self.instance.pk and "company" in self.fields:
+            self.fields["company"].disabled = True
 
 
 # ============================================================
@@ -109,19 +142,21 @@ class AssetForm(_ScopedModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        # Category filtered by company
-        self._filter_by_company("category", m.AssetCategory.objects.all())
+        # Category filtered by company (prefer active categories only)
+        self._filter_by_company("category", m.AssetCategory.objects.all(), active_only=True)
 
-        # HR-related fields (department / holder)
-        from hr.models import Department, Employee
-        self._filter_by_company("department", Department.objects.all())
-        self._filter_by_company("holder", Employee.objects.all())
+        # HR-related fields (department / holder) — resolved lazily (avoid import-order issues)
+        Department = apps.get_model("hr", "Department")
+        Employee = apps.get_model("hr", "Employee")
 
-        # Parent asset (same company)
-        self._filter_by_company("parent", m.Asset.objects.all())
+        self._filter_by_company("department", Department.objects.all(), active_only=True)
+        self._filter_by_company("holder", Employee.objects.all(), active_only=True)
 
-        # OPTIONAL PROTECTION:
-        # When editing, prevent company change (like Odoo)
+        # Parent asset (same company, active only)
+        self._filter_by_company("parent", m.Asset.objects.all(), active_only=True)
+        self._exclude_self("parent")
+
+        # OPTIONAL: when editing, prevent company change (like Odoo)
         if self.instance.pk and "company" in self.fields:
             self.fields["company"].disabled = True
 
@@ -146,13 +181,13 @@ class AssetAssignmentForm(_ScopedModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        # Assets filtered by company
-        self._filter_by_company("asset", m.Asset.objects.all())
+        # Assets filtered by company (active only)
+        self._filter_by_company("asset", m.Asset.objects.all(), active_only=True)
 
-        # Employee filtered by company
-        from hr.models import Employee
-        self._filter_by_company("employee", Employee.objects.all())
+        # Employee filtered by company (active only) — resolved lazily
+        Employee = apps.get_model("hr", "Employee")
+        self._filter_by_company("employee", Employee.objects.all(), active_only=True)
 
-        # Protect company once created (Odoo-like behavior)
+        # OPTIONAL: when editing, prevent company change (Odoo-like behavior)
         if self.instance.pk and "company" in self.fields:
             self.fields["company"].disabled = True

@@ -1,67 +1,219 @@
-{# templates/base/users/user_form.html #}
 {% extends "base.html" %}
 {% load widget_tweaks %}
-{% block title %}{{ object.pk|yesno:"Edit User,New User" }} · 360 Manager{% endblock %}
+
+{% block title %}
+  {% if object %}Edit User · {{ object.email }}{% else %}New User{% endif %}
+{% endblock %}
+
 {% block content %}
-<div class="px-4 py-6">
-  <nav class="text-sm breadcrumbs mb-4">
-    <ul><li><a href="{% url 'base:user_list' %}">Users</a></li><li class="font-semibold">{{ object.pk|yesno:"Edit,New" }}</li></ul>
+<div class="px-4 py-6 space-y-8 max-w-5xl mx-auto">
+
+  {# ===================================================== #}
+  {# Breadcrumbs                                          #}
+  {# ===================================================== #}
+  <nav class="text-sm breadcrumbs">
+    <ul>
+      <li>
+        <a href="{% url 'base:user_list' %}" class="link link-hover">
+          Users
+        </a>
+      </li>
+      <li class="font-semibold">
+        {% if object %}Edit{% else %}New{% endif %}
+      </li>
+    </ul>
   </nav>
 
-  <h1 class="text-2xl font-bold mb-3">{{ object.pk|yesno:"Edit User,New User" }}</h1>
+  {# ===================================================== #}
+  {# Header                                               #}
+  {# ===================================================== #}
+  <div class="space-y-1">
+    <h1 class="text-2xl font-bold">
+      {% if object %}Edit User{% else %}Create New User{% endif %}
+    </h1>
+    <p class="text-sm text-base-content/60 max-w-3xl">
+      Manage user identity, access, and company assignment.
+    </p>
+  </div>
 
-  <form method="post" class="grid gap-4 md:grid-cols-2">
+  {# ===================================================== #}
+  {# Global Form Errors                                   #}
+  {# ===================================================== #}
+  {% if form.non_field_errors %}
+    <div class="alert alert-error text-sm">
+      <ul class="list-disc pl-4">
+        {% for error in form.non_field_errors %}
+          <li>{{ error }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+  {% endif %}
+
+  <form method="post" class="space-y-8">
     {% csrf_token %}
-    <div class="md:col-span-2 card bg-base-100 border border-base-300">
-      <div class="card-body p-5 grid gap-4 md:grid-cols-2">
-        {{ form.non_field_errors }}
-        <div class="form-control">
-          <label class="label"><span class="label-text">First name</span></label>
-          {{ form.first_name|add_class:"input input-bordered w-full" }}
-        </div>
-        <div class="form-control">
-          <label class="label"><span class="label-text">Last name</span></label>
-          {{ form.last_name|add_class:"input input-bordered w-full" }}
-        </div>
-        <div class="form-control">
-          <label class="label"><span class="label-text">Email</span></label>
-          {{ form.email|add_class:"input input-bordered w-full" }}
-        </div>
-        {% if form.username %}
-        <div class="form-control">
-          <label class="label"><span class="label-text">Username</span></label>
-          {{ form.username|add_class:"input input-bordered w-full" }}
-        </div>
-        {% endif %}
-        <div class="form-control">
-          <label class="label"><span class="label-text">Company</span></label>
-          {{ form.company|add_class:"select select-bordered w-full" }}
-        </div>
-        {% if form.companies %}
-        <div class="form-control">
-          <label class="label"><span class="label-text">Allowed Companies</span></label>
-          {{ form.companies|add_class:"select select-bordered w-full" }}
-        </div>
-        {% endif %}
 
-        {# حقول كلمة السر تظهر فقط في الإنشاء (UserCreateForm) #}
-        {% if form.password1 %}
-        <div class="form-control">
-          <label class="label"><span class="label-text">Password</span></label>
-          {{ form.password1|add_class:"input input-bordered w-full" }}
+    {# ===================================================== #}
+    {# User Information                                    #}
+    {# ===================================================== #}
+    <section class="card bg-base-100 border border-base-300">
+      <div class="card-body p-6 space-y-6">
+
+        <h2 class="text-sm font-semibold text-base-content/70">
+          User Information
+        </h2>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+          {# First Name #}
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-medium">First Name</span>
+            </label>
+            {{ form.first_name|add_class:"input input-bordered w-full" }}
+            {% if form.first_name.errors %}
+              <p class="text-error text-xs mt-1">
+                {{ form.first_name.errors|striptags }}
+              </p>
+            {% endif %}
+          </div>
+
+          {# Last Name #}
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-medium">Last Name</span>
+            </label>
+            {{ form.last_name|add_class:"input input-bordered w-full" }}
+            {% if form.last_name.errors %}
+              <p class="text-error text-xs mt-1">
+                {{ form.last_name.errors|striptags }}
+              </p>
+            {% endif %}
+          </div>
+
+          {# Email #}
+          <div class="form-control md:col-span-2">
+            <label class="label">
+              <span class="label-text font-medium">Email</span>
+            </label>
+            {{ form.email|add_class:"input input-bordered w-full" }}
+            {% if form.email.errors %}
+              <p class="text-error text-xs mt-1">
+                {{ form.email.errors|striptags }}
+              </p>
+            {% endif %}
+          </div>
+
         </div>
-        <div class="form-control">
-          <label class="label"><span class="label-text">Confirm password</span></label>
-          {{ form.password2|add_class:"input input-bordered w-full" }}
-        </div>
-        {% endif %}
       </div>
+    </section>
+
+    {# ===================================================== #}
+    {# Company & Access                                    #}
+    {# ===================================================== #}
+    <section class="card bg-base-100 border border-base-300">
+      <div class="card-body p-6 space-y-6">
+
+        <h2 class="text-sm font-semibold text-base-content/70">
+          Company & Access
+        </h2>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+          {# Default Company #}
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-medium">Default Company</span>
+            </label>
+            {{ form.company|add_class:"select select-bordered w-full" }}
+            {% if form.company.errors %}
+              <p class="text-error text-xs mt-1">
+                {{ form.company.errors|striptags }}
+              </p>
+            {% endif %}
+          </div>
+
+          {# Allowed Companies #}
+          {% if form.companies %}
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-medium">Allowed Companies</span>
+              </label>
+              {{ form.companies|add_class:"select select-bordered w-full" }}
+              {% if form.companies.errors %}
+                <p class="text-error text-xs mt-1">
+                  {{ form.companies.errors|striptags }}
+                </p>
+              {% endif %}
+            </div>
+          {% endif %}
+
+        </div>
+      </div>
+    </section>
+
+    {# ===================================================== #}
+    {# Password (Create only)                               #}
+    {# ===================================================== #}
+    {% if form.password1 %}
+      <section class="card bg-base-100 border border-base-300">
+        <div class="card-body p-6 space-y-6">
+
+          <h2 class="text-sm font-semibold text-base-content/70">
+            Security
+          </h2>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-medium">Password</span>
+              </label>
+              {{ form.password1|add_class:"input input-bordered w-full" }}
+              {% if form.password1.errors %}
+                <p class="text-error text-xs mt-1">
+                  {{ form.password1.errors|striptags }}
+                </p>
+              {% endif %}
+            </div>
+
+            <div class="form-control">
+              <label class="label">
+                <span class="label-text font-medium">Confirm Password</span>
+              </label>
+              {{ form.password2|add_class:"input input-bordered w-full" }}
+              {% if form.password2.errors %}
+                <p class="text-error text-xs mt-1">
+                  {{ form.password2.errors|striptags }}
+                </p>
+              {% endif %}
+            </div>
+
+          </div>
+        </div>
+      </section>
+    {% endif %}
+
+    {# ===================================================== #}
+    {# Actions                                              #}
+    {# ===================================================== #}
+    <div class="flex items-center gap-3 pt-2">
+
+      <button type="submit" class="btn btn-primary">
+        {% if object %}Save changes{% else %}Create user{% endif %}
+      </button>
+
+      <a href="{% url 'base:user_list' %}" class="btn btn-ghost">
+        Cancel
+      </a>
+
+      {% if object %}
+        <span class="text-xs text-base-content/60 ml-auto">
+          User ID: #{{ object.id }}
+        </span>
+      {% endif %}
+
     </div>
 
-    <div class="md:col-span-2 flex items-center gap-2">
-      <button class="btn btn-primary">Save</button>
-      <a href="{% url 'base:user_list' %}" class="btn btn-ghost">Cancel</a>
-    </div>
   </form>
 </div>
 {% endblock %}

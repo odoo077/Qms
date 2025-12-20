@@ -1,26 +1,196 @@
 {% extends "base.html" %}
+
 {% block title %}Company · {{ object.name }}{% endblock %}
+
 {% block content %}
-<div class="px-4 py-6">
-  <nav class="text-sm breadcrumbs mb-4">
-    <ul><li><a href="{% url 'base:company_list' %}">Companies</a></li><li class="font-semibold">{{ object.name }}</li></ul>
+<div class="px-4 py-6 space-y-8 max-w-6xl mx-auto">
+
+  {# ================= Breadcrumbs ================= #}
+  <nav class="text-sm breadcrumbs">
+    <ul>
+      <li>
+        <a href="{% url 'base:company_list' %}" class="link link-hover">
+          Companies
+        </a>
+      </li>
+      <li class="font-semibold truncate max-w-xs">
+        {{ object.name }}
+      </li>
+    </ul>
   </nav>
 
-  <div class="mb-4 flex items-center justify-between">
-    <h1 class="text-2xl font-bold">{{ object.name }}</h1>
+  {# ================= Header ================= #}
+  <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+
+    <div class="flex items-center gap-3 min-w-0">
+      <h1 class="text-2xl font-bold truncate">
+        {{ object.name }}
+      </h1>
+
+      {% if current_company and object.id == current_company.id %}
+        <span class="badge badge-primary badge-outline">
+          Current
+        </span>
+      {% endif %}
+
+      {% if not object.active %}
+        <span class="badge badge-error badge-outline">
+          Archived
+        </span>
+      {% endif %}
+    </div>
+
     <div class="flex items-center gap-2">
       {% if can_edit_object %}
-        <a class="btn btn-outline btn-sm" href="{% url 'base:company_edit' object.pk %}">Edit</a>
+        <a href="{% url 'base:company_edit' object.pk %}"
+           class="btn btn-outline btn-sm">
+          Edit
+        </a>
       {% endif %}
-      <a class="btn btn-sm" href="{% url 'base:company_list' %}">Back</a>
+      <a href="{% url 'base:company_list' %}"
+         class="btn btn-ghost btn-sm">
+        Back
+      </a>
     </div>
+
   </div>
 
-  <div class="card bg-base-100 border border-base-300">
-    <div class="card-body p-5 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-      <div><div class="text-base-content/60">Parent</div><div class="font-medium">{{ object.parent|default:"—" }}</div></div>
-      <div><div class="text-base-content/60">Partner</div><div class="font-medium">{{ object.partner|default:"—" }}</div></div>
+  {# ================= Hierarchy ================= #}
+  <section>
+    <h2 class="text-sm font-semibold text-base-content/70 mb-3">
+      Company Hierarchy
+    </h2>
+
+    <div class="card bg-base-100 border border-base-300">
+      <div class="card-body p-5 space-y-3 text-sm">
+
+        <div>
+          <span class="text-base-content/60">Parent company</span>
+          <div class="mt-1 font-medium">
+            {% if object.parent %}
+              <a href="{% url 'base:company_detail' object.parent.pk %}"
+                 class="link link-hover">
+                {{ object.parent.name }}
+              </a>
+            {% else %}
+              <span class="text-base-content/50">No parent (top-level company)</span>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="divider my-1"></div>
+
+        <div class="text-xs text-base-content/60">
+          Company hierarchy is managed from the Company record itself.
+          Partner hierarchy is synchronized automatically.
+        </div>
+
+      </div>
     </div>
-  </div>
+  </section>
+
+  {# ================= Overview ================= #}
+  <section>
+    <h2 class="text-sm font-semibold text-base-content/70 mb-3">
+      Overview
+    </h2>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+
+      {# Linked Partner #}
+      <div class="card bg-base-100 border border-base-300">
+        <div class="card-body p-4">
+          <div class="text-xs uppercase tracking-wide text-base-content/60">
+            Linked Partner
+          </div>
+          <div class="mt-1 font-medium">
+            {% if object.partner %}
+              <a href="{% url 'base:partner_detail' object.partner.pk %}"
+                 class="link link-hover">
+                {{ object.partner.name }}
+              </a>
+            {% else %}
+              <span class="text-base-content/50">—</span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      {# Status #}
+      <div class="card bg-base-100 border border-base-300">
+        <div class="card-body p-4">
+          <div class="text-xs uppercase tracking-wide text-base-content/60">
+            Status
+          </div>
+          <div class="mt-1 font-medium">
+            {% if object.active %}
+              <span class="text-success">Active</span>
+            {% else %}
+              <span class="text-error">Archived</span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      {# Company ID #}
+      <div class="card bg-base-100 border border-base-300">
+        <div class="card-body p-4">
+          <div class="text-xs uppercase tracking-wide text-base-content/60">
+            Company ID
+          </div>
+          <div class="mt-1 font-mono text-sm">
+            #{{ object.id }}
+          </div>
+        </div>
+      </div>
+
+      {# Placeholder for future KPIs #}
+      <div class="card bg-base-100 border border-base-300">
+        <div class="card-body p-4">
+          <div class="text-xs uppercase tracking-wide text-base-content/60">
+            Usage
+          </div>
+          <div class="mt-1 text-base-content/50 text-sm">
+            —
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  {# ================= Metadata ================= #}
+  <section>
+    <h2 class="text-sm font-semibold text-base-content/70 mb-3">
+      Metadata
+    </h2>
+
+    <div class="card bg-base-100 border border-base-300">
+      <div class="card-body p-5">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+
+          <div>
+            <div class="text-base-content/60">
+              Created at
+            </div>
+            <div class="font-medium">
+              {{ object.created_at|date:"Y-m-d H:i" }}
+            </div>
+          </div>
+
+          <div>
+            <div class="text-base-content/60">
+              Last updated
+            </div>
+            <div class="font-medium">
+              {{ object.updated_at|date:"Y-m-d H:i" }}
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </section>
+
 </div>
 {% endblock %}

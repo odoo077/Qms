@@ -3,16 +3,7 @@
 {% load static %}
 
 {# ---- Page metadata ---- #}
-{% block title %}Dashboard · 360 Manager{% endblock %}
-{% block page_title %}Dashboard{% endblock %}
-{% block header_title %}Your ops, one clean view{% endblock %}
-{% block header_subtitle %}
-  {% if current_company %}
-    You’re working under <span class="font-semibold">{{ current_company.name }}</span>.
-  {% else %}
-    No active company selected — pick one to scope your workspace.
-  {% endif %}
-{% endblock %}
+{% block title %}360 Manager{% endblock %}
 
 {% block content %}
 <div class="space-y-8">

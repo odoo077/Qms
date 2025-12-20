@@ -180,6 +180,7 @@ class PartnerAdmin(AppAdmin):
     # تحسين تجربة اختيار العلاقات الكبيرة
     autocomplete_fields = ("company", "parent", "salesperson", "categories")  # categories = M2M chips-like
     # ملاحظة: تفعيل autocomplete يتطلّب search_fields في Admin للنماذج الهدف (موجود الآن في PartnerCategoryAdmin وCompanyAdmin وغيرها)
+    readonly_fields = ("employee",)
 
 
 # ------------------------------------------------------------

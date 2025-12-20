@@ -176,9 +176,9 @@ USE_TZ = True
 # -------------------------------------------------
 # عند التطوير: تستعمل staticfiles/ و media/.
 # عند النشر: تستخدم python manage.py collectstatic → يضع كل الملفات في static_collected/ (جاهز للسيرفر)
-STATIC_URL = "static/"
-STATIC_ROOT = BASE_DIR / "staticfiles"   # ملفات التطوير
-STATICFILES_DIRS = [BASE_DIR / "static"]   # مكان التجميع النهائي (production)
+STATIC_URL = "/static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"   # مكان التجميع النهائي (production)
+STATICFILES_DIRS = [BASE_DIR / "static"]  # ملفات التطوير
 
 # Media files (ملفات يرفعها المستخدم مثل الصور والوثائق)
 MEDIA_URL = "/media/"

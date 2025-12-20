@@ -1,99 +1,62 @@
-{% extends "base/users/auth_base.html" %}
+{% extends "base.html" %}
 {% load widget_tweaks %}
-{% block title %}Edit profile{% endblock %}
+
+{% block title %}Edit profile · 360 Manager{% endblock %}
+
+{% block page_title %}Profile{% endblock %}
+{% block header_title %}Edit profile{% endblock %}
+{% block header_subtitle %}
+Update your personal information and account details.
+{% endblock %}
 
 {% block content %}
-<div class="min-h-[70vh] grid place-items-center px-4 py-10">
+<!-- Center wrapper -->
+<div class="flex justify-center">
   <div class="w-full max-w-2xl">
 
-    <div class="card bg-base-100/80 backdrop-blur shadow-2xl">
-      <div class="card-body p-6 sm:p-8">
+    <div class="card bg-base-100 shadow-sm">
+      <div class="card-body">
 
-        <!-- Header -->
-        <div class="flex items-center gap-3 mb-2">
-          <div class="avatar placeholder">
-            <div class="w-10 h-10 rounded-full bg-primary/10 text-primary">
-              <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                      d="M5.121 17.804A9 9 0 1118.88 17.8M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
-              </svg>
-            </div>
-          </div>
-          <div>
-            <h1 class="text-2xl font-bold leading-tight">Edit profile</h1>
-            <p class="text-sm text-base-content/60">Update your personal information.</p>
-          </div>
-        </div>
-
-        {% if form.non_field_errors %}
-          <div class="alert alert-error text-sm">
-            {% for err in form.non_field_errors %}<span>{{ err }}</span>{% endfor %}
-          </div>
-        {% endif %}
-
-        <form method="post" class="space-y-4" novalidate>
+        <form method="post" enctype="multipart/form-data" class="space-y-4" novalidate>
           {% csrf_token %}
 
-          <!-- Names -->
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div class="form-control">
-              <label class="label py-1"><span class="label-text">First name</span></label>
-              {% render_field form.first_name class="input w-full rounded-xl bg-base-200/60 focus:bg-base-100 focus:outline-none focus:ring focus:ring-primary/30" placeholder="John" %}
-              {% if form.first_name.errors %}<p class="mt-1 text-xs text-error">{{ form.first_name.errors|join:", " }}</p>{% endif %}
-            </div>
+            {% for field in form %}
+              <div class="form-control">
+                <label class="label">
+                  <span class="label-text">{{ field.label }}</span>
+                </label>
 
-            <div class="form-control">
-              <label class="label py-1"><span class="label-text">Last name</span></label>
-              {% render_field form.last_name class="input w-full rounded-xl bg-base-200/60 focus:bg-base-100 focus:outline-none focus:ring focus:ring-primary/30" placeholder="Doe" %}
-              {% if form.last_name.errors %}<p class="mt-1 text-xs text-error">{{ form.last_name.errors|join:", " }}</p>{% endif %}
-            </div>
+                {% render_field field class="input input-bordered w-full" %}
+
+                {% if field.help_text %}
+                  <p class="text-xs opacity-60 mt-1">
+                    {{ field.help_text }}
+                  </p>
+                {% endif %}
+
+                {% if field.errors %}
+                  <p class="text-xs text-error mt-1">
+                    {{ field.errors|join:", " }}
+                  </p>
+                {% endif %}
+              </div>
+            {% endfor %}
           </div>
 
-          <!-- Any extra fields on the form (auto-render neatly) -->
-          {% for field in form %}
-            {% if field.name not in 'first_name,last_name' %}
-              <div class="form-control">
-                <label class="label py-1"><span class="label-text">{{ field.label }}</span></label>
-                {% render_field field class+="input w-full rounded-xl bg-base-200/60 focus:bg-base-100 focus:outline-none focus:ring focus:ring-primary/30" %}
-                {% if field.help_text %}<p class="mt-1 text-xs opacity-60">{{ field.help_text }}</p>{% endif %}
-                {% if field.errors %}<p class="mt-1 text-xs text-error">{{ field.errors|join:", " }}</p>{% endif %}
-              </div>
-            {% endif %}
-          {% endfor %}
-
-          <!-- Actions -->
-          <div class="pt-2 flex flex-col sm:flex-row gap-2">
-            <button type="submit" class="btn btn-primary rounded-xl sm:w-auto">
-              <span class="loading loading-spinner loading-xs hidden" aria-hidden="true"></span>
+          <div class="pt-4 flex gap-2">
+            <button type="submit" class="btn btn-primary">
               Save changes
             </button>
-            <a href="{% url 'base:profile' %}" class="btn btn-ghost sm:w-auto">Cancel</a>
+            <a href="{% url 'base:profile' %}" class="btn btn-outline">
+              Cancel
+            </a>
           </div>
         </form>
 
       </div>
     </div>
 
-    <p class="mt-4 text-center text-xs text-base-content/60">
-      Want to change your password?
-      <a href="{% url 'base:password_change' %}" class="link link-hover">Update password</a>.
-    </p>
-
   </div>
 </div>
-
-<!-- Small UX: show spinner & disable submit on send -->
-<script>
-  (function () {
-    var form = document.querySelector('form[method="post"]');
-    if (!form) return;
-    form.addEventListener('submit', function () {
-      var btn = form.querySelector('button[type="submit"]');
-      if (!btn) return;
-      var spinner = btn.querySelector('.loading');
-      if (spinner) spinner.classList.remove('hidden');
-      btn.setAttribute('disabled', 'disabled');
-    });
-  })();
-</script>
 {% endblock %}

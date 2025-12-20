@@ -10,6 +10,35 @@ from base.access import (
 from hr.models import Department, Employee
 
 
+"""
+hr.access
+
+⚠️ IMPORTANT ARCHITECTURAL NOTE
+
+This module contains UI-level permission helpers that are
+INTENTIONALLY scoped to the `hr` application only.
+
+These functions:
+- can_view_department
+- can_edit_department
+- can_view_employee
+- can_edit_employee
+
+are meant for:
+- View-level access decisions
+- Human-readable business rules
+- HR-specific permission logic
+
+They are NOT the system-wide source of truth for security.
+
+System-wide authorization is enforced by:
+- base.acl_service (Object-level ACL)
+- BaseScoped*View mixins
+
+Do NOT reuse these helpers outside the `hr` app.
+"""
+
+
 # ============================================================
 #  Department Visibility (View)
 # ============================================================
@@ -29,16 +58,9 @@ def can_view_department(user, department: Department) -> bool:
 # ============================================================
 
 def can_edit_department(user, department: Department) -> bool:
-    """
-    HR → يعدل كل شيء
-    Division Manager → يعدل أي قسم داخل ال division
-    Department Manager → يعدل قسمه + ما تحته
-    Section Manager / Team Leader → لا يعدلون الأقسام
-    """
     if not user or not user.is_authenticated:
         return False
 
-    # HR
     if user_is_hr_manager(user):
         return True
 
@@ -46,13 +68,10 @@ def can_edit_department(user, department: Department) -> bool:
     if not me:
         return False
 
-    # Manager of this department (direct owner)
     if department.manager_id == me.id:
         return True
 
-    # Manager of any parent department (division manager)
-    ancestors = department.get_ancestors()
-    if any(a.manager_id == me.id for a in ancestors):
+    if department.get_ancestors().filter(manager_id=me.id).exists():
         return True
 
     return False

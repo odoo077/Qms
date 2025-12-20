@@ -1,67 +1,200 @@
 {% extends "base.html" %}
 {% load widget_tweaks %}
-{% block title %}{{ object.pk|yesno:"Edit Partner,Create Partner" }} · 360 Manager{% endblock %}
+
+{% block title %}
+  {% if object %}Edit Partner · {{ object.name }}{% else %}New Partner{% endif %}
+{% endblock %}
 
 {% block content %}
-<div class="px-4 py-6">
-  <!-- Breadcrumbs -->
-  <nav class="text-sm breadcrumbs mb-4">
+<div class="px-4 py-6 space-y-8 max-w-5xl mx-auto">
+
+  {# ===================================================== #}
+  {# Breadcrumbs                                          #}
+  {# ===================================================== #}
+  <nav class="text-sm breadcrumbs">
     <ul>
-      <li><a href="{% url 'base:partner_list' %}">Partners</a></li>
-      <li class="font-semibold">{{ object.pk|yesno:"Edit,Create" }}</li>
+      <li>
+        <a href="{% url 'base:partner_list' %}" class="link link-hover">
+          Partners
+        </a>
+      </li>
+      <li class="font-semibold">
+        {% if object %}Edit{% else %}New{% endif %}
+      </li>
     </ul>
   </nav>
 
-  <div class="mb-4">
-    <h1 class="text-2xl font-bold">{{ object.pk|yesno:"Edit Partner,Create Partner" }}</h1>
-    <p class="text-base-content/60 text-sm">Fill the partner information and save.</p>
+  {# ===================================================== #}
+  {# Header                                               #}
+  {# ===================================================== #}
+  <div class="space-y-1">
+    <h1 class="text-2xl font-bold">
+      {% if object %}Edit Partner{% else %}Create New Partner{% endif %}
+    </h1>
+    <p class="text-sm text-base-content/60 max-w-3xl">
+      This form allows editing partner identity and contact details only.
+      Company ownership and hierarchical relationships are managed exclusively from the Company profile and cannot be modified here.
+    </p>
   </div>
 
-  <!-- Global error summary -->
-  {% if form.non_field_errors %}
-    <div class="alert alert-error mb-4">
-      <ul class="list-disc list-inside text-sm">
-        {% for e in form.non_field_errors %}<li>{{ e }}</li>{% endfor %}
-      </ul>
-    </div>
-  {% endif %}
-
-  <form method="post" enctype="multipart/form-data" class="grid gap-4 md:grid-cols-2">
+  <form method="post" class="space-y-8">
     {% csrf_token %}
 
-    <div class="md:col-span-2 card bg-base-100 border border-base-300">
-      <div class="card-body p-5 grid gap-4 md:grid-cols-2">
-        <div class="form-control">
-          <label class="label"><span class="label-text">Name</span></label>
-          {{ form.name|add_class:"input input-bordered w-full" }}
-          {% if form.name.errors %}<p class="text-error text-sm">{{ form.name.errors.0 }}</p>{% endif %}
-        </div>
+    {# ===================================================== #}
+    {# Identity & Contact                                   #}
+    {# ===================================================== #}
+    <section class="card bg-base-100 border border-base-300">
+      <div class="card-body p-6 space-y-6">
 
+        <h2 class="text-sm font-semibold text-base-content/70">
+          Identity & Contact
+        </h2>
 
-        <div class="form-control">
-          <label class="label"><span class="label-text">Company</span></label>
-          {{ form.company|add_class:"select select-bordered w-full" }}
-          {% if form.company.errors %}<p class="text-error text-sm">{{ form.company.errors.0 }}</p>{% endif %}
-        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
 
-        <div class="form-control">
-          <label class="label"><span class="label-text">Email</span></label>
-          {{ form.email|add_class:"input input-bordered w-full" }}
-          {% if form.email.errors %}<p class="text-error text-sm">{{ form.email.errors.0 }}</p>{% endif %}
-        </div>
+          <div class="form-control md:col-span-2">
+            <label class="label">
+              <span class="label-text font-medium">Name</span>
+            </label>
+            {{ form.name|add_class:"input input-bordered w-full" }}
+            {% if form.name.errors %}
+              <p class="text-error text-xs mt-1">
+                {{ form.name.errors|striptags }}
+              </p>
+            {% endif %}
+          </div>
 
-        <div class="form-control">
-          <label class="label"><span class="label-text">Phone</span></label>
-          {{ form.phone|add_class:"input input-bordered w-full" }}
-          {% if form.phone.errors %}<p class="text-error text-sm">{{ form.phone.errors.0 }}</p>{% endif %}
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-medium">Email</span>
+            </label>
+            {{ form.email|add_class:"input input-bordered w-full" }}
+          </div>
+
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-medium">Phone</span>
+            </label>
+            {{ form.phone|add_class:"input input-bordered w-full" }}
+          </div>
+
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-medium">Website</span>
+            </label>
+            {{ form.website|add_class:"input input-bordered w-full" }}
+          </div>
+
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-medium">VAT / Company Registry</span>
+            </label>
+            {{ form.vat|add_class:"input input-bordered w-full" }}
+          </div>
+
         </div>
       </div>
+    </section>
+
+    {# ===================================================== #}
+    {# Address                                              #}
+    {# ===================================================== #}
+    <section class="card bg-base-100 border border-base-300">
+      <div class="card-body p-6 space-y-6">
+
+        <h2 class="text-sm font-semibold text-base-content/70">
+          Address
+        </h2>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+          <div class="form-control md:col-span-2">
+            <label class="label">
+              <span class="label-text font-medium">Street</span>
+            </label>
+            {{ form.street|add_class:"input input-bordered w-full" }}
+          </div>
+
+          <div class="form-control md:col-span-2">
+            <label class="label">
+              <span class="label-text font-medium">Street 2</span>
+            </label>
+            {{ form.street2|add_class:"input input-bordered w-full" }}
+          </div>
+
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-medium">City</span>
+            </label>
+            {{ form.city|add_class:"input input-bordered w-full" }}
+          </div>
+
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-medium">ZIP / Postal Code</span>
+            </label>
+            {{ form.zip|add_class:"input input-bordered w-full" }}
+          </div>
+
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-medium">State</span>
+            </label>
+            {{ form.state|add_class:"input input-bordered w-full" }}
+          </div>
+
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-medium">Country</span>
+            </label>
+            {{ form.country|add_class:"select select-bordered w-full" }}
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    {# ===================================================== #}
+    {# Linked Company (Read-only)                            #}
+    {# ===================================================== #}
+    {% if object and object.company %}
+      <section class="alert alert-info">
+        <div>
+          <div class="font-medium">
+            Linked Company
+          </div>
+          <div class="mt-1">
+            <a href="{% url 'base:company_detail' object.company.pk %}"
+               class="link link-hover">
+              {{ object.company.name }}
+            </a>
+          </div>
+          <div class="text-xs opacity-70 mt-1">
+            Company ownership and hierarchy are managed from the company profile.
+          </div>
+        </div>
+      </section>
+    {% endif %}
+
+    {# ===================================================== #}
+    {# Actions                                              #}
+    {# ===================================================== #}
+    <div class="flex items-center gap-3 pt-2">
+      <button type="submit" class="btn btn-primary">
+        {% if object %}Save changes{% else %}Create partner{% endif %}
+      </button>
+
+      <a href="{% url 'base:partner_list' %}" class="btn btn-ghost">
+        Cancel
+      </a>
+
+      {% if object %}
+        <span class="text-xs text-base-content/60 ml-auto">
+          Partner ID: #{{ object.id }}
+        </span>
+      {% endif %}
     </div>
 
-    <div class="md:col-span-2 flex items-center gap-2">
-      <button type="submit" class="btn btn-primary">Save</button>
-      <a href="{% url 'base:partner_list' %}" class="btn btn-ghost">Cancel</a>
-    </div>
   </form>
 </div>
 {% endblock %}

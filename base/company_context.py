@@ -21,9 +21,8 @@ def clear_company() -> None:
     _allowed_company_ids.set(tuple())
 
 def get_company_id(request=None):
-    """ارجع الـID للشركة النشطة حاليًا."""
-    if request:
-        return request.session.get("current_company_id")
+    if request and hasattr(request, "company_id"):
+        return request.company_id
     return _current_company_id.get()
 
 def get_allowed_company_ids(request=None):
@@ -142,7 +141,7 @@ def get_current_company_object():
     if not user:
         return None
 
-    company_id = getattr(user, "company_id", None)
+    company_id = get_company_id()
     if not company_id:
         return None
 

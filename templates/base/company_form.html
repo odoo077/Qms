@@ -1,35 +1,159 @@
 {% extends "base.html" %}
 {% load widget_tweaks %}
-{% block title %}{% if object %}Edit{% else %}New{% endif %} Company{% endblock %}
+
+{% block title %}
+  {% if object %}Edit Company · {{ object.name }}{% else %}Create New Company{% endif %}
+{% endblock %}
+
 {% block content %}
-<div class="px-4 py-6">
-  <nav class="text-sm breadcrumbs mb-4">
-    <ul><li><a href="{% url 'base:company_list' %}">Companies</a></li><li class="font-semibold">{% if object %}Edit{% else %}New{% endif %}</li></ul>
+<div class="px-4 py-6 space-y-8 max-w-4xl mx-auto">
+
+  {# ================= Breadcrumbs ================= #}
+  <nav class="text-sm breadcrumbs">
+    <ul>
+      <li>
+        <a href="{% url 'base:company_list' %}" class="link link-hover">
+          Companies
+        </a>
+      </li>
+      <li class="font-semibold">
+        {% if object %}Edit{% else %}New{% endif %}
+      </li>
+    </ul>
   </nav>
 
-  <form method="post" class="grid gap-4 md:grid-cols-2">
+  {# ================= Page Header ================= #}
+  <div>
+    <h1 class="text-2xl font-bold">
+      {% if object %}Edit Company{% else %}Create New Company{% endif %}
+    </h1>
+    <p class="text-sm text-base-content/60 mt-1">
+      {% if object %}
+        Update company information and hierarchy.
+      {% else %}
+        Create a new company. Partner record will be created automatically.
+      {% endif %}
+    </p>
+  </div>
+
+  <form method="post" class="space-y-6">
     {% csrf_token %}
-    <div class="md:col-span-2 card bg-base-100 border border-base-300">
-      <div class="card-body p-5 grid gap-4 md:grid-cols-2">
-        <div class="form-control">
-          <label class="label"><span class="label-text">Name</span></label>
+
+    {# ================= Company Core ================= #}
+    <div class="card bg-base-100 border border-base-300">
+      <div class="card-body p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+
+        {# ---- Company name ---- #}
+        <div class="form-control md:col-span-2">
+          <label class="label">
+            <span class="label-text font-medium">Company name</span>
+          </label>
           {{ form.name|add_class:"input input-bordered w-full" }}
+          {% if form.name.errors %}
+            <p class="text-error text-xs mt-1">
+              {{ form.name.errors|striptags }}
+            </p>
+          {% endif %}
         </div>
-        <div class="form-control">
-          <label class="label"><span class="label-text">Parent</span></label>
+
+        {# ---- Parent company (SOURCE OF TRUTH) ---- #}
+        <div class="form-control md:col-span-2">
+          <label class="label">
+            <span class="label-text font-medium">
+              Parent company
+            </span>
+          </label>
+
           {{ form.parent|add_class:"select select-bordered w-full" }}
+
+          <label class="label">
+            <span class="label-text-alt text-base-content/60">
+              Defines the company hierarchy.
+              Changing this will automatically update partner hierarchy.
+            </span>
+          </label>
+
+          {% if form.parent.errors %}
+            <p class="text-error text-xs mt-1">
+              {{ form.parent.errors|striptags }}
+            </p>
+          {% endif %}
         </div>
+
+        {# ---- Active flag ---- #}
         <div class="form-control">
-          <label class="label"><span class="label-text">Partner</span></label>
-          {{ form.partner|add_class:"select select-bordered w-full" }}
+          <label class="label cursor-pointer justify-start gap-3">
+            {{ form.active }}
+            <span class="label-text font-medium">Active</span>
+          </label>
+          <span class="text-xs text-base-content/60">
+            Archived companies remain in history but are excluded from active operations.
+          </span>
         </div>
+
       </div>
     </div>
 
-    <div class="md:col-span-2 flex items-center gap-2">
-      <button class="btn btn-primary">Save</button>
-      <a class="btn btn-ghost" href="{% url 'base:company_list' %}">Cancel</a>
+    {# ================= Linked Partner (Read-only) ================= #}
+    {% if object and object.partner %}
+      <div class="card bg-base-100 border border-base-300">
+        <div class="card-body p-6 space-y-3">
+
+          <div class="flex items-center justify-between">
+            <h2 class="text-sm font-semibold">
+              Linked Partner
+            </h2>
+
+            <a href="{% url 'base:partner_detail' object.partner.pk %}"
+               class="btn btn-outline btn-xs">
+              View
+            </a>
+          </div>
+
+          <div class="text-sm">
+            <div class="font-medium">
+              {{ object.partner.name }}
+            </div>
+            <div class="text-xs text-base-content/60 mt-1">
+              This partner represents the company identity.
+              Partner hierarchy is synchronized automatically.
+            </div>
+          </div>
+
+        </div>
+      </div>
+    {% endif %}
+
+    {# ================= Actions ================= #}
+    <div class="flex items-center gap-3 pt-2">
+      <button type="submit" class="btn btn-primary">
+        {% if object %}Save changes{% else %}Create company{% endif %}
+      </button>
+
+      <a href="{% url 'base:company_list' %}"
+         class="btn btn-ghost">
+        Cancel
+      </a>
+
+      {% if object %}
+        <span class="text-xs text-base-content/60 ml-auto">
+          Company ID: #{{ object.id }}
+        </span>
+      {% endif %}
     </div>
+
   </form>
+
+  {# ================= Non-field errors ================= #}
+  {% if form.non_field_errors %}
+    <div class="alert alert-error">
+      <ul class="list-disc list-inside text-sm">
+        {% for error in form.non_field_errors %}
+          <li>{{ error }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+  {% endif %}
+
 </div>
 {% endblock %}

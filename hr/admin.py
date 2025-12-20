@@ -39,14 +39,43 @@ class ContractTypeAdmin(AppAdmin):
 # Department
 # ------------------------------------------------------------
 @admin.register(models.Department)
-class DepartmentAdmin(AppAdmin):
-    list_display = ("complete_name", "company", "parent", "manager", "active")
-    list_filter = ("company", "active")
-    search_fields = ("name", "complete_name", "manager__name", "parent__name")
-    list_select_related = ("company", "parent", "manager")
-    ordering = ("company", "complete_name")
+class DepartmentAdmin(admin.ModelAdmin):
+    """
+    Odoo-like Admin behavior for Departments.
 
-    autocomplete_fields = ("company", "parent", "manager")
+    Principles:
+    - complete_name & parent_path are SYSTEM fields
+    - Visible for transparency
+    - Read-only to prevent manual corruption
+    """
+
+    list_display = (
+        "complete_name",
+        "company",
+        "parent",
+        "manager",
+        "active",
+    )
+
+    list_filter = ("company", "active")
+    search_fields = ("name", "complete_name")
+
+    readonly_fields = (
+        "complete_name",
+        "parent_path",
+    )
+
+    fieldsets = (
+        ("Department", {
+            "fields": ("name", "company", "parent", "manager", "active"),
+        }),
+        ("Hierarchy (System)", {
+            "fields": ("complete_name", "parent_path"),
+        }),
+        ("Notes", {
+            "fields": ("note",),
+        }),
+    )
 
 
 # ------------------------------------------------------------
@@ -534,7 +563,7 @@ class EmployeeAdmin(AppAdmin):
     form = EmployeeAdminForm
 
     readonly_fields = ("work_contact_display",)
-    inlines = (EmployeeScheduleInline, ObjectACLInline, XValueInline)
+    inlines = (EmployeeScheduleInline, EmployeeWeeklyOffPeriodInline, ObjectACLInline, XValueInline)
 
     # روابط سريعة
     def user_link(self, obj):

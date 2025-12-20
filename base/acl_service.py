@@ -1,27 +1,62 @@
-# base/acl_service.py  (FULL REWRITE to match the new base/acl.py)
+# base/acl_service.py
+# ============================================================
+# Global Object ACL Service (matches base/acl.py)
+#
+# - Single source of truth for object-level permissions across ALL apps.
+# - Uses ObjectACL (ACE rows) with:
+#     * Core flags: view/change/delete/share/approve/assign/comment/export/rate/attach
+#     * extra_perms: free-text permissions (list[str]) for extensibility.
+#
+# Notes:
+# - grant_access(): upsert ACE and updates only provided flags (None = keep as-is).
+# - revoke_access(): delete ACE or revoke selected perms only.
+# - has_perm(): object ACL check (user + groups). Company/privacy scope is handled by QuerySet.with_acl(...)
+# - apply_default_acl(): default additive policy (Odoo-like) for newly created/updated objects.
+# - TEAM VISIBILITY: incremental rebuild (per affected manager team) to avoid full rebuild overhead.
+# ============================================================
+
 from __future__ import annotations
+
+from collections import defaultdict
+from functools import lru_cache
 from typing import Iterable, Optional, Sequence, Tuple
 
+from django.apps import apps
 from django.contrib.contenttypes.models import ContentType
 from django.db.models import Q
+from django.db.models.signals import post_save, pre_save
+from django.dispatch import receiver
 
-from hr.models import Department , Employee
-from .acl import ObjectACL, CORE_PERMS
+from .acl import ObjectACL
 
 # --------------------------------------------------------------------------------------
-# ملاحظات سريعة:
-# - يدعم منح/تعديل/سحب صلاحيات أساسية (view/change/delete/share/approve/assign/comment/export/rate/attach)
-#   + صلاحيات إضافية مفتوحة عبر extra_perms (قائمة أسماء نصية) بدون ترقية سكيما لاحقًا.
-# - grant_access: يحدّث أو ينشئ ACE ويُعدّل فقط الأعلام التي تم تمريرها (غير None) ويدمج extras.
-# - revoke_access: يحذف ACE بالكامل (ل principal معيّن) أو يسحب صلاحيات معيّنة فقط دون حذف السطر.
-# - has_perm: يفحص صلاحية على سجل لمستخدم (يشمل مجموعاته)، يعتمد الـACL فقط (بدون منطق الشركة).
-#   للفلترة بالسياق الكامل (شركة/خصوصية/مشاركة) استعمل QuerySet.with_acl(...) كما في acl.py.
-# - list_access: يرجع جميع ACEs الخاصة بالسجل.
+# Quick notes:
+# - This module is intentionally import-safe: HR models are resolved lazily via apps.get_model().
+# - Do not import hr.models directly here.
 # --------------------------------------------------------------------------------------
 
 
-# خريطة الاسم → اسم الحقل البولياني في نموذج الـACL
-_CORE_FLAG_BY_NAME = ObjectACL.CORE_FLAG_BY_NAME  # نفس المعجم المعرّف داخل ObjectACL
+# ======================================================================================
+# HR model resolvers (lazy)
+# ======================================================================================
+
+@lru_cache(maxsize=1)
+def _hr_models():
+    Department = apps.get_model("hr", "Department")
+    Employee = apps.get_model("hr", "Employee")
+    return Department, Employee
+
+
+def _employee_ct() -> ContentType:
+    _, Employee = _hr_models()
+    return ContentType.objects.get_for_model(Employee, for_concrete_model=False)
+
+
+# ======================================================================================
+# Core mapping / helpers
+# ======================================================================================
+
+_CORE_FLAG_BY_NAME = ObjectACL.CORE_FLAG_BY_NAME  # name -> field (e.g. "view" -> "can_view")
 
 
 def _ct_and_pk(obj) -> Tuple[ContentType, int]:
@@ -49,7 +84,7 @@ def _normalize_extras(extras: Optional[Iterable[str]]) -> list[str]:
 
 
 # ======================================================================================
-# واجهات المنح/السحب
+# Grant / Revoke
 # ======================================================================================
 
 def grant_access(
@@ -57,7 +92,7 @@ def grant_access(
     *,
     user=None,
     group=None,
-    # الأعلام الأساسية (مرّر None لترك القيمة كما هي، و True/False لضبطها)
+    # Core flags: None = keep, True/False = set
     view: Optional[bool] = None,
     change: Optional[bool] = None,
     delete: Optional[bool] = None,
@@ -68,21 +103,18 @@ def grant_access(
     export: Optional[bool] = None,
     rate: Optional[bool] = None,
     attach: Optional[bool] = None,
-    # صلاحيات إضافية مفتوحة
+    # Extras
     extras: Optional[Iterable[str]] = None,
-    # إعدادات إدارية
+    # Admin fields
     active: Optional[bool] = None,
     company=None,
 ):
     """
-    امنح/حدّث ACE على سجل محدّد (update_or_create):
-      - يضبط فقط الأعلام التي تم تمريرها (غير None).
-      - يدمج extra_perms دون تكرار.
-      - لا يلمس الأعلام غير الممرّرة.
+    Upsert ACE for (obj, principal), update ONLY the passed flags (non-None),
+    and merge extra_perms.
     """
     ct, pk = _ct_and_pk(obj)
 
-    # جهّز أعلام الصلاحيات الممرّرة كافتراضات للإنشاء الأولي (حتى لا نخالف قيد DB)
     core_defaults = {
         "can_view": bool(view) if view is not None else False,
         "can_change": bool(change) if change is not None else False,
@@ -105,7 +137,7 @@ def grant_access(
     if extras_list:
         defaults["extra_perms"] = extras_list
 
-    ace, created = ObjectACL.objects.get_or_create(
+    ace, _ = ObjectACL.objects.get_or_create(
         content_type=ct,
         object_id=pk,
         user=user,
@@ -113,24 +145,30 @@ def grant_access(
         defaults=defaults,
     )
 
-    # اضبط الأعلام الأساسية التي تم تمريرها فقط
+    # Update only provided flags
     core_updates = {
-        "can_view": view, "can_change": change, "can_delete": delete,
-        "can_share": share, "can_approve": approve, "can_assign": assign,
-        "can_comment": comment, "can_export": export, "can_rate": rate, "can_attach": attach,
+        "can_view": view,
+        "can_change": change,
+        "can_delete": delete,
+        "can_share": share,
+        "can_approve": approve,
+        "can_assign": assign,
+        "can_comment": comment,
+        "can_export": export,
+        "can_rate": rate,
+        "can_attach": attach,
     }
     for field_name, maybe_value in core_updates.items():
         if maybe_value is not None:
             setattr(ace, field_name, bool(maybe_value))
 
-    # دمج extra_perms
+    # Merge extras
     new_extras = _normalize_extras(extras)
     if new_extras:
         current = set(ace.extra_perms or [])
         current.update(new_extras)
         ace.extra_perms = sorted(current)
 
-    # active / company
     if active is not None:
         ace.active = bool(active)
     if company is not None:
@@ -149,52 +187,54 @@ def revoke_access(
     keep_row_if_empty: bool = False,
 ):
     """
-    اسحب الوصول:
-      - إن لم تُمرَّر 'only' → يُحذف ACE بالكامل (لـ user/group).
-      - إن مُرِّرت 'only' → تُسحب صلاحيات محدّدة فقط (core/extra)،
-        وإذا أصبح السطر بلا أي صلاحية:
-          - يحذف السطر كليًا، إلا إذا keep_row_if_empty=True فيُترك بلا صلاحيات.
+    Revoke access:
+      - If only is None/empty -> delete ACE row(s) for principal.
+      - If only provided -> revoke selected perms (core/extra) and delete row if becomes empty
+        unless keep_row_if_empty=True.
     """
     ct, pk = _ct_and_pk(obj)
     qs = ObjectACL.objects.filter(content_type=ct, object_id=pk).filter(_principal_filter(user, group))
+
     if not only:
-        # حذف ACE بالكامل
         return qs.delete()
 
-    # سحب صلاحيات محددة فقط
     names = [(n or "").strip().lower() for n in only if (n or "").strip()]
+    if not names:
+        return None
+
     for ace in qs:
-        # اسحب الأعلام الأساسية
+        # Core flags
         for name in names:
             flag = _CORE_FLAG_BY_NAME.get(name)
             if flag:
                 setattr(ace, flag, False)
 
-        # اسحب من extras
+        # Extras
         if ace.extra_perms:
             ace.extra_perms = sorted(x for x in ace.extra_perms if x not in names)
 
-        # هل بقي أي صلاحية؟
         still_has = (
             ace.can_view or ace.can_change or ace.can_delete or ace.can_share or
             ace.can_approve or ace.can_assign or ace.can_comment or ace.can_export or
             ace.can_rate or ace.can_attach or bool(ace.extra_perms)
         )
+
         if still_has or keep_row_if_empty:
             ace.save()
         else:
             ace.delete()
+
     return None
 
 
 # ======================================================================================
-# الفحص والقوائم
+# Checks / listing
 # ======================================================================================
 
 def has_perm(obj, user, action: str) -> bool:
     """
-    فحص صلاحية كائنية عبر الـACL فقط (لا يشمل سكوب الشركة/الخصوصية).
-    للفلترة بحسب الشركة/الخصوصية استخدم QuerySet.with_acl(..) كما في base/acl.py.
+    Object ACL check only (user + groups).
+    Company/privacy scope should be applied via QuerySet.with_acl(...) in base/acl.py.
     """
     if not user or not getattr(user, "is_authenticated", False):
         return False
@@ -204,13 +244,10 @@ def has_perm(obj, user, action: str) -> bool:
     action = (action or "").strip().lower()
     ct, pk = _ct_and_pk(obj)
 
-    # مجموعات المستخدم
     group_ids = list(user.groups.values_list("id", flat=True))
-
-    # بنية استعلام ACE
     q = Q(content_type=ct, object_id=pk, active=True) & (Q(user=user) | Q(group_id__in=group_ids))
 
-    flag, extra = ObjectACL.normalize_action(action)  # يعالج الأسماء الأساسية + extras
+    flag, extra = ObjectACL.normalize_action(action)
     if flag:
         q &= Q(**{flag: True})
     else:
@@ -220,15 +257,12 @@ def has_perm(obj, user, action: str) -> bool:
 
 
 def list_access(obj):
-    """
-    جميع ACEs الخاصة بالسجل.
-    """
     ct, pk = _ct_and_pk(obj)
     return ObjectACL.objects.filter(content_type=ct, object_id=pk)
 
 
 # ======================================================================================
-# مُساعِدات عملية (اختيارية) للسيناريوهات المتكررة
+# Convenience helpers
 # ======================================================================================
 
 def set_access(
@@ -236,14 +270,12 @@ def set_access(
     *,
     user=None,
     group=None,
-    # مجموعة أسماء صلاحيات (أساسية/موسّعة). مثال: ["view", "change", "approve", "escalate"]
     perms: Optional[Iterable[str]] = None,
     active: Optional[bool] = None,
     company=None,
 ):
     """
-    يضبط مجموعة صلاحيات معيّنة دفعة واحدة (يُفعّل المذكور ويُبطّل غير المذكور كلها)،
-    مع الحفاظ على السطر نفسه.
+    Replace permission set for a principal on an object (keeps row).
     """
     ct, pk = _ct_and_pk(obj)
     ace, _ = ObjectACL.objects.get_or_create(
@@ -254,7 +286,7 @@ def set_access(
         defaults={"active": True if active is None else bool(active), "company": company},
     )
 
-    # أعلام أساسية → False ثم True لما هو مطلوب
+    # Reset all core flags
     for flag in _CORE_FLAG_BY_NAME.values():
         setattr(ace, flag, False)
 
@@ -284,18 +316,19 @@ def set_access(
 
 def grant_bulk(objs: Iterable, *, user=None, group=None, perms: Iterable[str] | None = None):
     """
-    منح مجموعة صلاحيات لأكثر من سجل دفعة واحدة.
+    Grant a permission set to multiple objects.
     """
     perms = list(perms or [])
     core_kwargs = {}
     extras: list[str] = []
+
     for p in perms:
         p = (p or "").strip().lower()
         if not p:
             continue
         flag = _CORE_FLAG_BY_NAME.get(p)
         if flag:
-            core_kwargs[flag.replace("can_", "")] = True  # "can_view" → view=True
+            core_kwargs[flag.replace("can_", "")] = True  # "can_view" -> view=True
         else:
             extras.append(p)
 
@@ -303,83 +336,66 @@ def grant_bulk(objs: Iterable, *, user=None, group=None, perms: Iterable[str] | 
         grant_access(obj, user=user, group=group, extras=extras, **core_kwargs)
 
 
-# === DEFAULT GLOBAL POLICY (company-wide) ====================================
-# full updated apply_default_acl implementation
-from django.contrib.auth.models import Group, Permission
-from hr.models import Department, Employee
+# ======================================================================================
+# Default global policy (Odoo-style) - additive rules
+# ======================================================================================
 
 def _get_base_department_for_obj(obj):
     """
-    Return the department related to obj:
-      - if obj is Department -> itself
-      - if obj has department_id -> obj.department
-      - if obj has employee_id -> obj.employee.department
+    Resolve base department for hierarchical ACL without isinstance() to avoid import-order issues.
     """
-    if isinstance(obj, Department):
+    meta = getattr(obj, "_meta", None)
+    app_label = getattr(meta, "app_label", "")
+    model_name = getattr(meta, "model_name", "")
+
+    # obj itself is Department
+    if app_label == "hr" and model_name == "department":
         return obj
 
-    if hasattr(obj, "department_id") and getattr(obj, "department_id"):
+    # direct FK: department
+    if getattr(obj, "department_id", None):
         return getattr(obj, "department", None)
 
-    if hasattr(obj, "employee_id") and getattr(obj, "employee_id"):
+    # FK: employee -> department
+    if getattr(obj, "employee_id", None):
         emp = getattr(obj, "employee", None)
-        if isinstance(emp, Employee) and getattr(emp, "department_id", None):
+        if emp and getattr(emp, "department_id", None):
             return getattr(emp, "department", None)
 
     return None
 
-def apply_default_acl(obj):
+
+def apply_default_acl(obj, *, created: bool = False, old_employee_id: int | None = None):
     """
-    =====================================================================
-    Default ACL Rules (Odoo-style) applied on ANY object saved in system.
-    =====================================================================
+    Default ACL Rules applied on ANY saved object (additive only).
 
-    GLOBAL POLICY:
-    1) Owner (created_by) → full access
-    2) HR Managers        → full access   (permission: hr.manage_all_hr)
-    3) Employee          → view + change (his own Employee record)
-    4) Department Manager Hierarchy:
-         - Manager of department of object  → view/change/approve/assign
-         - Manager of parent departments    → view/change/approve/assign
-         - Manager of the department itself → also gets inheritance rules
-    5) For Department objects:
-         - Managers of sibling departments get view-only (coordination)
-         - Manager of this department gets view-only on parents
+    GLOBAL:
+    1) Owner (created_by) -> full access
+    2) HR Managers (permission: hr.manage_all_hr) -> full access
+    3) Employee -> view + change on his own Employee record
+    4) Department manager hierarchy for related department -> view/change/approve/assign
+    5) Department coordination:
+       - manager of this department gets view-only on parents
+       - sibling managers get view-only on this department
 
-    ASSETS SPECIFIC:
-    6) Asset.holder.user:
-         → view + change on Asset
-    7) AssetAssignment.employee.user:
-         → view on Assignment
-         → view + change on related Asset
-
-    NOTE:
-    - ACL must never crash object save, therefore exceptions are swallowed
-      where needed.
-    - All permissions are additive (never revoked here).
-    =====================================================================
+    APP-SPECIFIC:
+    - skills:
+        * employee.user -> view
+        * owner -> view+change (+ rate for EmployeeSkill)
+        * transfer view from old employee on reassignment
+    - assets:
+        * Asset.holder.user -> view+change
+        * AssetAssignment.employee.user -> view on assignment + view+change on asset
+    - performance:
+        * Evaluation.employee.user -> view
     """
-
-    # Lazy imports inside function (to avoid circular dependencies)
-    from django.contrib.auth.models import Group, Permission
-    try:
-        from assets.models import Asset, AssetAssignment
-    except Exception:
-        Asset = None
-        AssetAssignment = None
-
-    try:
-        from performance.models import Evaluation
-    except Exception:
-        Evaluation = None
-
     # Nothing to apply on objects without PK
     if not getattr(obj, "pk", None):
         return
 
-    # ============================================================
-    # (1) Owner (created_by) → full access
-    # ============================================================
+    Department, Employee = _hr_models()
+
+    # (1) Owner
     owner = getattr(obj, "created_by", None)
     if owner:
         grant_access(
@@ -389,14 +405,41 @@ def apply_default_acl(obj):
             approve=True, assign=True, share=True,
         )
 
-    # ============================================================
-    # (2) HR Managers Groups → full access
-    # ============================================================
+    # (1.1) Skills objects (EmployeeSkill / ResumeLine)
     try:
-        perm = Permission.objects.get(
-            content_type__app_label="hr",
-            codename="manage_all_hr"
-        )
+        meta = getattr(obj, "_meta", None)
+        app_label = getattr(meta, "app_label", "")
+        model_name = getattr(meta, "model_name", "")
+
+        if app_label == "skills" and model_name in ("employeeskill", "resumeline"):
+            emp = getattr(obj, "employee", None)
+            emp_user = getattr(emp, "user", None) if emp else None
+
+            if owner:
+                grant_access(obj, user=owner, view=True, change=True)
+                if model_name == "employeeskill":
+                    grant_access(obj, user=owner, rate=True)
+
+            if emp_user:
+                grant_access(obj, user=emp_user, view=True)
+
+            if old_employee_id and old_employee_id != getattr(obj, "employee_id", None):
+                try:
+                    old_emp = Employee.objects.only("user_id").get(pk=old_employee_id)
+                    old_user = getattr(old_emp, "user", None)
+                except Exception:
+                    old_user = None
+                if old_user:
+                    revoke_access(obj, user=old_user, only=["view"])
+    except Exception:
+        # ACL must never break save paths
+        pass
+
+    # (2) HR Managers groups -> full access
+    try:
+        from django.contrib.auth.models import Group, Permission
+
+        perm = Permission.objects.get(content_type__app_label="hr", codename="manage_all_hr")
         hr_groups = Group.objects.filter(permissions=perm)
         for g in hr_groups:
             grant_access(
@@ -405,123 +448,85 @@ def apply_default_acl(obj):
                 view=True, change=True, delete=True,
                 approve=True, assign=True, share=True,
             )
-    except Permission.DoesNotExist:
+    except Exception:
         pass
 
-    # ============================================================
-    # (3) Employee itself → view + change
-    # ============================================================
-    if isinstance(obj, Employee) and getattr(obj, "user_id", None):
-        grant_access(
-            obj,
-            user=obj.user,
-            view=True,
-            change=True,
-        )
+    # (3) Employee itself -> view + change
+    if getattr(getattr(obj, "_meta", None), "app_label", "") == "hr" and \
+       getattr(getattr(obj, "_meta", None), "model_name", "") == "employee" and \
+       getattr(obj, "user_id", None):
+        grant_access(obj, user=obj.user, view=True, change=True)
 
-    # ============================================================
-    # (4) Asset holder → view + change on Asset
-    # ============================================================
-    if Asset and isinstance(obj, Asset):
+    # (4) Assets-specific
+    try:
+        Asset = apps.get_model("assets", "Asset")
+        AssetAssignment = apps.get_model("assets", "AssetAssignment")
+    except Exception:
+        Asset = None
+        AssetAssignment = None
+
+    if Asset is not None and isinstance(obj, Asset):
         holder = getattr(obj, "holder", None)
         holder_user = getattr(holder, "user", None) if holder else None
         if holder_user:
-            grant_access(
-                obj,
-                user=holder_user,
-                view=True,
-                change=True,
-            )
+            grant_access(obj, user=holder_user, view=True, change=True)
 
-    # ============================================================
-    # (5) AssetAssignment.employee:
-    #       → view on Assignment
-    #       → view + change on related Asset
-    # ============================================================
-    if AssetAssignment and isinstance(obj, AssetAssignment):
+    if AssetAssignment is not None and isinstance(obj, AssetAssignment):
         emp = getattr(obj, "employee", None)
         emp_user = getattr(emp, "user", None) if emp else None
         if emp_user:
-            grant_access(
-                obj,
-                user=emp_user,
-                view=True,
-            )
+            grant_access(obj, user=emp_user, view=True)
             asset = getattr(obj, "asset", None)
             if asset:
-                grant_access(
-                    asset,
-                    user=emp_user,
-                    view=True,
-                    change=True,
-                )
+                grant_access(asset, user=emp_user, view=True, change=True)
 
-    # ============================================================
-    # (5.1) Evaluation.employee.user → view on Evaluation
-    # ============================================================
-    if Evaluation and isinstance(obj, Evaluation):
+    # (5) Performance-specific
+    try:
+        Evaluation = apps.get_model("performance", "Evaluation")
+    except Exception:
+        Evaluation = None
+
+    if Evaluation is not None and isinstance(obj, Evaluation):
         emp = getattr(obj, "employee", None)
         emp_user = getattr(emp, "user", None) if emp else None
         if emp_user:
-            grant_access(
-                obj,
-                user=emp_user,
-                view=True,
-            )
+            grant_access(obj, user=emp_user, view=True)
 
-    # ============================================================
-    # (6) Department hierarchy managers → operational rights
-    # ============================================================
+    # (6) Department hierarchy managers -> operational rights
     base_dept = _get_base_department_for_obj(obj)
-    if not isinstance(base_dept, Department):
-        return  # Objects without department hierarchy stop here
+    if not base_dept:
+        return
 
-    seen = set()
+    seen_users = set()
     cur = base_dept
     while cur:
         mgr = getattr(cur, "manager", None)
         mgr_user = getattr(mgr, "user", None) if mgr else None
-        if mgr_user and mgr_user.pk not in seen:
-            grant_access(
-                obj,
-                user=mgr_user,
-                view=True,
-                change=True,
-                approve=True,
-                assign=True,
-            )
-            seen.add(mgr_user.pk)
+        if mgr_user and mgr_user.pk not in seen_users:
+            grant_access(obj, user=mgr_user, view=True, change=True, approve=True, assign=True)
+            seen_users.add(mgr_user.pk)
         cur = cur.parent
 
-    # ============================================================
-    # (7) Manager of this department → view-only on parents
-    # ============================================================
+    # (7) Manager of this department -> view-only on parents
     try:
         base_mgr = getattr(base_dept, "manager", None)
         base_mgr_user = getattr(base_mgr, "user", None) if base_mgr else None
         if base_mgr_user:
             parent = base_dept.parent
-            seen_view = set()
             while parent:
-                if base_mgr_user.pk not in seen_view:
-                    grant_access(
-                        parent,
-                        user=base_mgr_user,
-                        view=True,
-                        change=False,
-                        approve=False,
-                        assign=False,
-                        share=False,
-                    )
-                    seen_view.add(base_mgr_user.pk)
+                grant_access(
+                    parent,
+                    user=base_mgr_user,
+                    view=True,
+                    change=False, approve=False, assign=False, share=False,
+                )
                 parent = parent.parent
     except Exception:
         pass
 
-    # ============================================================
-    # (8) Department objects → sibling managers get view-only
-    # ============================================================
-    if isinstance(obj, Department):
+    # (8) Department objects -> sibling managers view-only
+    if getattr(getattr(obj, "_meta", None), "app_label", "") == "hr" and \
+       getattr(getattr(obj, "_meta", None), "model_name", "") == "department":
         parent = getattr(obj, "parent", None)
         if parent:
             try:
@@ -530,105 +535,148 @@ def apply_default_acl(obj):
                     m = getattr(s, "manager", None)
                     mu = getattr(m, "user", None) if m else None
                     if mu:
-                        grant_access(
-                            obj,
-                            user=mu,
-                            view=True,
-                            change=False,
-                        )
+                        grant_access(obj, user=mu, view=True, change=False)
             except Exception:
                 pass
 
 
-# === TEAM VISIBILITY (manager + peers) =======================================
-from collections import defaultdict
-from django.db.models.signals import post_save
-from django.dispatch import receiver
-
-from hr.models import Department, Employee  # غالباً موجودة بالأعلى، إن كانت موجودة لا تكررها
+# ======================================================================================
+# TEAM VISIBILITY (incremental rebuild)
+# ======================================================================================
 
 TEAM_EXTRA_FLAG = "team_visibility"
 
 
-def rebuild_team_visibility():
+def _team_members_queryset(*, manager_id: int, company_id: Optional[int] = None):
     """
-    يجعل كل موظف يرى:
-      - مديره المباشر (Employee.manager)
-      - زملاءه الذين لهم نفس المدير
-
-    المنطق:
-      - نبني ACEs جديدة بعَلم extra_perms=['team_visibility']
-      - قبل البناء نحذف كل ACEs القديمة التي تحمل هذا العلم حتى لا تتراكم.
+    Active employees with users reporting to manager_id (optional company scope).
     """
-    from django.contrib.contenttypes.models import ContentType
-    from .acl import ObjectACL   # نفس الموديل الموجود في هذا الملف
-    from .acl_service import grant_access  # إذا أعطاك import دائري، تجاهله هنا لأننا في نفس الملف
+    _, Employee = _hr_models()
+    qs = Employee.objects.filter(
+        active=True,
+        user__isnull=False,
+        manager_id=manager_id,
+    ).select_related("user").only("id", "user_id", "manager_id", "company_id", "active")
+    if company_id is not None:
+        qs = qs.filter(company_id=company_id)
+    return qs
 
-    # تجنّب الاستيراد الدائري: بما أننا داخل نفس الملف يمكننا استخدام grant_access مباشرة بدون import
-    ct = ContentType.objects.get_for_model(Employee, for_concrete_model=False)
 
-    # 1) حذف كل ACEs السابقة الخاصة بـ team_visibility
+def rebuild_team_visibility_for_manager(*, manager_id: int, company_id: Optional[int] = None):
+    """
+    Incrementally rebuild team_visibility ACEs for ONE manager's team only.
+
+    Guarantees:
+    - Removes old team_visibility ACEs relevant to this manager/team.
+    - Rebuilds:
+        (A) members -> view manager
+        (B) members -> view peers (same manager)
+    """
+    Department, Employee = _hr_models()
+    ct = _employee_ct()
+
+    team = list(_team_members_queryset(manager_id=manager_id, company_id=company_id))
+    if not team:
+        # Still need cleanup: clear any leftover ACEs among this manager + potential old members.
+        # Minimal safe cleanup: delete ACEs on manager object with team_visibility for any user.
+        ObjectACL.objects.filter(
+            content_type=ct,
+            object_id=manager_id,
+            extra_perms__contains=[TEAM_EXTRA_FLAG],
+        ).delete()
+        return
+
+    user_ids = [e.user_id for e in team if e.user_id]
+    obj_ids = [manager_id] + [e.id for e in team]
+
+    # 1) Delete only the affected ACEs (scoped by object_ids + user_ids + extra flag)
     ObjectACL.objects.filter(
         content_type=ct,
+        object_id__in=obj_ids,
+        user_id__in=user_ids,
         extra_perms__contains=[TEAM_EXTRA_FLAG],
     ).delete()
 
-    # 2) جمع الموظفين الذين لديهم user ومدير
-    employees = (
-        Employee.objects.filter(
-            active=True,
-            user__isnull=False,
-            manager__isnull=False,
-        )
-        .select_related("user", "manager")
-        .only("id", "user_id", "manager_id", "company_id", "active")
-    )
+    # 2) Manager record (must be active + has user to be visible as "manager")
+    try:
+        manager_emp = Employee.objects.only("id", "user_id", "active", "company_id").get(pk=manager_id, active=True)
+    except Employee.DoesNotExist:
+        manager_emp = None
 
-    # تقسيمهم حسب المدير
-    teams: dict[int, list[Employee]] = defaultdict(list)
-    for emp in employees:
-        teams[emp.manager_id].append(emp)
-
-    # 3) بناء ACEs
-    for manager_id, team in teams.items():
-        try:
-            manager_emp = Employee.objects.get(pk=manager_id, active=True)
-        except Employee.DoesNotExist:
-            manager_emp = None
-
-        # (أ) كل فرد في الفريق يرى المدير
-        if manager_emp and manager_emp.user_id:
-            for emp in team:
-                if not emp.user_id:
-                    continue
-                grant_access(
-                    manager_emp,
-                    user=emp.user,
-                    view=True,
-                    extras=[TEAM_EXTRA_FLAG],
-                )
-
-        # (ب) كل فرد يرى زملاءه (نفس المدير)
+    # (A) Members -> view manager
+    if manager_emp is not None:
         for emp in team:
-            if not emp.user_id:
+            grant_access(
+                manager_emp,
+                user=emp.user,
+                view=True,
+                extras=[TEAM_EXTRA_FLAG],
+            )
+
+    # (B) Members -> view peers
+    for emp in team:
+        for peer in team:
+            if peer.id == emp.id:
                 continue
-            for peer in team:
-                if peer.pk == emp.pk or not peer.user_id:
-                    continue
-                grant_access(
-                    peer,
-                    user=emp.user,
-                    view=True,
-                    extras=[TEAM_EXTRA_FLAG],
-                )
+            grant_access(
+                peer,
+                user=emp.user,
+                view=True,
+                extras=[TEAM_EXTRA_FLAG],
+            )
 
 
-@receiver(post_save, sender=Employee)
+def rebuild_team_visibility_for_employee_change(
+    *,
+    old_manager_id: Optional[int],
+    new_manager_id: Optional[int],
+    old_company_id: Optional[int],
+    new_company_id: Optional[int],
+):
+    """
+    Rebuild only the affected teams:
+      - old manager team (cleanup + rebuild)
+      - new manager team (cleanup + rebuild)
+    """
+    if old_manager_id:
+        rebuild_team_visibility_for_manager(manager_id=old_manager_id, company_id=old_company_id)
+    if new_manager_id and new_manager_id != old_manager_id:
+        rebuild_team_visibility_for_manager(manager_id=new_manager_id, company_id=new_company_id)
+
+
+@receiver(pre_save, sender=_hr_models()[1])
+def _employee_capture_team_fields(sender, instance, **kwargs):
+    """
+    Capture fields that affect team visibility ACL:
+      - manager_id: membership changes
+      - company_id: scope changes (if you scope by company)
+      - active: membership changes
+      - user_id: principal changes (who receives ACL)
+    """
+    if not instance.pk:
+        instance._old_team_acl = None
+        return
+
+    try:
+        old = sender.objects.only("manager_id", "company_id", "active", "user_id").get(pk=instance.pk)
+        instance._old_team_acl = (old.manager_id, old.company_id, old.active, old.user_id)
+    except sender.DoesNotExist:
+        instance._old_team_acl = None
+
+
+@receiver(post_save, sender=_hr_models()[1])
 def _sync_team_visibility_on_employee_save(sender, instance, **kwargs):
     """
-    أي تعديل على موظف (خصوصاً تغيير manager) يعيد بناء رؤية الفرق.
-    هذا أبسط حل الآن (يعيد بناء كل الفرق) ومناسب لعدد موظفينك الحالي.
+    Incremental rebuild ONLY if relevant fields changed.
     """
-    rebuild_team_visibility()
+    old = getattr(instance, "_old_team_acl", None)
+    new = (instance.manager_id, instance.company_id, instance.active, instance.user_id)
 
-
+    if old != new:
+        old_manager_id, old_company_id, _, _ = old or (None, None, None, None)
+        rebuild_team_visibility_for_employee_change(
+            old_manager_id=old_manager_id,
+            new_manager_id=instance.manager_id,
+            old_company_id=old_company_id,
+            new_company_id=instance.company_id,
+        )

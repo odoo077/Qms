@@ -13,15 +13,14 @@ Goals:
     - Asset holders and assignment employees get the correct rights.
 """
 
+from __future__ import annotations
+
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
-from django.contrib.auth import get_user_model
 from django.utils import timezone
 
 from base.acl_service import apply_default_acl
 from . import models as m
-
-User = get_user_model()
 
 
 # =======================
@@ -52,8 +51,7 @@ def _cat_update_parent_path(sender, instance: m.AssetCategory, **kwargs):
 @receiver(post_save, sender=m.AssetCategory)
 def _category_default_acl(sender, instance: m.AssetCategory, created: bool, **kwargs):
     """
-    Apply default ACL only on creation:
-    - owner + HR managers + hierarchy rules (if any dept logic is defined later).
+    Apply default ACL only on creation.
     """
     if created:
         apply_default_acl(instance)
@@ -70,44 +68,60 @@ def _asset_company_and_state_consistency(sender, instance: m.Asset, **kwargs):
 
     - If status is not ASSIGNED → clear holder.
     - If status is ASSIGNED but no holder → fallback to AVAILABLE.
-    - If company changes:
+    - Ensure related FK objects belong to the same company:
         * category from another company → cleared
         * department from another company → cleared
         * holder from another company → cleared + status=AVAILABLE
 
-    Also store old holder & status on the instance so post_save can
-    manage assignment logs (AssetAssignment) correctly.
+    Also store old holder & status on the instance (for existing records)
+    so post_save can manage assignment logs (AssetAssignment) correctly.
     """
-    if not instance.pk:
-        # No previous state yet, nothing to compare with
-        return
+    # ------------------------------------------------------------
+    # (0) Capture old values (existing records only)
+    # ------------------------------------------------------------
+    if instance.pk:
+        try:
+            old: m.Asset = m.Asset.objects.only("holder_id", "status", "company_id").get(pk=instance.pk)
+        except m.Asset.DoesNotExist:
+            old = None
 
-    try:
-        old: m.Asset = m.Asset.objects.get(pk=instance.pk)
-    except m.Asset.DoesNotExist:
-        return
+        if old:
+            instance._old_holder_id = old.holder_id
+            instance._old_status = old.status
+            old_company_id = old.company_id
+        else:
+            instance._old_holder_id = None
+            instance._old_status = None
+            old_company_id = None
+    else:
+        instance._old_holder_id = None
+        instance._old_status = None
+        old_company_id = None
 
-    # keep previous holder & status for post_save
-    instance._old_holder_id = old.holder_id
-    instance._old_status = old.status
-
-    # status/holder consistency
+    # ------------------------------------------------------------
+    # (1) Status/holder consistency (applies for new + existing)
+    # ------------------------------------------------------------
     if instance.status != m.Asset.Status.ASSIGNED and instance.holder_id:
-        # if no longer ASSIGNED, clear the holder to keep state consistent
         instance.holder = None
 
     if instance.status == m.Asset.Status.ASSIGNED and not instance.holder_id:
-        # avoid broken state "Assigned with no holder": downgrade to AVAILABLE
         instance.status = m.Asset.Status.AVAILABLE
 
-    # company consistency
-    if old.company_id != instance.company_id:
+    # ------------------------------------------------------------
+    # (2) Company consistency (applies for new + existing)
+    #     - For existing: we only need to re-check aggressively when company changed,
+    #       but it's safe to enforce always.
+    # ------------------------------------------------------------
+    # If company changed, we must ensure cross-company links are cleared.
+    # If new record, we also enforce correctness.
+    company_id = instance.company_id
+    if company_id:
         # 1) category from another company? clear it
         if (
             instance.category_id
             and instance.category
-            and instance.category.company_id
-            and instance.category.company_id != instance.company_id
+            and getattr(instance.category, "company_id", None)
+            and instance.category.company_id != company_id
         ):
             instance.category = None
 
@@ -115,8 +129,8 @@ def _asset_company_and_state_consistency(sender, instance: m.Asset, **kwargs):
         if (
             instance.department_id
             and instance.department
-            and instance.department.company_id
-            and instance.department.company_id != instance.company_id
+            and getattr(instance.department, "company_id", None)
+            and instance.department.company_id != company_id
         ):
             instance.department = None
 
@@ -124,10 +138,15 @@ def _asset_company_and_state_consistency(sender, instance: m.Asset, **kwargs):
         if (
             instance.holder_id
             and instance.holder
-            and instance.holder.company_id
-            and instance.holder.company_id != instance.company_id
+            and getattr(instance.holder, "company_id", None)
+            and instance.holder.company_id != company_id
         ):
             instance.holder = None
+            instance.status = m.Asset.Status.AVAILABLE
+
+    # If company changed, ensure we also don't keep an "ASSIGNED" status with cleared holder.
+    if old_company_id is not None and old_company_id != company_id:
+        if instance.status == m.Asset.Status.ASSIGNED and not instance.holder_id:
             instance.status = m.Asset.Status.AVAILABLE
 
 
@@ -141,19 +160,19 @@ def _asset_auto_assignment_on_holder_change(sender, instance: m.Asset, created: 
             - Close open assignment for old holder (date_to = today).
             - If new holder + status=ASSIGNED and no open assignment → create one.
     """
-    today = timezone.now().date()
+    today = timezone.localdate()
 
     old_holder_id = getattr(instance, "_old_holder_id", None)
     old_status = getattr(instance, "_old_status", None)
+
     new_holder_id = instance.holder_id
     new_status = instance.status
 
-    # Trigger only if we have creation or relevant changes
     changed = created or (old_holder_id != new_holder_id) or (old_status != new_status)
     if not changed:
         return
 
-    # 1) close open assignment for previous holder
+    # 1) close open assignment for previous holder (if it should be closed)
     if old_holder_id:
         open_qs = m.AssetAssignment.objects.filter(
             asset=instance,
@@ -164,7 +183,7 @@ def _asset_auto_assignment_on_holder_change(sender, instance: m.Asset, created: 
         if (new_holder_id != old_holder_id) or (new_status != m.Asset.Status.ASSIGNED):
             open_qs.update(date_to=today)
 
-    # 2) create new assignment for new holder
+    # 2) create new assignment for new holder (only if assigned)
     if new_holder_id and (new_status == m.Asset.Status.ASSIGNED):
         exists = m.AssetAssignment.objects.filter(
             asset=instance,
@@ -187,11 +206,12 @@ def _auto_archive_on_retired(sender, instance: m.Asset, **kwargs):
     """
     When asset status moves to RETIRED, automatically set active=False
     to mimic Odoo's auto-archive behavior.
+
+    Implementation detail:
+    - Use queryset.update() to avoid recursive saves/signals.
     """
     if instance.status == m.Asset.Status.RETIRED and instance.active:
-        instance.active = False
-        # This save will re-trigger post_save, but the condition will be false next time
-        instance.save(update_fields=["active"])
+        sender.objects.filter(pk=instance.pk, active=True).update(active=False)
 
 
 # =======================
@@ -204,16 +224,18 @@ def _ensure_assignment_company_consistency(sender, instance: m.AssetAssignment, 
     Keep AssetAssignment.company aligned with Asset.company.
     (Odoo-like: company consistency enforcement without hard errors).
     """
-    if instance.asset_id and instance.asset.company_id:
-        instance.company_id = instance.asset.company_id
+    if instance.asset_id:
+        # accessing instance.asset is acceptable هنا لأننا داخل form scoped غالبًا،
+        # وهذا يحافظ على التوافق حتى عند الإنشاء من scripts.
+        asset = getattr(instance, "asset", None)
+        if asset and getattr(asset, "company_id", None):
+            instance.company_id = asset.company_id
 
 
 @receiver(post_save, sender=m.Asset)
 def _asset_default_acl(sender, instance: m.Asset, created: bool, **kwargs):
     """
-    Apply default ACL when an Asset is created:
-    - Owner, HR managers, dept hierarchy, holder ACL, etc.
-    (implemented inside base.acl_service.apply_default_acl).
+    Apply default ACL when an Asset is created.
     """
     if created:
         apply_default_acl(instance)
@@ -222,8 +244,7 @@ def _asset_default_acl(sender, instance: m.Asset, created: bool, **kwargs):
 @receiver(post_save, sender=m.AssetAssignment)
 def _assetassignment_default_acl(sender, instance: m.AssetAssignment, created: bool, **kwargs):
     """
-    Apply default ACL when an AssetAssignment is created:
-    - Employee gets view on assignment + view/change on the underlying Asset.
+    Apply default ACL when an AssetAssignment is created.
     """
     if created:
         apply_default_acl(instance)

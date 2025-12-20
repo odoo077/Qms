@@ -1,7 +1,10 @@
 # file: base/access.py
 
 from django.contrib.auth import get_user_model
-from hr.models import Employee, Department
+from django.apps import apps
+
+Employee = apps.get_model("hr", "Employee")
+Department = apps.get_model("hr", "Department")
 
 User = get_user_model()
 

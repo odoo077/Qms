@@ -1,161 +1,66 @@
 {% extends "base/users/auth_base.html" %}
 {% load widget_tweaks %}
 
-{% block title %}Sign in{% endblock %}
-
-{# العنوان الرئيسي في الكارد (من auth_base) #}
-{% block page_title %}Sign in to 360 Manager{% endblock %}
-{% block page_subtitle %}
-Use your company email to access employees, departments, assets, skills, performance and payroll.
-{% endblock %}
-
-{# زر صغير في أعلى الكارد #}
-{% block card_action %}
-  <a href="{% url 'base:register' %}"
-     class="btn btn-ghost btn-sm rounded-full normal-case text-xs">
-    Request access
-  </a>
-{% endblock %}
+{% block title %}Login{% endblock %}
 
 {% block content %}
-  <form method="post" class="space-y-5" novalidate>
-    {% csrf_token %}
+<div class="card bg-base-100 shadow-xl rounded-2xl">
+  <div class="card-body space-y-6">
 
-    {# أخطاء عامة غير مرتبطة بحقل معيّن (مثل بريد/كلمة مرور غير صحيحة) #}
-    {% if form.non_field_errors %}
-      <div class="alert alert-error shadow-sm text-sm">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M12 9v4m0 4h.01M4.93 19.07A10 10 0 1119.07 4.93 10 10 0 014.93 19.07z" />
-        </svg>
-        <div class="flex flex-col gap-1">
-          {% for err in form.non_field_errors %}
-            <span>{{ err }}</span>
-          {% endfor %}
-        </div>
-      </div>
-    {% endif %}
-
-    <!-- Work email -->
-    <div class="form-control">
-      <div class="label py-1 px-0">
-        <span class="label-text text-sm font-medium">Work email</span>
-      </div>
-      {{ form.username|add_class:"input-auth" }}
-      {% if form.username.errors %}
-        <p class="mt-1 text-xs text-error">
-          {{ form.username.errors|join:", " }}
-        </p>
-      {% else %}
-        <p class="mt-1 text-xs text-base-content/60">
-          Use the email assigned by your organization.
-        </p>
-      {% endif %}
+    <!-- Header -->
+    <div class="text-center space-y-1">
+      <h1 class="text-2xl font-semibold">Sign in to your account</h1>
+      <p class="text-sm text-base-content/60">
+        Please enter your credentials to continue
+      </p>
     </div>
 
-    <!-- Password -->
-    <div class="form-control">
-      <div class="label py-1 px-0 flex items-center justify-between">
-        <span class="label-text text-sm font-medium">Password</span>
-        <a href="{% url 'base:password_reset' %}"
-           class="link link-primary text-xs font-medium">
+    <!-- Form -->
+    <form method="post" class="space-y-5">
+      {% csrf_token %}
+
+      <!-- Username / Email -->
+      <div class="form-control">
+        <label class="label">
+          <span class="label-text">Email or Username</span>
+        </label>
+        {% render_field form.username class="input input-bordered w-full" %}
+      </div>
+
+      <!-- Password -->
+      <div class="form-control">
+        <label class="label">
+          <span class="label-text">Password</span>
+        </label>
+        {% render_field form.password class="input input-bordered w-full" %}
+      </div>
+
+      <!-- Remember + Forgot -->
+      <div class="flex items-center justify-between text-sm">
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input type="checkbox" class="checkbox checkbox-sm" name="remember">
+          Remember me
+        </label>
+
+        <a href="{% url 'base:password_reset' %}" class="link link-hover">
           Forgot password?
         </a>
       </div>
 
-      <div class="relative">
-        {{ form.password|add_class:"input-auth pr-12"|attr:"id:id_password" }}
-        <button type="button"
-                class="btn btn-ghost btn-xs absolute right-2 top-1/2 -translate-y-1/2 rounded-full border border-transparent hover:border-base-300"
-                data-target="#id_password"
-                aria-label="Toggle password visibility"
-                aria-pressed="false">
-          <svg xmlns="http://www.w3.org/2000/svg"
-               class="h-4 w-4 pointer-events-none"
-               viewBox="0 0 24 24"
-               fill="none" stroke="currentColor">
-            <path stroke-width="2"
-                  d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
-            <circle cx="12" cy="12" r="3" stroke-width="2" />
-          </svg>
-        </button>
-      </div>
-
-      {% if form.password.errors %}
-        <p class="mt-1 text-xs text-error">
-          {{ form.password.errors|join:", " }}
-        </p>
-      {% endif %}
-    </div>
-
-    <!-- Remember me + next -->
-    <div class="flex items-center justify-between pt-1">
-      <label class="label cursor-pointer gap-3 p-0">
-        <input type="checkbox" name="remember" class="checkbox checkbox-sm" />
-        <span class="label-text text-sm">Keep me signed in on this device</span>
-      </label>
-      <input type="hidden" name="next" value="{{ next|default:'' }}">
-    </div>
-
-    <!-- زر الدخول -->
-    <div class="pt-3 space-y-3">
-      <button type="submit"
-              class="btn btn-primary btn-block rounded-xl gap-2 font-semibold tracking-wide">
-        <span class="loading loading-spinner loading-xs hidden" aria-hidden="true"></span>
-        <span>Sign in</span>
+      <!-- Submit -->
+      <button type="submit" class="btn btn-primary w-full">
+        Sign in
       </button>
 
-      <p class="text-center text-sm text-base-content/60">
-        Need access?
+      <!-- Register -->
+      <p class="text-center text-sm text-base-content/70">
+        Don’t have an account?
         <a href="{% url 'base:register' %}" class="link link-primary font-medium">
-          Request an account
+          Create one
         </a>
       </p>
-    </div>
-  </form>
-{% endblock %}
+    </form>
 
-{% block below_form %}
-  <p class="mt-4 text-xs text-base-content/60 text-center">
-    Having trouble signing in? Contact your HR or system administrator.
-  </p>
-{% endblock %}
-
-{% block extra_scripts %}
-<script>
-  // Password toggle + submit spinner
-  (function () {
-    function toggleVisibility(btn) {
-      var targetSelector = btn.getAttribute('data-target');
-      if (!targetSelector) return;
-      var input = document.querySelector(targetSelector);
-      if (!input) return;
-      if (input.type === 'password') {
-        input.type = 'text';
-        btn.setAttribute('aria-pressed', 'true');
-      } else {
-        input.type = 'password';
-        btn.setAttribute('aria-pressed', 'false');
-      }
-    }
-
-    document.addEventListener('click', function (e) {
-      var btn = e.target.closest('button[data-target]');
-      if (!btn) return;
-      e.preventDefault();
-      toggleVisibility(btn);
-    });
-
-    var form = document.querySelector('form[method="post"]');
-    if (form) {
-      form.addEventListener('submit', function () {
-        var submitBtn = form.querySelector('button[type="submit"]');
-        if (!submitBtn) return;
-        var spinner = submitBtn.querySelector('.loading');
-        if (spinner) spinner.classList.remove('hidden');
-        submitBtn.setAttribute('disabled', 'disabled');
-      });
-    }
-  })();
-</script>
+  </div>
+</div>
 {% endblock %}

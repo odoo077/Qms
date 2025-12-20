@@ -1,111 +1,186 @@
 {% extends "base.html" %}
+{% load static %}
 
-{% block title %}Department: {{ department.name }}{% endblock %}
+{% block title %}
+Department · {{ object.complete_name|default:object.name }}
+{% endblock %}
 
 {% block content %}
 
-<div class="max-w-7xl mx-auto p-6">
+<div class="max-w-7xl mx-auto space-y-6">
 
-    <!-- BREADCRUMB -->
-    <div class="text-sm breadcrumbs mb-4">
-        <ul>
-            <li><a href="{% url 'hr:department_list' %}">Organization</a></li>
-            {% for anc in ancestors %}
-                <li><a href="{{ anc.get_absolute_url }}">{{ anc.name }}</a></li>
-            {% endfor %}
-            <li>{{ department.name }}</li>
-        </ul>
+  <!-- ========================= -->
+  <!-- Header -->
+  <!-- ========================= -->
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-semibold">
+        {{ object.complete_name|default:object.name }}
+      </h1>
+      <p class="text-sm opacity-70">
+        Department details
+      </p>
     </div>
 
-    <!-- TITLE -->
-    <div class="flex justify-between items-center mb-6">
-        <h1 class="text-3xl font-bold">{{ department.name }}</h1>
+    <div class="flex gap-2">
+      {% if can_change %}
+        <a href="{% url 'hr:department_edit' object.pk %}"
+           class="btn btn-sm btn-primary">
+          Edit
+        </a>
+      {% endif %}
 
-        {% if department.id in editable_ids %}
-            <a href="{{ department.get_edit_url }}" class="btn btn-primary">
-                Edit Department
+      <a href="{% url 'hr:department_list' %}"
+         class="btn btn-sm btn-ghost">
+        Back
+      </a>
+    </div>
+  </div>
+
+  <!-- ========================= -->
+  <!-- Core Info -->
+  <!-- ========================= -->
+  <div class="card">
+    <div class="card-body grid grid-cols-1 md:grid-cols-2 gap-6">
+
+      <div>
+        <div class="text-sm opacity-60">Name</div>
+        <div class="font-medium">{{ object.name }}</div>
+      </div>
+
+      <div>
+        <div class="text-sm opacity-60">Company</div>
+        <div class="font-medium">{{ object.company }}</div>
+      </div>
+
+      <div>
+        <div class="text-sm opacity-60">Parent Department</div>
+        <div class="font-medium">
+          {% if object.parent %}
+            <a href="{% url 'hr:department_detail' object.parent.pk %}"
+               class="link link-hover">
+              {{ object.parent.name }}
             </a>
-        {% endif %}
-    </div>
-
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-        <!-- LEFT TREE -->
-        <div class="col-span-1">
-            <div class="card bg-base-100 shadow">
-                <div class="card-body p-4">
-                    <h3 class="font-semibold mb-3">Hierarchy</h3>
-
-                    <ul>
-                        {% for root in tree %}
-                            {% include "hr/includes/department_tree_node.html"
-                               with node=root active_id=department.id editable_ids=editable_ids %}
-                        {% endfor %}
-                    </ul>
-
-                </div>
-            </div>
+          {% else %}
+            —
+          {% endif %}
         </div>
+      </div>
 
-        <!-- RIGHT MAIN -->
-        <div class="col-span-2 space-y-6">
-
-            <!-- MANAGER INFO -->
-            <div class="card bg-base-100 shadow p-6">
-                <h3 class="text-xl font-semibold mb-4">Department Manager</h3>
-
-                {% if department.manager %}
-                    <a href="{{ department.manager.get_absolute_url }}"
-                       class="font-medium text-primary">
-                        {{ department.manager.display_name }}
-                    </a>
-                {% else %}
-                    <p class="opacity-70">No manager assigned.</p>
-                {% endif %}
-            </div>
-
-            <!-- SUB DEPARTMENTS -->
-            <div class="card bg-base-100 shadow p-6">
-                <h3 class="text-xl font-semibold mb-4">Sub Departments</h3>
-
-                {% if children %}
-                    <ul class="space-y-2">
-                        {% for d in children %}
-                            <li>
-                                <a class="text-primary font-medium"
-                                   href="{{ d.get_absolute_url }}">
-                                    {{ d.name }}
-                                </a>
-                            </li>
-                        {% endfor %}
-                    </ul>
-                {% else %}
-                    <p class="opacity-70">No sub-departments.</p>
-                {% endif %}
-            </div>
-
-            <!-- EMPLOYEES -->
-            <div class="card bg-base-100 shadow p-6">
-                <h3 class="text-xl font-semibold mb-4">Employees</h3>
-
-                {% if employees %}
-                    <ul class="space-y-2">
-                        {% for emp in employees %}
-                            <li>
-                                <a href="{{ emp.get_absolute_url }}"
-                                   class="font-medium text-primary">
-                                    {{ emp.display_name }}
-                                </a>
-                            </li>
-                        {% endfor %}
-                    </ul>
-                {% else %}
-                    <p class="opacity-70">No employees.</p>
-                {% endif %}
-            </div>
-
+      <div>
+        <div class="text-sm opacity-60">Manager</div>
+        <div class="font-medium">
+          {% if object.manager %}
+            {{ object.manager }}
+          {% else %}
+            —
+          {% endif %}
         </div>
+      </div>
+
+      <div>
+        <div class="text-sm opacity-60">Status</div>
+        <div>
+          {% if object.active %}
+            <span class="badge badge-success badge-sm">Active</span>
+          {% else %}
+            <span class="badge badge-ghost badge-sm">Archived</span>
+          {% endif %}
+        </div>
+      </div>
+
+      <div>
+        <div class="text-sm opacity-60">Level</div>
+        <div class="font-medium capitalize">
+          {{ object.level }}
+        </div>
+      </div>
+
+      {% if object.note %}
+        <div class="md:col-span-2">
+          <div class="text-sm opacity-60">Note</div>
+          <div class="mt-1 whitespace-pre-line">
+            {{ object.note }}
+          </div>
+        </div>
+      {% endif %}
+
     </div>
+  </div>
+
+  <!-- ========================= -->
+  <!-- Child Departments -->
+  <!-- ========================= -->
+  <div class="card">
+    <div class="card-body">
+
+      <h2 class="font-semibold mb-4">
+        Sub-departments
+      </h2>
+
+      {% if children %}
+        <ul class="list-disc list-inside space-y-1">
+          {% for dept in children %}
+            <li>
+              <a href="{% url 'hr:department_detail' dept.pk %}"
+                 class="link link-hover">
+                {{ dept.name }}
+              </a>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="opacity-60 text-sm">
+          No sub-departments.
+        </p>
+      {% endif %}
+
+    </div>
+  </div>
+
+  <!-- ========================= -->
+  <!-- Employees -->
+  <!-- ========================= -->
+  <div class="card">
+    <div class="card-body">
+
+      <h2 class="font-semibold mb-4">
+        Employees in this department
+      </h2>
+
+      {% if employees %}
+        <table class="table table-zebra w-full">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Job</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for emp in employees %}
+              <tr>
+                <td>{{ emp.name }}</td>
+                <td>{{ emp.job|default:"—" }}</td>
+                <td>
+                  {% if emp.active %}
+                    <span class="badge badge-success badge-sm">Active</span>
+                  {% else %}
+                    <span class="badge badge-ghost badge-sm">Archived</span>
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <p class="opacity-60 text-sm">
+          No employees assigned.
+        </p>
+      {% endif %}
+
+    </div>
+  </div>
 
 </div>
 

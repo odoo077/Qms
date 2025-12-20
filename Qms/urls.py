@@ -51,6 +51,6 @@ if settings.DEBUG:
     urlpatterns += [path("__reload__/", include("django_browser_reload.urls"))]
 
     # تقديم الملفات الثابتة وملفات الميديا في التطوير
-    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+    # urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 

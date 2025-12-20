@@ -1,277 +1,111 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Organization Structure · HR{% endblock %}
+{% block title %}Departments{% endblock %}
+
+{% block page_title %}
+Departments
+{% endblock %}
+
+{% block page_actions %}
+  {% if can_add_department %}
+    <a href="{% url 'hr:department_create' %}"
+       class="btn btn-primary btn-sm gap-2">
+      <span class="text-lg leading-none">+</span>
+      <span>New Department</span>
+    </a>
+  {% endif %}
+{% endblock %}
 
 {% block content %}
-<div class="max-w-7xl mx-auto px-4 py-8 space-y-6">
 
-  <!-- Header -->
-  <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-    <div>
-      <h1 class="text-3xl font-bold tracking-tight">Organization Structure</h1>
-      <p class="text-sm opacity-70">
-        Browse the company hierarchy from divisions down to teams.
-      </p>
-    </div>
-  </div>
+<div class="card">
+  <div class="card-body p-0 overflow-x-auto">
 
-  <!-- Card: Search + Table -->
-  <div class="card bg-base-100 shadow-sm border border-base-200">
-    <div class="card-body space-y-4">
+    <table class="table table-zebra w-full">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Company</th>
+          <th>Parent</th>
+          <th>Manager</th>
+          <th>Status</th>
+          <th class="text-right">Actions</th>
+        </tr>
+      </thead>
 
-      <!-- Search -->
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div class="flex-1">
-          <input
-            type="text"
-            placeholder="Search department..."
-            class="input input-sm input-bordered w-full"
-            data-dept-search
-          />
-        </div>
-        <div class="text-xs opacity-70">
-          Odoo-style flat list, grouped by hierarchy level.
-        </div>
-      </div>
+      <tbody>
+        {% for dept in object_list %}
+          <tr>
 
-      <!-- Table -->
-      <div class="overflow-x-auto">
-        <table class="table table-sm w-full">
-          <thead>
-          <tr class="text-xs uppercase">
-            <th>Department</th>
-            <th>Company</th>
-            <th>Parent</th>
-            <th>Manager</th>
-            <th class="text-right">Employees</th>
-            <th class="text-right">Actions</th>
+            <!-- Name -->
+            <td class="font-medium">
+              {{ dept.complete_name|default:dept.name }}
+            </td>
+
+            <!-- Company -->
+            <td>
+              {{ dept.company }}
+            </td>
+
+            <!-- Parent -->
+            <td>
+              {% if dept.parent %}
+                {{ dept.parent.name }}
+              {% else %}
+                <span class="opacity-60">—</span>
+              {% endif %}
+            </td>
+
+            <!-- Manager -->
+            <td>
+              {% if dept.manager %}
+                {{ dept.manager }}
+              {% else %}
+                <span class="opacity-60">—</span>
+              {% endif %}
+            </td>
+
+            <!-- Status -->
+            <td>
+              {% if dept.active %}
+                <span class="badge badge-success badge-sm">Active</span>
+              {% else %}
+                <span class="badge badge-ghost badge-sm">Archived</span>
+              {% endif %}
+            </td>
+
+            <!-- Actions -->
+            <td class="text-right">
+              <div class="flex justify-end gap-2">
+
+                <a href="{% url 'hr:department_detail' dept.pk %}"
+                   class="btn btn-xs btn-outline">
+                  View
+                </a>
+
+                {% if dept.id in department_change_ids %}
+                  <a href="{% url 'hr:department_edit' dept.pk %}"
+                     class="btn btn-xs btn-ghost">
+                    Edit
+                  </a>
+                {% endif %}
+
+              </div>
+            </td>
+
           </tr>
-          </thead>
-          <tbody data-dept-table>
+        {% empty %}
+          <tr>
+            <td colspan="6" class="text-center py-6 opacity-60">
+              No departments found.
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
 
-          {# level 0: roots #}
-          {% for root in tree %}
-            {% with dept=root.obj %}
-            <tr data-dept-name="{{ dept.name|escape }}" class="hover:bg-base-200">
-              <td>
-                <a href="{% url 'hr:department_detail' dept.id %}" class="flex items-center gap-2">
-                  {% if dept.level == "division" %}
-                    <span class="text-lg">🏢</span>
-                  {% elif dept.level == "department" %}
-                    <span class="text-lg">📂</span>
-                  {% elif dept.level == "section" %}
-                    <span class="text-lg">📁</span>
-                  {% else %}
-                    <span class="text-lg">👥</span>
-                  {% endif %}
-                  <span class="font-medium">
-                    {{ dept.name }}
-                  </span>
-                </a>
-              </td>
-              <td class="text-xs">
-                {{ dept.company.name }}
-              </td>
-              <td class="text-xs">—</td>
-              <td class="text-xs">
-                {% if dept.manager %}
-                  <a href="{% url 'hr:employee_detail' dept.manager_id %}" class="link link-hover">
-                    {{ dept.manager.display_name }}
-                  </a>
-                {% else %}
-                  —
-                {% endif %}
-              </td>
-              <td class="text-right text-xs">
-                <a href="{% url 'hr:employee_list' %}?department={{ dept.id }}" class="link link-hover">
-                  {{ dept.employee_count }}
-                </a>
-              </td>
-              <td class="text-right text-xs">
-                {% if dept.id in editable_ids %}
-                  <a href="{% url 'hr:department_edit' dept.id %}" class="btn btn-xs btn-outline">Edit</a>
-                {% endif %}
-              </td>
-            </tr>
-            {% endwith %}
-
-            {# level 1: children of root #}
-            {% for node1 in root.children %}
-              {% with dept=node1.obj %}
-              <tr data-dept-name="{{ dept.name|escape }}" class="hover:bg-base-200">
-                <td>
-                  <a href="{% url 'hr:department_detail' dept.id %}" class="flex items-center gap-2 pl-6">
-                    {% if dept.level == "department" %}
-                      <span class="text-lg">📂</span>
-                    {% elif dept.level == "section" %}
-                      <span class="text-lg">📁</span>
-                    {% else %}
-                      <span class="text-lg">👥</span>
-                    {% endif %}
-                    <span>{{ dept.name }}</span>
-                  </a>
-                </td>
-                <td class="text-xs">
-                  {{ dept.company.name }}
-                </td>
-                <td class="text-xs">
-                  {% if dept.parent %}
-                    <a href="{% url 'hr:department_detail' dept.parent_id %}" class="link link-hover">
-                      {{ dept.parent.name }}
-                    </a>
-                  {% else %}
-                    —
-                  {% endif %}
-                </td>
-                <td class="text-xs">
-                  {% if dept.manager %}
-                    <a href="{% url 'hr:employee_detail' dept.manager_id %}" class="link link-hover">
-                      {{ dept.manager.display_name }}
-                    </a>
-                  {% else %}
-                    —
-                  {% endif %}
-                </td>
-                <td class="text-right text-xs">
-                  <a href="{% url 'hr:employee_list' %}?department={{ dept.id }}" class="link link-hover">
-                    {{ dept.employee_count }}
-                  </a>
-                </td>
-                <td class="text-right text-xs">
-                  {% if dept.id in editable_ids %}
-                    <a href="{% url 'hr:department_edit' dept.id %}" class="btn btn-xs btn-outline">Edit</a>
-                  {% endif %}
-                </td>
-              </tr>
-              {% endwith %}
-
-              {# level 2: children of node1 #}
-              {% for node2 in node1.children %}
-                {% with dept=node2.obj %}
-                <tr data-dept-name="{{ dept.name|escape }}" class="hover:bg-base-200">
-                  <td>
-                    <a href="{% url 'hr:department_detail' dept.id %}" class="flex items-center gap-2 pl-10">
-                      {% if dept.level == "section" %}
-                        <span class="text-lg">📁</span>
-                      {% else %}
-                        <span class="text-lg">👥</span>
-                      {% endif %}
-                      <span>{{ dept.name }}</span>
-                    </a>
-                  </td>
-                  <td class="text-xs">
-                    {{ dept.company.name }}
-                  </td>
-                  <td class="text-xs">
-                    {% if dept.parent %}
-                      <a href="{% url 'hr:department_detail' dept.parent_id %}" class="link link-hover">
-                        {{ dept.parent.name }}
-                      </a>
-                    {% else %}
-                      —
-                    {% endif %}
-                  </td>
-                  <td class="text-xs">
-                    {% if dept.manager %}
-                      <a href="{% url 'hr:employee_detail' dept.manager_id %}" class="link link-hover">
-                        {{ dept.manager.display_name }}
-                      </a>
-                    {% else %}
-                      —
-                    {% endif %}
-                  </td>
-                  <td class="text-right text-xs">
-                    <a href="{% url 'hr:employee_list' %}?department={{ dept.id }}" class="link link-hover">
-                      {{ dept.employee_count }}
-                    </a>
-                  </td>
-                  <td class="text-right text-xs">
-                    {% if dept.id in editable_ids %}
-                      <a href="{% url 'hr:department_edit' dept.id %}" class="btn btn-xs btn-outline">Edit</a>
-                    {% endif %}
-                  </td>
-                </tr>
-                {% endwith %}
-
-                {# level 3: children of node2 (إن وجد) #}
-                {% for node3 in node2.children %}
-                  {% with dept=node3.obj %}
-                  <tr data-dept-name="{{ dept.name|escape }}" class="hover:bg-base-200">
-                    <td>
-                      <a href="{% url 'hr:department_detail' dept.id %}" class="flex items-center gap-2 pl-14">
-                        <span class="text-lg">👥</span>
-                        <span>{{ dept.name }}</span>
-                      </a>
-                    </td>
-                    <td class="text-xs">
-                      {{ dept.company.name }}
-                    </td>
-                    <td class="text-xs">
-                      {% if dept.parent %}
-                        <a href="{% url 'hr:department_detail' dept.parent_id %}" class="link link-hover">
-                          {{ dept.parent.name }}
-                        </a>
-                      {% else %}
-                        —
-                      {% endif %}
-                    </td>
-                    <td class="text-xs">
-                      {% if dept.manager %}
-                        <a href="{% url 'hr:employee_detail' dept.manager_id %}" class="link link-hover">
-                          {{ dept.manager.display_name }}
-                        </a>
-                      {% else %}
-                        —
-                      {% endif %}
-                    </td>
-                    <td class="text-right text-xs">
-                      <a href="{% url 'hr:employee_list' %}?department={{ dept.id }}" class="link link-hover">
-                        {{ dept.employee_count }}
-                      </a>
-                    </td>
-                    <td class="text-right text-xs">
-                      {% if dept.id in editable_ids %}
-                        <a href="{% url 'hr:department_edit' dept.id %}" class="btn btn-xs btn-outline">Edit</a>
-                      {% endif %}
-                    </td>
-                  </tr>
-                  {% endwith %}
-                {% endfor %}
-              {% endfor %}
-            {% endfor %}
-
-          {% empty %}
-            <tr>
-              <td colspan="6" class="text-center text-xs opacity-60 py-4">
-                No departments available for your companies.
-              </td>
-            </tr>
-          {% endfor %}
-
-          </tbody>
-        </table>
-      </div>
-
-    </div>
   </div>
 </div>
-
-<script>
-document.addEventListener("DOMContentLoaded", function () {
-  const searchInput = document.querySelector("[data-dept-search]");
-  const table       = document.querySelector("[data-dept-table]");
-  if (!searchInput || !table) return;
-
-  searchInput.addEventListener("input", function () {
-    const term = this.value.toLowerCase().trim();
-    const rows = table.querySelectorAll("tr[data-dept-name]");
-    rows.forEach(function (row) {
-      const name = (row.dataset.deptName || "").toLowerCase();
-      row.classList.toggle("hidden", term && !name.includes(term));
-    });
-  });
-});
-</script>
 
 {% endblock %}

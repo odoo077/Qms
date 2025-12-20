@@ -1,188 +1,318 @@
-# file: hr/views.py
+# hr/views.py
+"""
+HR Views (Odoo-like behavior)
 
+Design principles:
+- Company scope is enforced via CompanyOwnedMixin / CompanyScopeManager
+- ACL is enforced via AccessControlledMixin + ACLManager
+- No implicit magic or hidden permissions
+- Views are thin: logic lives in models/forms
+"""
+
+from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.core.exceptions import PermissionDenied
 from django.urls import reverse_lazy
-from django.views.generic import ListView, DetailView, CreateView, UpdateView
-
-from hr.models import Department, Employee, Job, get_root_departments, build_department_tree
-from hr.forms import DepartmentForm, EmployeeForm, JobForm
-from hr.access import (
-    can_view_department,
-    can_edit_department,
-    can_view_employee,
-    can_edit_employee,
+from django.views.generic import (
+    ListView,
+    DetailView,
+    CreateView,
+    UpdateView,
 )
 
+from base.acl_service import has_perm
+from base.views import (
+    BaseScopedListView,
+    BaseScopedCreateView,
+    BaseScopedUpdateView,
+    BaseScopedDetailView,
+)
 
-# ============================================================
+from .models import Department, Job, Employee
+from .forms import DepartmentForm, JobForm, EmployeeForm
+
+
+# ==========================================================
 # Departments
-# ============================================================
+# ==========================================================
 
-class DepartmentListView(ListView):
+class DepartmentListView(LoginRequiredMixin, BaseScopedListView):
+    """
+    List departments for current company.
+
+    - Company scoped
+    - ACL: view
+    """
     model = Department
     template_name = "hr/department_list.html"
-    context_object_name = "tree"
+    paginate_by = 50
 
     def get_queryset(self):
-        """Return only the root nodes of the tree."""
-        user = self.request.user
-        roots = get_root_departments(user.company_ids[0])
-        return build_department_tree(roots)
+        qs = super().get_queryset()
+        qs = qs.select_related("company", "parent", "manager").order_by("complete_name")
+        return qs
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-
-        # كل ما يحتاجه التمبلت ليعمل بدون أي أخطاء
-        ctx["tree"] = ctx["tree"]  # شجرة الأقسام
-        ctx["active_id"] = None
-        ctx["editable_ids"] = []   # لاحقًا تضيف صلاحيات التحرير إن أردت
-
+        ctx["can_add"] = self.request.user.has_perm("hr.add_department")
         return ctx
 
 
-class DepartmentDetailView(DetailView):
+class DepartmentDetailView(LoginRequiredMixin, DetailView):
+    """
+    Department Detail View (Odoo-like behavior)
+
+    Rules:
+    - Company scoped via CompanyScopeManager
+    - NO object-level ACL
+    - Edit permission via Django permissions only
+    """
+
     model = Department
     template_name = "hr/department_detail.html"
-    context_object_name = "department"
-
-    def dispatch(self, request, *args, **kwargs):
-        dept = self.get_object()
-        if not can_view_department(request.user, dept):
-            raise PermissionDenied
-        return super().dispatch(request, *args, **kwargs)
-
-    def get_context_data(self, **kwargs):
-        ctx = super().get_context_data(**kwargs)
-        dept = self.object
-
-        # Children (sub-departments)
-        ctx["children"] = dept.children_list
-
-        # Employees inside this department
-        ctx["employees"] = Employee.objects.filter(
-            department_id=dept.id,
-            company_id=dept.company_id
-        ).select_related("job", "manager")
-
-        # Department path (for breadcrumb)
-        ctx["ancestors"] = dept.get_ancestors()
-
-        return ctx
-
-
-class DepartmentCreateView(CreateView):
-    model = Department
-    form_class = DepartmentForm
-    template_name = "hr/department_form.html"
-    success_url = reverse_lazy("hr:department_list")
-
-
-class DepartmentUpdateView(UpdateView):
-    model = Department
-    form_class = DepartmentForm
-    template_name = "hr/department_form.html"
-    success_url = reverse_lazy("hr:department_list")
-
-    def dispatch(self, request, *args, **kwargs):
-        dept = self.get_object()
-        if not can_edit_department(request.user, dept):
-            raise PermissionDenied
-        return super().dispatch(request, *args, **kwargs)
-
-
-# ============================================================
-# Employees
-# ============================================================
-
-class EmployeeListView(ListView):
-    model = Employee
-    template_name = "hr/employee_list.html"
-    context_object_name = "employees"
 
     def get_queryset(self):
-        user = self.request.user
-        return Employee.objects.filter(
-            company_id__in=user.company_ids
-        ).select_related("department", "job", "manager")
-
-
-class EmployeeDetailView(DetailView):
-    model = Employee
-    template_name = "hr/employee_detail.html"
-    context_object_name = "employee"
-
-    def dispatch(self, request, *args, **kwargs):
-        emp = self.get_object()
-        if not can_view_employee(request.user, emp):
-            raise PermissionDenied
-        return super().dispatch(request, *args, **kwargs)
+        """
+        Company scope is applied automatically via CompanyScopeManager.
+        """
+        return (
+            Department.objects
+            .select_related("company", "parent", "manager")
+            .prefetch_related("children")
+        )
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        emp = self.object
+        user = self.request.user
 
-        # Subordinates (direct)
-        ctx["subordinates"] = emp.subordinates
-
-        # Full chain of managers
-        chain = []
-        current = emp.manager
-        while current:
-            chain.append(current)
-            current = current.manager
-        ctx["manager_chain"] = chain
+        # --------------------------------------------------
+        # Edit permission (Odoo-like)
+        # --------------------------------------------------
+        ctx["can_edit"] = (
+            user.is_superuser
+            or user.has_perm("hr.change_department")
+        )
 
         return ctx
 
+class DepartmentCreateView(LoginRequiredMixin, PermissionRequiredMixin, BaseScopedCreateView):
+    """
+    Create new department.
 
-class EmployeeCreateView(CreateView):
-    model = Employee
-    form_class = EmployeeForm
-    template_name = "hr/employee_form.html"
-    success_url = reverse_lazy("hr:employee_list")
-
-
-class EmployeeUpdateView(UpdateView):
-    model = Employee
-    form_class = EmployeeForm
-    template_name = "hr/employee_form.html"
-    success_url = reverse_lazy("hr:employee_list")
-
-    def dispatch(self, request, *args, **kwargs):
-        emp = self.get_object()
-        if not can_edit_employee(request.user, emp):
-            raise PermissionDenied
-        return super().dispatch(request, *args, **kwargs)
+    - Permission: hr.add_department
+    - Company is injected by BaseScopedCreateView
+    """
+    model = Department
+    form_class = DepartmentForm
+    template_name = "hr/department_form.html"
+    success_url = reverse_lazy("hr:department_list")
+    permission_required = "hr.add_department"
 
 
-# ============================================================
+class DepartmentUpdateView(
+    LoginRequiredMixin,
+    PermissionRequiredMixin,
+    BaseScopedUpdateView,
+):
+    """
+    Department Update View (Odoo-like)
+
+    Characteristics:
+    - Company scoped (via BaseScopedUpdateView)
+    - Permission-based (NOT ACL-based)
+    - Superuser allowed implicitly
+    - No record-level ACL for departments
+    """
+
+    model = Department
+    form_class = DepartmentForm
+    template_name = "hr/department_form.html"
+    success_url = reverse_lazy("hr:department_list")
+
+    # Django permission (not ACL)
+    permission_required = "hr.change_department"
+    raise_exception = True  # return 403 instead of redirect
+
+    def get_queryset(self):
+        """
+        Departments are organization structure entities.
+
+        Rules:
+        - Scoped by company (handled by BaseScopedUpdateView)
+        - NOT filtered by ACL
+        """
+        return (
+            super()
+            .get_queryset()
+            .select_related("company", "parent", "manager")
+        )
+
+# ==========================================================
 # Jobs
-# ============================================================
+# ==========================================================
 
-class JobListView(ListView):
+class JobListView(LoginRequiredMixin, BaseScopedListView):
+    """
+    List jobs for current company.
+    """
     model = Job
     template_name = "hr/job_list.html"
-    context_object_name = "jobs"
+    paginate_by = 50
 
     def get_queryset(self):
-        return Job.objects.filter(company_id__in=self.request.user.company_ids)
+        qs = super().get_queryset()
+        return qs.select_related("company", "department").order_by("name")
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["can_add"] = self.request.user.has_perm("hr.add_job")
+        return ctx
 
 
-class JobDetailView(DetailView):
+class JobDetailView(LoginRequiredMixin, BaseScopedDetailView):
+    """
+    Job details.
+    """
     model = Job
     template_name = "hr/job_detail.html"
-    context_object_name = "job"
+
+    def get_queryset(self):
+        return super().get_queryset().select_related("company", "department")
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        obj = ctx.get("object")
+        ctx["can_edit"] = bool(obj and has_perm(self.request.user, obj, "change"))
+        return ctx
 
 
-class JobCreateView(CreateView):
+class JobCreateView(LoginRequiredMixin, PermissionRequiredMixin, BaseScopedCreateView):
+    """
+    Create new job.
+    """
+    model = Job
+    form_class = JobForm
+    template_name = "hr/job_form.html"
+    success_url = reverse_lazy("hr:job_list")
+    permission_required = "hr.add_job"
+
+
+class JobUpdateView(LoginRequiredMixin, BaseScopedUpdateView):
+    """
+    Update job.
+    """
     model = Job
     form_class = JobForm
     template_name = "hr/job_form.html"
     success_url = reverse_lazy("hr:job_list")
 
+    def get_queryset(self):
+        return Job.acl_objects.with_acl("change").select_related(
+            "company", "department"
+        )
 
-class JobUpdateView(UpdateView):
-    model = Job
-    form_class = JobForm
-    template_name = "hr/job_form.html"
-    success_url = reverse_lazy("hr:job_list")
+
+# ==========================================================
+# Employees
+# ==========================================================
+
+class EmployeeListView(LoginRequiredMixin, BaseScopedListView):
+    """
+    List employees for current company.
+
+    - ACL: view
+    """
+    model = Employee
+    template_name = "hr/employee_list.html"
+    paginate_by = 50
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        qs = qs.select_related(
+            "company",
+            "department",
+            "job",
+            "manager",
+            "user",
+        ).prefetch_related("categories")
+        return qs.order_by("name")
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["can_add"] = self.request.user.has_perm("hr.add_employee")
+        return ctx
+
+
+class EmployeeDetailView(LoginRequiredMixin, BaseScopedDetailView):
+    """
+    Employee profile (Odoo-like).
+
+    - ACL: view
+    - Company scoped
+    """
+    model = Employee
+    template_name = "hr/employee_detail.html"
+
+    def get_queryset(self):
+        return (
+            super()
+            .get_queryset()
+            .select_related(
+                "company",
+                "department",
+                "job",
+                "manager",
+                "coach",
+                "user",
+                "work_location",
+                "work_contact",
+            )
+            .prefetch_related("categories")
+        )
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        obj = ctx.get("object")
+
+        ctx["can_edit"] = bool(obj and has_perm(self.request.user, obj, "change"))
+        ctx["can_view_private"] = bool(
+            obj and self.request.user.has_perm("hr.view_private_fields")
+        )
+        return ctx
+
+
+class EmployeeCreateView(LoginRequiredMixin, PermissionRequiredMixin, BaseScopedCreateView):
+    """
+    Create employee.
+
+    - Permission: hr.add_employee
+    - Company injected automatically
+    """
+    model = Employee
+    form_class = EmployeeForm
+    template_name = "hr/employee_form.html"
+    success_url = reverse_lazy("hr:employee_list")
+    permission_required = "hr.add_employee"
+
+
+class EmployeeUpdateView(LoginRequiredMixin, BaseScopedUpdateView):
+    """
+    Update employee.
+
+    - ACL: change
+    - Company scoped
+    """
+    model = Employee
+    form_class = EmployeeForm
+    template_name = "hr/employee_form.html"
+    success_url = reverse_lazy("hr:employee_list")
+
+    def get_queryset(self):
+        return Employee.acl_objects.with_acl("change").select_related(
+            "company",
+            "department",
+            "job",
+            "manager",
+            "coach",
+            "user",
+            "work_location",
+        )

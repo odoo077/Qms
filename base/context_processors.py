@@ -16,7 +16,7 @@ def company(request):
     active_ids = get_allowed_company_ids(request) or []
 
     # الشركة الحالية
-    current_id = get_company_id(request) or request.user.company_id
+    current_id = get_company_id(request)
     current_company = allowed_companies_qs.filter(id=current_id).first() or allowed_companies_qs.first()
 
     return {

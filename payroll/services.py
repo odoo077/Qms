@@ -122,10 +122,17 @@ def _compute_payslip_by_rules(slip: Payslip):
         total = Decimal(str(res.get("total", amount * quantity * rate / Decimal("100")))).quantize(Decimal("0.01"),
                                                                                                    rounding=ROUND_HALF_UP)
 
-        PayslipLine.objects.create(
-            payslip=slip, code=rule.code, name=rule.name,
-            category=rule.category, sequence=rule.sequence,
-            amount=amount, quantity=quantity, rate=rate, total=total
+        line = PayslipLine.objects.create(
+            payslip=slip,
+            company=slip.company,
+            code=rule.code,
+            name=rule.name,
+            category=rule.category,
+            sequence=rule.sequence,
+            amount=amount,
+            quantity=quantity,
+            rate=rate,
+            total=total,
         )
 
         # حدّث مجاميع الفئات
@@ -145,7 +152,15 @@ def _compute_payslip_by_rules(slip: Payslip):
 
 
 def recompute_lines(slip: Payslip, *, persist: bool = True):
+
     """يحذف السطور ويعيد بنائها بمحرّك القواعد ثم يحدّث المجاميع."""
+
+    if slip.company_id != slip.period.company_id:
+        raise ValidationError("Payslip company mismatch with period company.")
+
+    if slip.employee.company_id != slip.company_id:
+        raise ValidationError("Payslip company mismatch with employee company.")
+
     if not slip.struct_id:
         raise ValidationError("Payslip has no structure.")
     _compute_payslip_by_rules(slip)
@@ -234,7 +249,11 @@ def seed_minimal_rules(struct: PayrollStructure):
     # 1) Ensure categories (BASIC, ALW, DED)
     cat_map = {}  # code -> category
     for code, name, seq in [("BASIC", "Basic", 10), ("ALW", "Allowances", 20), ("DED", "Deductions", 90)]:
-        cat, _ = SalaryRuleCategory.objects.get_or_create(code=code, defaults={"name": name, "sequence": seq})
+        cat, _ = SalaryRuleCategory.objects.get_or_create(
+            company=struct.company,
+            code=code,
+            defaults={"name": name, "sequence": seq}
+        )
         cat_map[code] = cat
 
     # 2) Ensure rules (sequence: 100, 200, 900)

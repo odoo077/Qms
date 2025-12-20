@@ -8,26 +8,19 @@
   <meta name="color-scheme" content="light dark" />
 
   {# تفعيل الثيم بأسرع وقت قبل رسم الصفحة لتقليل الوميض #}
-  <script>
+   <script>
     (function () {
-      var html = document.documentElement;
-
-      function getCookie(name) {
-        var m = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]+)'));
-        return m ? decodeURIComponent(m[1]) : null;
-      }
-
-      var t = getCookie("theme")
+      const html = document.documentElement;
+      const t =
+        document.cookie.match(/(?:^|; )theme=([^;]+)/)?.[1]
         || localStorage.getItem("theme")
         || html.getAttribute("data-theme")
         || "corporate";
 
-      html.setAttribute("data-theme", t);
-      document.addEventListener("DOMContentLoaded", function () {
-        if (document.body) document.body.setAttribute("data-theme", t);
-      });
+      html.setAttribute("data-theme", decodeURIComponent(t));
     })();
   </script>
+
 
   <link href="{% static 'css/dist/styles.css' %}" rel="stylesheet" />
   <link rel="icon" href="{% static 'images/favicon.ico' %}" />
@@ -252,21 +245,24 @@
         {% endif %}
 
         {# Theme toggle – DaisyUI theme #}
-        <button id="theme-toggle"
-                class="btn btn-ghost btn-sm"
-                type="button"
-                aria-label="Toggle theme">
-          <svg id="icon-sun" xmlns="http://www.w3.org/2000/svg"
-               class="size-5 hidden"
-               viewBox="0 0 24 24" fill="currentColor">
-            <path d="M6.76 4.84 5.34 3.42 3.92 4.84l1.42 1.42 1.42-1.42Zm10.48 14.32 1.42 1.42 1.42-1.42-1.42-1.42-1.42 1.42ZM12 5a1 1 0 0 0 1-1V2h-2v2a1 1 0 0 0 1 1Zm0 14a1 1 0 0 0-1 1v2h2v-2a1 1 0 0 0-1-1ZM5 12a1 1 0 0 0-1-1H2v2h2a1 1 0 0 0 1-1Zm17-1h-2a1 1 0 1 0 0 2h2v-2Zm-3.34-6.58L17.24 4.84l1.42 1.42 1.42-1.42-1.42-1.42ZM4.84 17.24 3.42 18.66l1.42 1.42 1.42-1.42-1.42-1.42ZM12 7a5 5 0 1 1 0 10 5 5 0 0 1 0-10Z" />
-          </svg>
-          <svg id="icon-moon" xmlns="http://www.w3.org/2000/svg"
-               class="size-5"
-               viewBox="0 0 24 24" fill="currentColor">
-            <path d="M11.38 2.02a1 1 0 0 0-1.23 1.2A9 9 0 1 0 20.78 5.7a1 1 0 0 0-1.21-1.22A7 7 0 0 1 11.38 2.02Z" />
-          </svg>
-        </button>
+        <div class="dropdown dropdown-end">
+          <label tabindex="0" class="btn btn-ghost btn-sm">
+            Theme
+          </label>
+            <ul tabindex="0"
+              class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-52 text-sm">
+
+            <li><a onclick="setTheme('corporate')">Corporate (Default)</a></li>
+            <li><a onclick="setTheme('business')">Business</a></li>
+            <li><a onclick="setTheme('winter')">Winter</a></li>
+            <li><a onclick="setTheme('luxury')">Luxury</a></li>
+            <li><a onclick="setTheme('dim')">Dim</a></li>
+            <li><a onclick="setTheme('night')">Night</a></li>
+            <li><a onclick="setTheme('forest')">Forest</a></li>
+            <li><a onclick="setTheme('dracula')">Dracula</a></li>
+            <li><a onclick="setTheme('abyss')">Abyss</a></li>
+          </ul>
+        </div>
 
         {# Profile / Login #}
         {% if user.is_authenticated %}
@@ -275,9 +271,13 @@
         </div>
         <div class="dropdown dropdown-end">
           <label tabindex="0" class="btn btn-ghost btn-circle avatar">
-            <div class="w-9 rounded-full">
-              <img src="https://api.dicebear.com/8.x/initials/svg?seed={{ user.name|default:user.email }}"
-                   alt="avatar" />
+            <div class="w-9 rounded-full overflow-hidden bg-base-200">
+              {% if user.avatar %}
+                <img src="{{ user.avatar.url }}" alt="avatar" class="object-cover w-full h-full" />
+              {% else %}
+                <img src="https://api.dicebear.com/8.x/initials/svg?seed={{ user.name|default:user.email }}"
+                     alt="avatar" />
+              {% endif %}
             </div>
           </label>
           <ul tabindex="0"
@@ -299,15 +299,18 @@
   </header>
 
   {# رأس الصفحة + الـ Breadcrumbs + العنوان #}
-  <div class="px-4 sm:px-6 py-6 flex-0">
+  <div class="px-4 sm:px-6 py-0 flex-0">
     {% block breadcrumbs %}
+    {% if show_breadcrumbs|default:True %}
     <div class="breadcrumbs text-sm">
       <ul>
-        <li><a href="{% url 'base:home' %}">Home</a></li>
-        <li>{% block page_title %}{% endblock %}</li>
+<!--        <li><a href="{% url 'base:home' %}">Home</a></li>-->
+<!--        <li>{% block page_title %}{% endblock %}</li>-->
       </ul>
     </div>
+    {% endif %}
     {% endblock %}
+
 
     <div class="mt-2 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
       <div>
@@ -349,10 +352,11 @@
 <script>
   (function () {
     const html = document.documentElement;
-    const btn  = document.getElementById("theme-toggle");
     const sun  = document.getElementById("icon-sun");
     const moon = document.getElementById("icon-moon");
-    const DARK = new Set(["business","dark","forest","black"]);
+
+    // الثيمات التي تُعامل كـ "داكنة" لتبديل الأيقونات
+    const DARK = new Set(["business", "dark", "forest", "black", "dracula", "cyberpunk"]);
 
     function getCookie(name) {
       const m = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]+)'));
@@ -360,13 +364,17 @@
     }
 
     function setCookie(name, value, days) {
-      const max = days ? `; max-age=${days * 86400}` : "";
-      document.cookie = `${name}=${encodeURIComponent(value)}; path=/${max}`;
+      const max = days ? "; max-age=" + (days * 86400) : "";
+      document.cookie = name + "=" + encodeURIComponent(value) + "; path=/" + max;
     }
 
-    function setTheme(t) {
+    // نجعلها دالة عامة ليستخدمها الـ dropdown: onclick="setTheme('emerald')"
+    window.setTheme = function (t) {
       html.setAttribute("data-theme", t);
-      if (document.body) document.body.setAttribute("data-theme", t);
+      if (document.body) {
+        document.body.setAttribute("data-theme", t);
+      }
+
       localStorage.setItem("theme", t);
       setCookie("theme", t, 365);
 
@@ -375,21 +383,19 @@
         sun.classList.toggle("hidden", !isDark);
         moon.classList.toggle("hidden", isDark);
       }
-    }
+    };
 
-    const initial = getCookie("theme")
-      || localStorage.getItem("theme")
-      || html.getAttribute("data-theme")
-      || "corporate";
+    // تحديد الثيم المبدئي
+    const initial =
+      getCookie("theme") ||
+      localStorage.getItem("theme") ||
+      html.getAttribute("data-theme") ||
+      "corporate";
 
-    setTheme(initial);
+    // تطبيق الثيم المبدئي فوراً
+    window.setTheme(initial);
 
-    btn && btn.addEventListener("click", function () {
-      const now  = html.getAttribute("data-theme") || "corporate";
-      const next = (now === "corporate") ? "business" : "corporate";
-      setTheme(next);
-    });
-
+    // إزالة no-transitions بعد تحميل الـ DOM حتى لا تظهر تغيّرات مفاجئة
     window.addEventListener("DOMContentLoaded", function () {
       html.classList.remove("no-transitions");
     });

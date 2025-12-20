@@ -31,21 +31,25 @@ from base.services import (
 @receiver(post_save, sender=Company)
 def company_post_save(sender, instance: Company, created: bool, **kwargs):
     """
-    سلوك Odoo-like عند حفظ Company:
-      1) توليد بطاقة Partner للشركة إن لم تكن موجودة — في مكان واحد وبعد commit.
-      2) ضمان وجود Partner للأب إن كان محددًا.
-      3) محاذاة الشجرة: Partner(child).parent = Partner(parent) (فقط عندما يكون Company.parent مضبوطًا).
-      4) إعادة محاذاة Company.parent ليتبع:
-            (أولوية) Partner(child).parent.company  ← إن وُجد
-            (بديل)   Partner(parent).company       ← من Company.parent إن لم يوجد الأول
-      5) مزامنة الاسم Company -> Partner.
+    سلوك Odoo-like عند حفظ Company (وفق المنطق المتفق عليه):
+
+    1) توليد Partner للشركة إن لم تكن موجودة (بعد commit).
+    2) ضمان وجود Partner للأب إن كان Company.parent محددًا.
+    3) محاذاة شجرة Partner فقط بناءً على Company.parent:
+          Partner(child).parent = Partner(parent)
+       (لكن لا نعدّل Company.parent بناءً على Partner هنا)
+    4) مزامنة الاسم Company -> Partner.
+
+    ملاحظة مهمة:
+    - لا يوجد هنا أي منطق يعيد ضبط Company.parent من Partner.
+      (اتجاه Parent من Partner -> Company يكون في partner_post_save فقط)
     """
 
     # 0) لا نفعل شيئًا إذا كنا داخل تزامن داخلي
     if SYNC_IN_PROGRESS.get():
         return
 
-    # 00) تجاهل تحديثات مسار المواد parent_path فقط (تحسين)
+    # 00) تجاهل تحديثات parent_path فقط (تحسين)
     update_fields = kwargs.get("update_fields")
     if update_fields and set(update_fields) == {"parent_path"}:
         return
@@ -54,18 +58,26 @@ def company_post_save(sender, instance: Company, created: bool, **kwargs):
     PartnerModel = apps.get_model("base", "Partner")
     CompanyModel = apps.get_model("base", "Company")
 
-    # نفّذ المزامنة الثقيلة بعد اكتمال المعاملة لضمان قراءة/كتابة متسقة
     def _sync_after_commit(company_pk: int):
-        # اجلب الشركة + الأب + شركائهم بقراءة طازجة
+        # قراءة طازجة + علاقات كافية
         comp = (
             CompanyModel.objects
-            .select_related("partner", "parent", "parent__partner", "partner__parent", "partner__parent__company")
+            .select_related(
+                "partner",
+                "parent",
+                "parent__partner",
+            )
             .get(pk=company_pk)
         )
 
-        # (A) توليد Partner للشركة إن لم يوجد — المكان الرسمي الوحيد
+        # ----------------------------------------------------
+        # (A) أنشئ Partner للشركة إن لم يوجد — المكان الرسمي الوحيد
+        # ----------------------------------------------------
         if not comp.partner_id:
-            parent_partner = comp.parent.partner if (comp.parent_id and getattr(comp.parent, "partner_id", None)) else None
+            parent_partner = None
+            if comp.parent_id and getattr(comp.parent, "partner_id", None):
+                parent_partner = comp.parent.partner
+
             p = PartnerModel.objects.create(
                 name=comp.name,
                 company=comp,
@@ -74,90 +86,73 @@ def company_post_save(sender, instance: Company, created: bool, **kwargs):
                 type="contact",
                 parent=parent_partner,
             )
-            comp.partner_id = p.id
-            comp.save(update_fields=["partner"])
-            comp.partner = p  # حدّث النسخة المربوطة محليًا
 
-        # (B) تأكد من وجود Partner للأب إن كان هناك أب
-        parent_partner_id = getattr(comp.parent, "partner_id", None)
-        if comp.parent_id and not parent_partner_id:
-            pp = PartnerModel.objects.create(
-                name=comp.parent.name,
-                company=comp.parent,
-                is_company=True,
-                company_type="company",
-                type="contact",
-            )
-            comp.parent.partner_id = pp.id
-            comp.parent.save(update_fields=["partner"])
-            comp.parent.partner = pp
-            parent_partner_id = pp.id
+            token = _set_guard()
+            try:
+                comp.partner_id = p.id
+                comp.save(update_fields=["partner"])
+            finally:
+                _reset_guard(token)
 
-        # (C) محاذاة الشجرة: Partner(child).parent = Partner(parent)
-        #     نضبطها فقط عندما يكون Company.parent مضبوطًا (حتى لا نمحو Parent الموجود على Partner)
-        desired_parent_partner_id_from_company = parent_partner_id if comp.parent_id else None
-        if comp.partner and desired_parent_partner_id_from_company is not None:
-            if comp.partner.parent_id != desired_parent_partner_id_from_company:
+            comp.partner = p  # تحديث النسخة المحلية
+
+        # ----------------------------------------------------
+        # (A.1) إن كان Partner موجودًا مسبقًا لكنه غير مربوط بـ Company → اربطه الآن
+        # ----------------------------------------------------
+        if comp.partner_id and comp.partner and not getattr(comp.partner, "company_id", None):
+            token = _set_guard()
+            try:
+                comp.partner.company_id = comp.id
+                comp.partner.save(update_fields=["company"])
+            finally:
+                _reset_guard(token)
+
+        # ----------------------------------------------------
+        # (B) تأكد من وجود Partner للأب إن كان هناك Company.parent
+        # ----------------------------------------------------
+        parent_partner_id = None
+        if comp.parent_id:
+            parent_partner_id = getattr(comp.parent, "partner_id", None)
+
+            if not parent_partner_id:
+                pp = PartnerModel.objects.create(
+                    name=comp.parent.name,
+                    company=comp.parent,
+                    is_company=True,
+                    company_type="company",
+                    type="contact",
+                )
+
                 token = _set_guard()
                 try:
-                    comp.partner.parent_id = desired_parent_partner_id_from_company
+                    comp.parent.partner_id = pp.id
+                    comp.parent.save(update_fields=["partner"])
+                finally:
+                    _reset_guard(token)
+
+                comp.parent.partner = pp
+                parent_partner_id = pp.id
+
+        # ----------------------------------------------------
+        # (C) محاذاة شجرة Partner من Company فقط:
+        #     Partner(child).parent = Partner(parent) عندما يكون Company.parent موجودًا
+        # ----------------------------------------------------
+        if comp.partner_id and comp.partner and comp.parent_id and parent_partner_id:
+            if comp.partner.parent_id != parent_partner_id:
+                token = _set_guard()
+                try:
+                    comp.partner.parent_id = parent_partner_id
                     comp.partner.save(update_fields=["parent"])
                 finally:
                     _reset_guard(token)
 
-        # (D) **الجديد**: إعادة محاذاة Company.parent بأولوية من شجرة Partner
-        #     1) إن كان لدى Partner(child) أب ⇒ خذ company لذلك الأب.
-        #     2) وإلا إن كان لدى Company.parent شريك ⇒ خذ company لذلك الشريك.
-        desired_parent_company_id = None
-
-        # (D-1) من شجرة Partner (الأولوية)
-        partner_parent_company_id = None
-        if comp.partner_id and getattr(comp.partner, "parent_id", None):
-            partner_parent_company_id = getattr(comp.partner.parent, "company_id", None)
-
-        if partner_parent_company_id:
-            desired_parent_company_id = partner_parent_company_id
-        else:
-            # (D-2) من شجرة Company الحالية (لو متوفرة)
-            if comp.parent_id and getattr(comp.parent, "partner_id", None):
-                desired_parent_company_id = getattr(comp.parent.partner, "company_id", None)
-
-        # لا تُسقط قيمة موجودة إلى None؛ حدّث فقط إذا اختلفت القيمة
-        if getattr(comp, "parent_id", None) != desired_parent_company_id:
-            token = _set_guard()
-            try:
-                comp.parent_id = desired_parent_company_id
-                comp.save(update_fields=["parent"])
-            finally:
-                _reset_guard(token)
-
+        # ----------------------------------------------------
         # (E) مزامنة الاسم: Company → Partner
-        if comp.partner:
+        # ----------------------------------------------------
+        if comp.partner_id and comp.partner:
             sync_company_to_partner(comp, comp.partner)
 
     transaction.on_commit(lambda: _sync_after_commit(instance.pk))
-
-
-# ======================================================================
-# حماية allowed companies: لا تزل الشركة الافتراضية من المسموح بها بالغلط
-# ======================================================================
-@receiver(m2m_changed, sender=User.companies.through)
-def prevent_removing_default_company(sender, instance: User, action, pk_set, **kwargs):
-    """
-    Soft enforcement:
-    - لا نرفع أي استثناء (لا صفحات أخطاء).
-    - بعد أي إزالة/تفريغ، نضمن إعادة إضافة الشركة الافتراضية تلقائيًا إن لزم.
-    هذا يحافظ على invariant: default company ∈ allowed companies.
-    """
-    # لا شيء نفعله إن لم يكن للمستخدم شركة افتراضية
-    if not getattr(instance, "company_id", None):
-        return
-
-    # بعد الإزالة أو التفريغ، تأكد من وجود الافتراضية ضمن المسموح بها
-    if action in ("post_remove", "post_clear"):
-        if not instance.companies.filter(pk=instance.company_id).exists():
-            instance.companies.add(instance.company_id)
-
 
 
 @receiver(m2m_changed, sender=User.companies.through)
@@ -171,65 +166,36 @@ def ensure_default_in_allowed(sender, instance: User, action, pk_set, **kwargs):
 
 
 # ==========================================================
-# Partner.post_save — عندما تمثل البطاقة شركة مرتبطة بـ Company
+# Partner.post_save — FINAL (Identity sync only)
 # ==========================================================
 @receiver(post_save, sender=Partner)
 def partner_post_save(sender, instance: Partner, created: bool, **kwargs):
     """
-    عند حفظ Partner يمثّل شركة ومرتبطًا بـ Company:
+    FINAL Partner post-save logic (Best Practice):
 
-      1) Company.parent = instance.parent.company (محاذاة الشجرة بالعكس).
-         *لكن لا ننزل قيمة company.parent الموجودة إلى None*:
-         إذا لم يكن عند Partner.parent قيمة، نحترم اختيار المستخدم السابق على Company.
-      2) مزامنة الاسم: Partner.name -> Company.name (للشركات فقط).
-      3) استخدام الحارس لمنع الحلقات.
+    - Company is the SINGLE source of truth for hierarchy.
+    - Partner MUST NOT modify Company.parent.
+    - This signal ONLY syncs identity fields (e.g. name).
+    - No hierarchy creation, no parent propagation, no company creation.
     """
-    # 0) لا تفعل شيئًا لو نحن داخل سلسلة مزامنة
+
+    # --------------------------------------------------
+    # 0) Prevent recursive sync loops
+    # --------------------------------------------------
     if SYNC_IN_PROGRESS.get():
         return
 
-    # 1) ينطبق فقط على بطاقات الشركات المرتبطة بكيان Company
-    if not getattr(instance, "is_company", False) or not getattr(instance, "company_id", None):
+    # --------------------------------------------------
+    # 1) Apply ONLY for company partners linked to Company
+    # --------------------------------------------------
+    if not instance.is_company or not instance.company_id:
         return
 
     company = instance.company
 
-    # 2) مزامنة الأب: Company.parent = instance.parent.company (إن وجد)
-    new_parent_company_id = None
-    if getattr(instance, "parent_id", None):
-        parent_partner = instance.parent
-
-        # ✅ إضافة جديدة:
-        # إذا كان Parent عبارة عن بطاقة شركة لكن بلا Company مقابلة، أنشئ Company له الآن
-        if getattr(parent_partner, "is_company", False) and not getattr(parent_partner, "company_id", None):
-            from django.apps import apps
-            CompanyModel = apps.get_model("base", "Company")
-            token = _set_guard()
-            try:
-                parent_company = CompanyModel.objects.create(
-                    name=parent_partner.name or "Company",
-                    partner=parent_partner,
-                )
-                # اربط بطاقة الشريك بالشركة التي أنشأناها (اتساق ثنائي الاتجاه)
-                parent_partner.company_id = parent_company.id
-                parent_partner.save(update_fields=["company"])
-            finally:
-                _reset_guard(token)
-
-        # بعد ضمان وجود Company للأب (إن لزم)، احصل على معرّفها
-        new_parent_company_id = getattr(parent_partner, "company_id", None)
-
-    # ✳️ لا تُسقط قيمة موجودة إلى None: احترم اختيار المستخدم من نموذج الشركة
-    if not (new_parent_company_id is None and getattr(company, "parent_id", None)):
-        if getattr(company, "parent_id", None) != new_parent_company_id:
-            token = _set_guard()
-            try:
-                company.parent_id = new_parent_company_id
-                company.save(update_fields=["parent"])
-            finally:
-                _reset_guard(token)
-
-    # 3) مزامنة الاسم: Partner.name -> Company.name
+    # --------------------------------------------------
+    # 2) Identity sync ONLY (Partner → Company)
+    # --------------------------------------------------
     token = _set_guard()
     try:
         sync_partner_to_company(instance, company)

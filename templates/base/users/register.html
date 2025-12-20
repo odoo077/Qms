@@ -1,246 +1,107 @@
 {% extends "base/users/auth_base.html" %}
 {% load widget_tweaks %}
 
-{% block title %}Create account{% endblock %}
-
-{% block page_title %}Request an account{% endblock %}
-{% block page_subtitle %}
-Create a user account to access employees, departments, assets, skills, performance and payroll in 360 Manager.
-{% endblock %}
-
-{% block card_action %}
-  <a href="{% url 'base:login' %}"
-     class="btn btn-ghost btn-sm rounded-full normal-case text-xs">
-    Back to sign in
-  </a>
-{% endblock %}
+{% block title %}Register{% endblock %}
 
 {% block content %}
-  <form method="post" class="space-y-5" novalidate>
-    {% csrf_token %}
+<div class="card bg-base-100 shadow-xl rounded-2xl">
+  <div class="card-body space-y-6">
 
-    {# أخطاء عامة للنموذج (مثلاً نفس الإيميل مسجّل مسبقاً) #}
+    <!-- Header -->
+    <div class="text-center space-y-1">
+      <h1 class="text-2xl font-semibold">Create your account</h1>
+      <p class="text-sm text-base-content/60">
+        Fill in the details below to get started
+      </p>
+    </div>
+
+    <!-- Non-field errors -->
     {% if form.non_field_errors %}
-      <div class="alert alert-error shadow-sm text-sm">
-        {% for err in form.non_field_errors %}
-          <span>{{ err }}</span>
+      <div class="alert alert-error text-sm">
+        {% for error in form.non_field_errors %}
+          <span>{{ error }}</span>
         {% endfor %}
       </div>
     {% endif %}
 
-    {# Email #}
-    <div class="form-control">
-      <label class="label py-1 px-0">
-        <span class="label-text text-sm font-medium">Work email</span>
-      </label>
-      {{ form.email|add_class:"input-auth"|attr:"placeholder:you@company.com" }}
-      {% if form.email.errors %}
-        <p class="mt-1 text-xs text-error">
-          {{ form.email.errors|join:", " }}
-        </p>
-      {% else %}
-        <p class="mt-1 text-xs text-base-content/60">
-          We’ll send an activation link to this company email.
-        </p>
-      {% endif %}
-    </div>
+    <!-- Form -->
+    <form method="post" class="space-y-4">
+      {% csrf_token %}
 
-    {# Username #}
-    <div class="form-control">
-      <label class="label py-1 px-0">
-        <span class="label-text text-sm font-medium">Username</span>
-      </label>
-      {{ form.username|add_class:"input-auth"|attr:"placeholder:your.username" }}
-      {% if form.username.errors %}
-        <p class="mt-1 text-xs text-error">
-          {{ form.username.errors|join:", " }}
-        </p>
-      {% else %}
-        <p class="mt-1 text-xs text-base-content/60">
-          This is how your colleagues and HR will identify you inside the system.
-        </p>
-      {% endif %}
-    </div>
-
-    {# First / Last name #}
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <!-- Email -->
       <div class="form-control">
-        <label class="label py-1 px-0">
-          <span class="label-text text-sm font-medium">First name</span>
+        <label class="label">
+          <span class="label-text">Email address</span>
         </label>
-        {{ form.first_name|add_class:"input-auth"|attr:"placeholder:John" }}
-        {% if form.first_name.errors %}
-          <p class="mt-1 text-xs text-error">
-            {{ form.first_name.errors|join:", " }}
-          </p>
-        {% endif %}
+        {% render_field form.email class="input input-bordered w-full" %}
       </div>
 
+      <!-- Username -->
       <div class="form-control">
-        <label class="label py-1 px-0">
-          <span class="label-text text-sm font-medium">Last name</span>
+        <label class="label">
+          <span class="label-text">Username</span>
         </label>
-        {{ form.last_name|add_class:"input-auth"|attr:"placeholder:Doe" }}
-        {% if form.last_name.errors %}
-          <p class="mt-1 text-xs text-error">
-            {{ form.last_name.errors|join:", " }}
-          </p>
-        {% endif %}
-      </div>
-    </div>
-
-    {# Password #}
-    <div class="form-control">
-      <div class="label py-1 px-0 flex items-center justify-between">
-        <span class="label-text text-sm font-medium">Password</span>
-        <span class="label-text-alt text-xs text-base-content/60">
-          At least 8 characters
-        </span>
+        {% render_field form.username class="input input-bordered w-full" %}
       </div>
 
-      <div class="relative">
-        {{ form.password1|add_class:"input-auth pr-12"|attr:"id:id_password1"|attr:"placeholder:••••••••" }}
-        <button type="button"
-                class="btn btn-ghost btn-xs absolute right-2 top-1/2 -translate-y-1/2 rounded-full border border-transparent hover:border-base-300"
-                data-target="#id_password1"
-                aria-label="Toggle password visibility"
-                aria-pressed="false">
-          <svg xmlns="http://www.w3.org/2000/svg"
-               class="h-4 w-4 pointer-events-none"
-               viewBox="0 0 24 24"
-               fill="none" stroke="currentColor">
-            <path stroke-width="2"
-                  d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
-            <circle cx="12" cy="12" r="3" stroke-width="2" />
-          </svg>
-        </button>
-      </div>
-
-      {% if form.password1.errors %}
-        <p class="mt-1 text-xs text-error">
-          {{ form.password1.errors|join:", " }}
-        </p>
-      {% else %}
-        <div class="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
-          <div class="badge badge-ghost justify-start py-2 px-3">
-            Use 8+ characters
-          </div>
-          <div class="badge badge-ghost justify-start py-2 px-3">
-            Mix letters &amp; numbers
-          </div>
-          <div class="badge badge-ghost justify-start py-2 px-3">
-            Avoid common passwords
-          </div>
+      <!-- First / Last name -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div class="form-control">
+          <label class="label">
+            <span class="label-text">First name</span>
+          </label>
+          {% render_field form.first_name class="input input-bordered w-full" %}
         </div>
-      {% endif %}
-    </div>
 
-    {# Confirm password #}
-    <div class="form-control">
-      <label class="label py-1 px-0">
-        <span class="label-text text-sm font-medium">Confirm password</span>
-      </label>
-
-      <div class="relative">
-        {{ form.password2|add_class:"input-auth pr-12"|attr:"id:id_password2"|attr:"placeholder:••••••••" }}
-        <button type="button"
-                class="btn btn-ghost btn-xs absolute right-2 top-1/2 -translate-y-1/2 rounded-full border border-transparent hover:border-base-300"
-                data-target="#id_password2"
-                aria-label="Toggle password visibility"
-                aria-pressed="false">
-          <svg xmlns="http://www.w3.org/2000/svg"
-               class="h-4 w-4 pointer-events-none"
-               viewBox="0 0 24 24"
-               fill="none" stroke="currentColor">
-            <path stroke-width="2"
-                  d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
-            <circle cx="12" cy="12" r="3" stroke-width="2" />
-          </svg>
-        </button>
+        <div class="form-control">
+          <label class="label">
+            <span class="label-text">Last name</span>
+          </label>
+          {% render_field form.last_name class="input input-bordered w-full" %}
+        </div>
       </div>
 
-      {% if form.password2.errors %}
-        <p class="mt-1 text-xs text-error">
-          {{ form.password2.errors|join:", " }}
-        </p>
-      {% endif %}
-    </div>
+      <!-- Password -->
+      <div class="form-control">
+        <label class="label">
+          <span class="label-text">Password</span>
+        </label>
+        {% render_field form.password1 class="input input-bordered w-full" %}
+      </div>
 
-    {# Terms & privacy #}
-    <div class="form-control pt-1">
-      <label class="label cursor-pointer justify-start gap-3 p-0">
-        <input type="checkbox"
-               name="accept_terms"
-               required
-               class="checkbox checkbox-sm" />
-        <span class="label-text text-sm">
+      <!-- Confirm password -->
+      <div class="form-control">
+        <label class="label">
+          <span class="label-text">Confirm password</span>
+        </label>
+        {% render_field form.password2 class="input input-bordered w-full" %}
+      </div>
+
+      <!-- Terms -->
+      <label class="flex items-start gap-3 text-sm">
+        <input type="checkbox" class="checkbox checkbox-sm mt-1" required>
+        <span>
           I agree to the
-          <a href="#" class="link link-primary">Terms of use</a>
+          <a href="#" class="link link-primary">Terms of Service</a>
           and
-          <a href="#" class="link link-primary">Privacy Policy</a>.
+          <a href="#" class="link link-primary">Privacy Policy</a>
         </span>
       </label>
-    </div>
 
-    {# زر إنشاء الحساب #}
-    <div class="pt-3 space-y-3">
-      <button type="submit"
-              class="btn btn-primary w-full rounded-xl h-11 gap-2 text-sm font-semibold tracking-wide">
-        <span class="loading loading-spinner loading-xs hidden" aria-hidden="true"></span>
-        <span>Create account</span>
+      <!-- Submit -->
+      <button type="submit" class="btn btn-primary w-full mt-2">
+        Create account
       </button>
 
-      <p class="text-center text-sm text-base-content/60">
+      <!-- Login -->
+      <p class="text-center text-sm text-base-content/70">
         Already have an account?
         <a href="{% url 'base:login' %}" class="link link-primary font-medium">
-          Sign in instead
+          Sign in
         </a>
       </p>
-    </div>
-  </form>
-{% endblock %}
+    </form>
 
-{% block below_form %}
-  <p class="mt-4 text-xs text-base-content/60 text-center">
-    After submitting this form, you will receive an activation email from HR or the system administrator.
-  </p>
-{% endblock %}
-
-{% block extra_scripts %}
-<script>
-  // Toggle password visibility + submit spinner
-  (function () {
-    function toggleVisibility(btn) {
-      var targetSelector = btn.getAttribute('data-target');
-      if (!targetSelector) return;
-      var input = document.querySelector(targetSelector);
-      if (!input) return;
-      if (input.type === 'password') {
-        input.type = 'text';
-        btn.setAttribute('aria-pressed', 'true');
-      } else {
-        input.type = 'password';
-        btn.setAttribute('aria-pressed', 'false');
-      }
-    }
-
-    document.addEventListener('click', function (e) {
-      var btn = e.target.closest('button[data-target]');
-      if (!btn) return;
-      e.preventDefault();
-      toggleVisibility(btn);
-    });
-
-    var form = document.querySelector('form[method="post"]');
-    if (form) {
-      form.addEventListener('submit', function () {
-        var submitBtn = form.querySelector('button[type="submit"]');
-        if (!submitBtn) return;
-        var spinner = submitBtn.querySelector('.loading');
-        if (spinner) spinner.classList.remove('hidden');
-        submitBtn.setAttribute('disabled', 'disabled');
-      });
-    }
-  })();
-</script>
+  </div>
+</div>
 {% endblock %}

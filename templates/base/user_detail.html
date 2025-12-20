@@ -1,32 +1,211 @@
 {% extends "base.html" %}
-{% block title %}User · {{ object.username }} · 360 Manager{% endblock %}
+
+{% block title %}
+  User · {{ object.email }}
+{% endblock %}
+
 {% block content %}
-<div class="px-4 py-6">
-  <nav class="text-sm breadcrumbs mb-4">
-    <ul><li><a href="{% url 'base:user_list' %}">Users</a></li><li class="font-semibold">{{ object.username }}</li></ul>
+<div class="px-4 py-6 space-y-8 max-w-5xl mx-auto">
+
+  {# ===================================================== #}
+  {# Breadcrumbs                                          #}
+  {# ===================================================== #}
+  <nav class="text-sm breadcrumbs">
+    <ul>
+      <li>
+        <a href="{% url 'base:user_list' %}" class="link link-hover">
+          Users
+        </a>
+      </li>
+      <li class="font-semibold">
+        Details
+      </li>
+    </ul>
   </nav>
 
-  <div class="mb-4 flex items-start justify-between gap-3">
-    <div>
-      <h1 class="text-2xl font-bold">{{ object.get_full_name|default:object.username }}</h1>
-      <p class="text-base-content/60 text-sm">{{ object.company|default:"—" }}</p>
+  {# ===================================================== #}
+  {# Header                                               #}
+  {# ===================================================== #}
+  <div class="flex items-start justify-between gap-4">
+    <div class="space-y-1">
+      <h1 class="text-2xl font-bold break-all">
+        {{ object.email }}
+      </h1>
+      <p class="text-sm text-base-content/60">
+        User profile and system-related information.
+      </p>
     </div>
-    <div class="flex items-center gap-2">
-      {% if can_edit_object %}
-        <a href="{% url 'base:user_edit' object.pk %}" class="btn btn-outline btn-sm">Edit</a>
-      {% endif %}
-      <a href="{% url 'base:user_list' %}" class="btn btn-sm">Back</a>
-    </div>
+
+    {% if can_edit_object %}
+      <a href="{% url 'base:user_edit' object.pk %}"
+         class="btn btn-sm btn-primary">
+        Edit User
+      </a>
+    {% endif %}
   </div>
 
-  <div class="card bg-base-100 border border-base-300">
-    <div class="card-body p-5 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-      <div><div class="text-base-content/60">Username</div><div class="font-medium">{{ object.username }}</div></div>
-      <div><div class="text-base-content/60">Email</div><div class="font-medium">{{ object.email|default:"—" }}</div></div>
-      <div><div class="text-base-content/60">Partner</div><div class="font-medium">{{ object.partner|default:"—" }}</div></div>
-      <div><div class="text-base-content/60">Joined</div><div class="font-medium">{{ object.date_joined }}</div></div>
-      <div><div class="text-base-content/60">Active</div><div class="font-medium">{{ object.is_active|yesno:"Yes,No" }}</div></div>
+  {# ===================================================== #}
+  {# Basic Information                                    #}
+  {# ===================================================== #}
+  <section class="card bg-base-100 border border-base-300">
+    <div class="card-body p-6 space-y-6">
+
+      <h2 class="text-sm font-semibold text-base-content/70">
+        Basic Information
+      </h2>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+        <div>
+          <div class="text-xs uppercase text-base-content/50">
+            Email
+          </div>
+          <div class="font-medium break-all">
+            {{ object.email }}
+          </div>
+        </div>
+
+        <div>
+          <div class="text-xs uppercase text-base-content/50">
+            Username
+          </div>
+          <div class="font-medium">
+            {{ object.username }}
+          </div>
+        </div>
+
+        <div>
+          <div class="text-xs uppercase text-base-content/50">
+            First Name
+          </div>
+          <div class="font-medium">
+            {{ object.first_name|default:"—" }}
+          </div>
+        </div>
+
+        <div>
+          <div class="text-xs uppercase text-base-content/50">
+            Last Name
+          </div>
+          <div class="font-medium">
+            {{ object.last_name|default:"—" }}
+          </div>
+        </div>
+
+      </div>
     </div>
+  </section>
+
+  {# ===================================================== #}
+  {# Company & Partner                                    #}
+  {# ===================================================== #}
+  <section class="card bg-base-100 border border-base-300">
+    <div class="card-body p-6 space-y-6">
+
+      <h2 class="text-sm font-semibold text-base-content/70">
+        Organization
+      </h2>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+        <div>
+          <div class="text-xs uppercase text-base-content/50">
+            Default Company
+          </div>
+          <div class="font-medium">
+            {% if object.company %}
+              <a href="{% url 'base:company_detail' object.company.pk %}"
+                 class="link link-hover">
+                {{ object.company.name }}
+              </a>
+            {% else %}
+              —
+            {% endif %}
+          </div>
+        </div>
+
+        <div>
+          <div class="text-xs uppercase text-base-content/50">
+            Linked Partner
+          </div>
+          <div class="font-medium">
+            {% if object.partner %}
+              <a href="{% url 'base:partner_detail' object.partner.pk %}"
+                 class="link link-hover">
+                {{ object.partner.name }}
+              </a>
+            {% else %}
+              —
+            {% endif %}
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  {# ===================================================== #}
+  {# System Status                                        #}
+  {# ===================================================== #}
+  <section class="card bg-base-100 border border-base-300">
+    <div class="card-body p-6 space-y-6">
+
+      <h2 class="text-sm font-semibold text-base-content/70">
+        System Status
+      </h2>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+
+        <div>
+          <div class="text-xs uppercase text-base-content/50">
+            Active
+          </div>
+          <div class="font-medium">
+            {% if object.is_active %}
+              <span class="text-success">Yes</span>
+            {% else %}
+              <span class="text-error">No</span>
+            {% endif %}
+          </div>
+        </div>
+
+        <div>
+          <div class="text-xs uppercase text-base-content/50">
+            Staff
+          </div>
+          <div class="font-medium">
+            {{ object.is_staff|yesno:"Yes,No" }}
+          </div>
+        </div>
+
+        <div>
+          <div class="text-xs uppercase text-base-content/50">
+            Superuser
+          </div>
+          <div class="font-medium">
+            {{ object.is_superuser|yesno:"Yes,No" }}
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  {# ===================================================== #}
+  {# Footer                                               #}
+  {# ===================================================== #}
+  <div class="flex items-center justify-between text-xs text-base-content/60 pt-2">
+
+    <a href="{% url 'base:user_list' %}"
+       class="link link-hover">
+      ← Back to Users
+    </a>
+
+    <span>
+      User ID: #{{ object.id }}
+    </span>
+
   </div>
+
 </div>
 {% endblock %}

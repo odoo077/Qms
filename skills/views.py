@@ -1,33 +1,51 @@
 # skills/views.py
+# ============================================================
+# Skills Views – FINAL (ACL + Company Scope compliant)
+# Compatible 100% with base + hr architecture
+# ============================================================
+
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.urls import reverse_lazy
+
 from base.views import (
     BaseScopedListView,
     BaseScopedUpdateView,
     BaseScopedDeleteView,
-    apply_search_filters, ConfirmDeleteMixin, BaseScopedCreateView
+    BaseScopedCreateView,
+    ConfirmDeleteMixin,
+    apply_search_filters,
 )
-from base.acl_service import has_perm
+
 from .models import (
-    SkillType, SkillLevel, Skill,
-    EmployeeSkill, ResumeLine, ResumeLineType
+    SkillType,
+    SkillLevel,
+    Skill,
+    EmployeeSkill,
+    ResumeLine,
+    ResumeLineType,
 )
+
 from .forms import (
-    SkillTypeForm, SkillLevelForm, SkillForm,
-    EmployeeSkillForm, ResumeLineTypeForm, ResumeLineForm
+    SkillTypeForm,
+    SkillLevelForm,
+    SkillForm,
+    EmployeeSkillForm,
+    ResumeLineTypeForm,
+    ResumeLineForm,
 )
 
 
 # ============================================================
 # SKILL TYPE
 # ============================================================
+
 class SkillTypeListView(LoginRequiredMixin, BaseScopedListView):
     model = SkillType
     template_name = "skills/skilltype_list.html"
     paginate_by = 24
 
     def get_queryset(self):
-        qs = SkillType.objects.all().order_by("sequence", "name")
+        qs = SkillType.objects.order_by("sequence", "name")
         return apply_search_filters(self.request, qs, search_fields=["name"])
 
     def get_context_data(self, **kwargs):
@@ -73,6 +91,7 @@ class SkillTypeDeleteView(
 # ============================================================
 # SKILL LEVEL
 # ============================================================
+
 class SkillLevelListView(LoginRequiredMixin, BaseScopedListView):
     model = SkillLevel
     template_name = "skills/skilllevel_list.html"
@@ -129,6 +148,7 @@ class SkillLevelDeleteView(
 # ============================================================
 # SKILL
 # ============================================================
+
 class SkillListView(LoginRequiredMixin, BaseScopedListView):
     model = Skill
     template_name = "skills/skill_list.html"
@@ -183,15 +203,18 @@ class SkillDeleteView(
 
 
 # ============================================================
-# EMPLOYEE SKILL (ACL Protected)
+# EMPLOYEE SKILL (ACL PROTECTED)
 # ============================================================
+
 class EmployeeSkillListView(LoginRequiredMixin, BaseScopedListView):
     model = EmployeeSkill
     template_name = "skills/employeeskill_list.html"
     paginate_by = 24
 
     def get_queryset(self):
-        qs = EmployeeSkill.objects.select_related(
+        qs = EmployeeSkill.acl.filter(
+            company_id=self.request.company_id
+        ).select_related(
             "employee", "skill_type", "skill", "skill_level"
         ).order_by("employee__name")
         return apply_search_filters(
@@ -223,19 +246,8 @@ class EmployeeSkillUpdateView(LoginRequiredMixin, PermissionRequiredMixin, BaseS
     success_url = reverse_lazy("skills:employeeskill_list")
     permission_required = "skills.change_employeeskill"
 
-    def dispatch(self, request, *args, **kwargs):
-        obj = self.get_object()
-        if not has_perm(obj, request.user, "change"):
-            from django.core.exceptions import PermissionDenied
-
-            raise PermissionDenied()
-        return super().dispatch(request, *args, **kwargs)
-
-    def get_context_data(self, **kwargs):
-        ctx = super().get_context_data(**kwargs)
-        obj = ctx.get("object")
-        ctx["can_delete_object"] = has_perm(obj, self.request.user, "delete")
-        return ctx
+    def get_object(self, queryset=None):
+        return EmployeeSkill.acl.get(pk=self.kwargs["pk"])
 
 
 class EmployeeSkillDeleteView(
@@ -249,18 +261,14 @@ class EmployeeSkillDeleteView(
     back_url_name = "skills:employeeskill_list"
     object_label_field = "skill"
 
-    def dispatch(self, request, *args, **kwargs):
-        obj = self.get_object()
-        if not has_perm(obj, request.user, "delete"):
-            from django.core.exceptions import PermissionDenied
-
-            raise PermissionDenied()
-        return super().dispatch(request, *args, **kwargs)
+    def get_object(self, queryset=None):
+        return EmployeeSkill.acl.get(pk=self.kwargs["pk"])
 
 
 # ============================================================
 # RESUME LINE TYPE
 # ============================================================
+
 class ResumeLineTypeListView(LoginRequiredMixin, BaseScopedListView):
     model = ResumeLineType
     template_name = "skills/resumelinetype_list.html"
@@ -317,17 +325,18 @@ class ResumeLineTypeDeleteView(
 
 
 # ============================================================
-# RESUME LINE (ACL)
+# RESUME LINE (ACL PROTECTED)
 # ============================================================
+
 class ResumeLineListView(LoginRequiredMixin, BaseScopedListView):
     model = ResumeLine
     template_name = "skills/resumeline_list.html"
     paginate_by = 24
 
     def get_queryset(self):
-        qs = ResumeLine.objects.select_related("employee", "line_type").order_by(
-            "employee__name"
-        )
+        qs = ResumeLine.acl.filter(
+            company_id=self.request.company_id
+        ).select_related("employee", "line_type").order_by("employee__name")
         return apply_search_filters(
             self.request,
             qs,
@@ -355,19 +364,8 @@ class ResumeLineUpdateView(LoginRequiredMixin, PermissionRequiredMixin, BaseScop
     success_url = reverse_lazy("skills:resumeline_list")
     permission_required = "skills.change_resumeline"
 
-    def dispatch(self, request, *args, **kwargs):
-        obj = self.get_object()
-        if not has_perm(obj, request.user, "change"):
-            from django.core.exceptions import PermissionDenied
-
-            raise PermissionDenied()
-        return super().dispatch(request, *args, **kwargs)
-
-    def get_context_data(self, **kwargs):
-        ctx = super().get_context_data(**kwargs)
-        obj = ctx.get("object")
-        ctx["can_delete_object"] = has_perm(obj, self.request.user, "delete")
-        return ctx
+    def get_object(self, queryset=None):
+        return ResumeLine.acl.get(pk=self.kwargs["pk"])
 
 
 class ResumeLineDeleteView(
@@ -381,10 +379,5 @@ class ResumeLineDeleteView(
     back_url_name = "skills:resumeline_list"
     object_label_field = "name"
 
-    def dispatch(self, request, *args, **kwargs):
-        obj = self.get_object()
-        if not has_perm(obj, request.user, "delete"):
-            from django.core.exceptions import PermissionDenied
-
-            raise PermissionDenied()
-        return super().dispatch(request, *args, **kwargs)
+    def get_object(self, queryset=None):
+        return ResumeLine.acl.get(pk=self.kwargs["pk"])

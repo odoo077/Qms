@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from django.db import models
 from django.core.exceptions import ValidationError
+from django.db.models import Q
 from django.utils.translation import gettext_lazy as _
 
 # مكسنات وبُنى أساسية من تطبيق base
@@ -55,6 +56,12 @@ class ContractType(TimeStampedMixin, UserStampedMixin, models.Model):
 
 # ------------------------------------------------------------
 # Department — قسم هرمي على مستوى الشركة
+# NOTE:
+# HR core models (Employee, Department, Job) are designed to be ARCHIVED
+# using `active=False` instead of being deleted.
+# Deletion is intentionally restricted via on_delete=PROTECT
+# to preserve historical integrity and references.
+
 # ------------------------------------------------------------
 class Department(AccessControlledMixin,CompanyOwnedMixin, ActivableMixin, TimeStampedMixin, UserStampedMixin, models.Model):
     """
@@ -127,8 +134,22 @@ class Department(AccessControlledMixin,CompanyOwnedMixin, ActivableMixin, TimeSt
             models.Index(fields=["parent_path"], name="hr_departme_parent_path_idx"),
             models.Index(fields=["complete_name"], name="hr_departme_complete_name_idx"),
         ]
-        # constraints = []
         ordering = ("name",)
+        constraints = [
+            # 1) الأقسام الجذرية (parent = NULL): الاسم يجب أن يكون فريدًا داخل الشركة
+            models.UniqueConstraint(
+                fields=["company", "name"],
+                condition=Q(parent__isnull=True),
+                name="uniq_department_root_per_company_name",
+            ),
+
+            # 2) الأقسام غير الجذرية (parent != NULL): الاسم فريد داخل نفس الأب + نفس الشركة
+            models.UniqueConstraint(
+                fields=["company", "parent", "name"],
+                condition=Q(parent__isnull=False),
+                name="uniq_department_per_company_parent_name",
+            ),
+        ]
 
     # ---------- خواص محسوبة ----------
     @property
@@ -138,14 +159,12 @@ class Department(AccessControlledMixin,CompanyOwnedMixin, ActivableMixin, TimeSt
 
     @property
     def employee_count(self):
-        """Count all employees inside this department subtree."""
-        return self.members.filter(active=True).count() + \
-               Employee.objects.filter(
-                   department__parent_path__startswith=self.parent_path,
-                   active=True,
-                   company_id=self.company_id
-               ).count()
-
+        """Count all active employees inside this department subtree (including self) without double counting."""
+        return Employee.objects.filter(
+            active=True,
+            company_id=self.company_id,
+            department__parent_path__startswith=self.parent_path
+        ).count()
 
     # ---------- منطق الشجرة ----------
     def _recompute_lineage_fields(self):
@@ -193,41 +212,122 @@ class Department(AccessControlledMixin,CompanyOwnedMixin, ActivableMixin, TimeSt
         ).exclude(pk=self.pk)
 
     def get_ancestors(self):
-        """Return all parents up to root."""
+        """Return all parents up to root (excluding self)."""
         ids = [int(x) for x in self.parent_path.split("/") if x]
-        return Department.objects.filter(pk__in=ids).order_by("parent_path")
-
+        return Department.objects.filter(pk__in=ids).exclude(pk=self.pk).order_by("parent_path")
 
     # ---------- lifecycle ----------
     def save(self, *args, **kwargs):
-        # المدير السابق قبل الحفظ
-        prev_manager_id = None
+        """
+        Lifecycle save:
+        1) Save first to ensure PK exists
+        2) Recompute own lineage fields (complete_name / parent_path)
+        3) Persist lineage fields efficiently
+        4) Recompute subtree only when structural fields change
+        """
+
+        # المدير السابق قبل الحفظ (للمقارنة فقط — توثيقي)
+        prev_parent_id = None
         if self.pk:
-            prev_manager_id = type(self).objects.only("manager_id").filter(pk=self.pk) \
-                .values_list("manager_id", flat=True).first()
+            prev_parent_id = type(self).objects.only("parent_id").filter(pk=self.pk) \
+                .values_list("parent_id", flat=True).first()
 
-        super().save(*args, **kwargs)  # 1) احفظ للحصول على PK
+        # 1) احفظ للحصول على PK أو تحديث الحقول الأساسية
+        super().save(*args, **kwargs)
+
+        # 2) أعد حساب حقول السلسلة للقسم الحالي
         self._recompute_lineage_fields()
-        super().save(update_fields=["complete_name", "parent_path"])  # 2) خزّن الحقول المحسوبة
-        self._recompute_subtree()  # 3) حدّث الفروع
+        super().save(update_fields=["complete_name", "parent_path"])
 
-        # 4) إن تغيّر المدير، لا ننسخ المدير تلقائيًا لأعضاء القسم
-        #    (Odoo-like) — مدير الموظف قرار مستقل ولا يُشتق تلقائيًا من مدير القسم.
-        #    لذا لا يوجد أي تحديث جماعي هنا.
+        # 3) حدّث الفروع فقط إذا تغيّر الأب (تحسين أداء)
+        if prev_parent_id != self.parent_id:
+            self._recompute_subtree()
 
-    # ---------- تحقق ----------
+        # 4) لا يوجد أي اشتقاق تلقائي للمدير على الموظفين (Odoo-like behavior)
+
+    # ---------- Validation ----------
     def clean(self):
+        """
+        Business validations for Department (Odoo-like).
+
+        Guarantees:
+        - No DB constraint errors reach the user
+        - All validation errors are user-friendly
+        - No interference with CompanyScope / ACL managers
+        """
+
         super().clean()
 
-        if self.parent and self.parent.company_id != self.company_id:
-            raise ValidationError({"company": "Parent department must belong to the same company."})
+        # استخدم manager غير مقيّد لضمان رؤية كل السجلات
+        BaseMgr = type(self)._base_manager
 
-        # منع الدوران في الهرم
+        # --------------------------------------------------
+        # 1) Parent department must belong to the same company
+        # --------------------------------------------------
+        if self.parent and self.parent.company_id != self.company_id:
+            raise ValidationError({
+                "company": "Parent department must belong to the same company."
+            })
+
+        # --------------------------------------------------
+        # 2) Prevent self-parent and cyclic hierarchy
+        # --------------------------------------------------
+        # Direct self-parent
+        if self.parent and self.pk and self.parent_id == self.pk:
+            raise ValidationError({
+                "parent": "A department cannot be parent of itself."
+            })
+
+        # Cyclic hierarchy (walk up)
         node = self.parent
         while node:
             if node.pk == self.pk:
-                raise ValidationError({"parent": "Cyclic department hierarchy is not allowed."})
+                raise ValidationError({
+                    "parent": "Cyclic department hierarchy is not allowed."
+                })
             node = node.parent
+
+        # --------------------------------------------------
+        # 3) Prevent duplicate ROOT departments (company + name)
+        # --------------------------------------------------
+        if self.parent is None and self.company_id and self.name:
+            qs = BaseMgr.filter(
+                company_id=self.company_id,
+                parent__isnull=True,
+                name__iexact=self.name.strip(),
+            )
+
+            if self.pk:
+                qs = qs.exclude(pk=self.pk)
+
+            if qs.exists():
+                raise ValidationError({
+                    "name": (
+                        "A root department with this name already exists in this company. "
+                        "Please choose a different name or assign a parent department."
+                    )
+                })
+
+        # --------------------------------------------------
+        # 4) Prevent duplicate CHILD departments
+        #    (same company + same parent + same name)
+        # --------------------------------------------------
+        if self.parent_id and self.company_id and self.name:
+            qs = BaseMgr.filter(
+                company_id=self.company_id,
+                parent_id=self.parent_id,
+                name__iexact=self.name.strip(),
+            )
+
+            if self.pk:
+                qs = qs.exclude(pk=self.pk)
+
+            if qs.exists():
+                raise ValidationError({
+                    "name": (
+                        "A department with this name already exists under the selected parent."
+                    )
+                })
 
     def __str__(self):
         return self.complete_name or self.name
@@ -651,6 +751,12 @@ class EmployeeWeeklyOffPeriod(ActivableMixin, TimeStampedMixin, UserStampedMixin
 
 # ------------------------------------------------------------
 # Employee — الموظف (مع ACL + Company scope)
+# NOTE:
+# HR core models (Employee, Department, Job) are designed to be ARCHIVED
+# using `active=False` instead of being deleted.
+# Deletion is intentionally restricted via on_delete=PROTECT
+# to preserve historical integrity and references.
+
 # ------------------------------------------------------------
 class Employee(AccessControlledMixin, CompanyOwnedMixin, ActivableMixin, TimeStampedMixin, UserStampedMixin, models.Model):
     """
@@ -664,19 +770,15 @@ class Employee(AccessControlledMixin, CompanyOwnedMixin, ActivableMixin, TimeSta
     objects = CompanyScopeManager()
     acl_objects = ACLManager()
 
-    company = models.ForeignKey(
-        "base.Company",
-        on_delete=models.PROTECT,
-        related_name="employees",
-    )
-
     name = models.CharField(max_length=255, db_index=True)
 
-    user = models.ForeignKey(
+    user = models.OneToOneField(
         "base.User",
-        null=True, blank=True,
+        null=True,
+        blank=True,
         on_delete=models.SET_NULL,
-        related_name="employees",
+        related_name="employee",
+        help_text="Linked user account (one user can be linked to only one employee).",
     )
 
     department = models.ForeignKey(
@@ -803,12 +905,6 @@ class Employee(AccessControlledMixin, CompanyOwnedMixin, ActivableMixin, TimeSta
                 name="uniq_employee_pin_per_company",
                 condition=models.Q(pin__isnull=False) & ~models.Q(pin=""),
             ),
-            # مستخدم واحد ↔ موظف واحد على مستوى النظام كله (الأقوى والأقرب لمنطق Odoo)
-            models.UniqueConstraint(
-                fields=["user"],
-                name="hr_employee_user_uniq",
-                condition=models.Q(user__isnull=False),
-            ),
             models.UniqueConstraint(
                 fields=["work_contact"],
                 name="hr_employee_unique_work_contact",
@@ -836,149 +932,142 @@ class Employee(AccessControlledMixin, CompanyOwnedMixin, ActivableMixin, TimeSta
     def show_hr_icon_display(self):
         return self.active
 
-    # --------- تحقق ----------
+    # --------- Validation ----------
     def clean(self):
+        """
+        Business validations for Employee (Odoo-like).
+
+        Scope:
+        - Company consistency
+        - Managerial hierarchy rules
+        - Work contact sanity
+        - User ↔ Company consistency
+        """
+
         super().clean()
 
         # ------------------------------------------------------------
-        # 1) علاقات يجب أن تتبع نفس الشركة (Odoo-like company scope)
+        # 1) Company scope validation (Odoo-like)
+        #    All related records must belong to the same company
         # ------------------------------------------------------------
         for fname in ("department", "job", "work_location", "work_contact"):
             rel = getattr(self, fname, None)
             if rel and getattr(rel, "company_id", None) and rel.company_id != self.company_id:
-                raise ValidationError({fname: "Must match employee company."})
+                raise ValidationError({fname: "Must belong to the same company as the employee."})
 
-        if self.manager and getattr(self.manager, "company_id", None) != self.company_id:
-            raise ValidationError({"manager": "Manager must match employee company."})
+        if self.manager and self.manager.company_id != self.company_id:
+            raise ValidationError({"manager": "Manager must belong to the same company."})
 
-        if self.coach and getattr(self.coach, "company_id", None) != self.company_id:
-            raise ValidationError({"coach": "Coach must match employee company."})
+        if self.coach and self.coach.company_id != self.company_id:
+            raise ValidationError({"coach": "Coach must belong to the same company."})
 
         # ------------------------------------------------------------
-        # 2) منع self-reference (لا يمكن أن يكون الموظف مدير/مدرّب نفسه)
+        # 2) Manager department rule
+        #    Manager must be in the same department or a parent department
+        # ------------------------------------------------------------
+        if self.manager and self.department and self.manager.department:
+            mgr_dept = self.manager.department
+            emp_dept = self.department
+
+            # Same department is allowed
+            if mgr_dept.pk != emp_dept.pk:
+                parent = emp_dept.parent
+                while parent:
+                    if parent.pk == mgr_dept.pk:
+                        break
+                    parent = parent.parent
+                else:
+                    raise ValidationError({
+                        "manager": "Manager must belong to the same department or a parent department."
+                    })
+
+        # ------------------------------------------------------------
+        # 3) Prevent self-reference and cyclic managerial hierarchy
         # ------------------------------------------------------------
         if self.pk:
-            if self.manager_id and self.manager_id == self.pk:
+            if self.manager_id == self.pk:
                 raise ValidationError({"manager": "Employee cannot be their own manager."})
-            if self.coach_id and self.coach_id == self.pk:
+            if self.coach_id == self.pk:
                 raise ValidationError({"coach": "Employee cannot be their own coach."})
 
+        node = self.manager
+        while node:
+            if node.pk == self.pk:
+                raise ValidationError({"manager": "Cyclic managerial hierarchy is not allowed."})
+            node = node.manager
+
         # ------------------------------------------------------------
-        # 3) Work contact sanity (Odoo-like HR):
-        #    - must be a PERSON (not company) and type='contact'
-        #    - must belong to the same employee company
-        #    - if company.partner exists → work_contact.parent == company.partner
+        # 4) Work contact sanity (Odoo-like)
         # ------------------------------------------------------------
-        if self.work_contact_id:
+        if self.work_contact:
             wc = self.work_contact
 
-            # 3.a شخص وليس شركة + نوع contact
+            # Must be a person (not a company)
             if getattr(wc, "is_company", False):
-                raise ValidationError({"work_contact": "Work contact must be a PERSON (not a company)."})
-            # بعض قواعدك قد تسمح بنوع None، هنا نفرض contact صراحة
+                raise ValidationError({"work_contact": "Work contact must be a person, not a company."})
+
+            # Must be of type 'contact' (or None if your system allows it)
             if getattr(wc, "type", None) not in (None, "contact"):
                 raise ValidationError({"work_contact": "Work contact must be of type 'contact'."})
 
-            # 3.b نفس الشركة
-            if getattr(wc, "company_id", None) != self.company_id:
+            # Must belong to the same company
+            if wc.company_id != self.company_id:
                 raise ValidationError({"work_contact": "Work contact must belong to the employee company."})
 
-            # 3.c تبعية هرمية صارمة: إن كان لدى الشركة Partner مخصص → يجب أن يكون parent هو نفسه
-            company_partner_id = getattr(getattr(self, "company", None), "partner_id", None)
-            if company_partner_id:
-                if getattr(wc, "parent_id", None) != company_partner_id:
-                    raise ValidationError({"work_contact": "Work contact must be a child of the company's partner."})
-            else:
-                # إن لم يكن للشركة Partner، فنتأكد على الأقل أن parent (إن وُجد) يتبع نفس الشركة
-                parent_company_id = getattr(getattr(wc, "parent", None), "company_id", None)
-                if parent_company_id and parent_company_id != self.company_id:
-                    raise ValidationError({"work_contact": "Work contact's parent must belong to the employee company."})
-
+            # Must be a child of the company partner (if exists)
+            company_partner_id = getattr(self.company, "partner_id", None)
+            if company_partner_id and wc.parent_id != company_partner_id:
+                raise ValidationError({
+                    "work_contact": "Work contact must be a child of the company's partner."
+                })
 
         # ------------------------------------------------------------
-        # 4) User/company consistency (مطابق لمنطق Odoo)
-        #    - شركة المستخدم الرئيسية = شركة الموظف
-        #    - شركة الموظف ضمن شركات المستخدم المسموح بها
+        # 5) User ↔ Company consistency (Odoo-like)
+        #    NOTE:
+        #    User ↔ Employee uniqueness is enforced by OneToOneField
         # ------------------------------------------------------------
-        if self.user_id and self.company_id:
+        if self.user:
             u = self.user
-            # main company must match
-            if getattr(u, "company_id", None) != self.company_id:
-                raise ValidationError({"user": "User's main company must match the employee company."})
-            # allowed companies must include employee company
+
+            # User main company must match employee company
+            if u.company_id != self.company_id:
+                raise ValidationError({
+                    "user": "User's main company must match the employee company."
+                })
+
+            # Employee company must be in user's allowed companies
             if hasattr(u, "companies") and not u.companies.filter(pk=self.company_id).exists():
-                raise ValidationError({"user": "Add this company to the user's allowed companies first."})
+                raise ValidationError({
+                    "user": "Employee company must be added to the user's allowed companies."
+                })
 
         # ------------------------------------------------------------
-        # 5) منع تكرار نفس (user, company) مسبقًا (mirror DB constraint)
-        # ------------------------------------------------------------
-        if self.user_id and self.company_id:
-            qs = type(self).objects.filter(company_id=self.company_id, user_id=self.user_id)
-            if self.pk:
-                qs = qs.exclude(pk=self.pk)
-            if qs.exists():
-                raise ValidationError({"user": "This user already has an employee in this company."})
-
-        # ------------------------------------------------------------
-        # 5.b) منع ربط نفس المستخدم بأي موظف آخر على مستوى النظام كله
-        #      (يعكس قيد DB: UniqueConstraint على الحقل user)
-        # ------------------------------------------------------------
-        if self.user_id:
-            Emp = type(self)
-            mgr = getattr(Emp, "all_objects", Emp._base_manager)
-            qs_global = mgr.filter(user_id=self.user_id)
-            if self.pk:
-                qs_global = qs_global.exclude(pk=self.pk)
-            if qs_global.exists():
-                raise ValidationError({"user": _("This user is already linked to another employee.")})
-
-        # ------------------------------------------------------------
-        # 6) تنظيف الباركود (تنميط بسيط)
+        # 6) Barcode normalization
         # ------------------------------------------------------------
         if self.barcode is not None:
-            self.barcode = self.barcode.strip()
-            if self.barcode == "":
-                self.barcode = None
+            self.barcode = self.barcode.strip() or None
 
     # --------- حفظ ----------
     def save(self, *args, **kwargs):
-        # تحقّق شامل قبل الحفظ — يمسك تعارض user مبكرًا ويحوّله لValidationError بدلاً من IntegrityError
-        self.full_clean()
+        # تحقّق اختياري قبل الحفظ (افتراضيًا مُفعّل)
+        if kwargs.pop("validate", True):
+            self.full_clean()
+
         # عرض تاريخ الميلاد (للاستخدامات البسيطة)
         if self.birthday:
             self.birthday_public_display_string = self.birthday.strftime("%d %B")
+        else:
+            self.birthday_public_display_string = ""
 
         # كاش للمدرّب
         self.coach_id_cache = str(self.coach_id) if self.coach_id else ""
-
-
 
         # Normalize للباركود
         if self.barcode == "":
             self.barcode = None
 
-        # احتفظ بالقديم قبل الحفظ الفعلي (قد تكون _old_work_contact_id ملتقطة من signal، وإن لم تكن نلتقطها هنا)
-        old_wc_id = getattr(self, "_old_work_contact_id", None)
-        if self.pk and old_wc_id is None:
-            try:
-                old_wc_id = type(self).objects.only("work_contact_id").get(pk=self.pk).work_contact_id
-            except type(self).DoesNotExist:
-                old_wc_id = None
-
-        super().save(*args, **kwargs)
-
-        # بعد الحفظ: فعّل العلم على الشريك الحالي، وانزعه عن القديم إذا لم يعد مستخدماً
-        from django.apps import apps
-        Partner = apps.get_model("base", "Partner")
-        Emp = type(self)
-
-        if self.work_contact_id:
-            Partner.objects.filter(pk=self.work_contact_id, employee=False).update(employee=True)
-
-        if old_wc_id and old_wc_id != self.work_contact_id:
-            still_used = Emp.objects.filter(work_contact_id=old_wc_id).exists()
-            if not still_used:
-                Partner.objects.filter(pk=old_wc_id, employee=True).update(employee=False)
+        # ⚠️ الحفظ الفعلي
+        return super().save(*args, **kwargs)
 
     # --------- مساعدات ----------
     @property
@@ -1035,6 +1124,9 @@ class Employee(AccessControlledMixin, CompanyOwnedMixin, ActivableMixin, TimeSta
 # -------------------------------------------------------------
 def get_root_departments(company_id):
     """Return root divisions for the company."""
+    if not company_id:
+        return Department.objects.none()
+
     return Department.objects.filter(
         company_id=company_id,
         parent__isnull=True,

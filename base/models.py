@@ -30,7 +30,8 @@ class CompanyScopeQuerySet(models.QuerySet):
         from base.company_context import get_allowed_company_ids
         active_ids = get_allowed_company_ids()
         if not active_ids:
-            return self.none()
+            # خارج request / بدون context → لا تطبّق أي scope
+            return self
         # اسم حقل الـFK في Django يكون "company" (والعمود DB هو company_id)
         has_company_field = any(getattr(f, "name", None) == "company" for f in self.model._meta.get_fields())
         if has_company_field:
@@ -251,7 +252,12 @@ class Company(UserStampedMixin,TimeStampedMixin, ActivableMixin):
 
     name = models.CharField(max_length=255, unique=True)
     parent = models.ForeignKey(
-        "self", null=True, blank=True, related_name="children", on_delete=models.PROTECT
+        "self",
+        null=True,
+        blank=True,
+        related_name="children",
+        on_delete=models.PROTECT,
+        help_text="Managed automatically via Partner hierarchy."
     )
     sequence = models.PositiveIntegerField(default=10, db_index=True)
     parent_path = models.CharField(max_length=255, blank=True, db_index=True)
@@ -344,21 +350,26 @@ class Company(UserStampedMixin,TimeStampedMixin, ActivableMixin):
             seen.add(node.pk)
             node = node.parent
 
-        # 3) بطاقة الشريك يجب أن تمثل شركة
+        # 1) إن وُجد Partner مرتبط، يجب أن يمثل شركة
         if self.partner_id and getattr(self.partner, "is_company", None) is not True:
-            raise ValidationError({"partner": "Linked partner must be of type 'company'."})
+            raise ValidationError({
+                "partner": "Linked partner must represent a company."
+            })
 
-        # 4) مواءمة الشجرة بين Company و Partner (تحقق منطقي فقط)
-        if self.parent_id and self.partner_id:
-            parent_partner = getattr(self.parent, "partner", None)
-            if parent_partner and self.partner.parent_id and self.partner.parent_id != parent_partner.id:
-                raise ValidationError({
-                    "partner": "Partner's parent must match parent company's partner."
-                })
+        # 2) منع ربط Partner واحد بأكثر من Company
+        if (
+            self.partner_id
+            and getattr(self.partner, "company_id", None)
+            and self.partner.company_id != self.id
+        ):
+            raise ValidationError({
+                "partner": "This partner is already linked to another company."
+            })
 
-        # 5) تثبيت التطابق بين Partner.company وهذه الشركة
-        if self.partner_id and getattr(self.partner, "company_id", None) and self.partner.company_id != self.id:
-            raise ValidationError({"partner": "Partner.company must match this Company."})
+        # ⚠️ ملاحظة مهمة (قرار معماري):
+        # - لا يتم هنا التحقق من تطابق Company.parent مع Partner.parent
+        # - مصدر الحقيقة الوحيد للهيكلية هو Partner
+        # - أي عدم اتساق يتم تصحيحه تلقائيًا عبر signals بعد الحفظ
 
     def save(self, *args, **kwargs):
         """

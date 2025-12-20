@@ -396,6 +396,11 @@ class Task( AccessControlledMixin,TimeStampedMixin, UserStampedMixin, ActivableM
 
     # -----------------------------------------
     # الوقت والتقديرات
+    # تقديرات الوقت تُخزّن بالدقائق لأنها أفضل وحدة أساسية للحساب:
+    # - تسهّل حساب النسبة (actual / estimated)
+    # - مناسبة لجمع ومقارنة المهام عبر الأيام والأسابيع
+    # - شائعة في أنظمة الأداء و-SLA و-WFM
+    # المهام الطويلة لا تتعارض مع هذا التصميم؛ يمكن تحويل الدقائق لاحقاً إلى ساعات/أيام عند العرض.
     # -----------------------------------------
     estimated_minutes = models.PositiveIntegerField(default=0)
     actual_minutes    = models.PositiveIntegerField(default=0)
@@ -1865,8 +1870,14 @@ class EvaluationApprovalStep(CompanyOwnedMixin, ActivableMixin, TimeStampedMixin
 class EvaluationTemplate(AccessControlledMixin, TimeStampedMixin, UserStampedMixin, ActivableMixin):
     """
     قالب تقييم رسمي (مثال: Call Center Q1 Form) يُستَخدم لبناء تقييمات لموظفين.
+    يدعم:
+    - ربطه بنوع تقييم EvaluationType
+    - رقم إصدار (version) لتمييز النسخ عبر السنوات/الدورات
+    - حالة تجميد (is_locked) عند استخدامه فعلياً في Evaluations
     """
+
     company = models.ForeignKey("base.Company", on_delete=models.PROTECT, related_name="evaluation_templates")
+
     evaluation_type = models.ForeignKey(
         "performance.EvaluationType",
         on_delete=models.PROTECT,
@@ -1874,13 +1885,68 @@ class EvaluationTemplate(AccessControlledMixin, TimeStampedMixin, UserStampedMix
         null=True,
         blank=True,
     )
+
     name        = models.CharField(max_length=255)
     description = models.TextField(blank=True)
     active      = models.BooleanField(default=True)
 
+    # رقم الإصدار: يساعد على تمييز النسخ المختلفة من نفس القالب (مثلاً سنوي 2024، سنوي 2025)
+    version = models.PositiveIntegerField(
+        default=1,
+        help_text="رقم إصدار القالب لتمييز النسخ المختلفة عبر السنوات/الدورات."
+    )
+
+    # تجميد القالب: إذا أصبح مستخدماً في Evaluations فعلية نمنع تعديل البنية/المعاملات
+    is_locked = models.BooleanField(
+        default=False,
+        help_text=(
+            "إذا كان القالب مستخدماً في تقييمات فعلية يتم تجميده، "
+            "ولا يُسمح بتعديل معاملاته أو هيكله الأساسي للحفاظ على عدالة التقييمات التاريخية."
+        ),
+    )
+
     @property
     def total_weight_pct(self) -> int:
+        """
+        مجموع أوزان جميع EvaluationParameter المرتبطة بهذا القالب.
+        نستخدمه لضمان أن توزيع الأوزان = 100% لضمان عدالة ووضوح النتيجة النهائية.
+        """
         return sum(p.weight_pct or 0 for p in self.parameters.all())
+
+    def clean(self):
+        """
+        التحقق من:
+        1) أن مجموع الأوزان داخل القالب = 100% (إذا كان هناك Parameters)
+           - إذا كان > 100% قد نحصل على درجات نهائية تتجاوز 100%.
+           - إذا كان < 100% لن يستطيع الموظف الوصول إلى 100% حتى لو أخذ أعلى درجة في كل بند.
+        2) منع فكّ تجميد قالب مستخدم في Evaluations (لا يُسمح بتحويل is_locked من True إلى False إذا كان هناك تقييمات).
+        """
+        super().clean()
+
+        # 1) التحقق من مجموع الأوزان
+        total = self.total_weight_pct
+        if self.parameters.exists() and total != 100:
+            raise ValidationError(
+                {
+                    "__all__": (
+                        f"Total weight of parameters must be 100%, got {total}%. "
+                        "يرجى تعديل أوزان EvaluationParameter داخل هذا القالب ليكون مجموعها 100%."
+                    )
+                }
+            )
+
+        # 2) منع فكّ تجميد قالب تم استخدامه فعلياً
+        if self.pk and not self.is_locked:
+            # إذا كانت هناك Evaluations مرتبطة بهذا القالب، لا نسمح بإلغاء التجميد
+            if self.evaluations.exists():
+                raise ValidationError(
+                    {
+                        "is_locked": (
+                            "لا يمكن إلغاء تجميد قالب تم استخدامه في Evaluations فعلية. "
+                            "فضلاً أنشئ إصداراً جديداً (version جديد) إذا أردت تغيير النموذج."
+                        )
+                    }
+                )
 
     objects = ACLManager()
     acl_objects = ScopedACLManager()
@@ -1895,7 +1961,8 @@ class EvaluationTemplate(AccessControlledMixin, TimeStampedMixin, UserStampedMix
         ]
 
     def __str__(self):
-        return self.name
+        # نضمّن رقم الإصدار في الاسم لسهولة التمييز في واجهة الإدارة
+        return f"{self.name} (v{self.version})"
 
 
 class EvaluationParameter(AccessControlledMixin, TimeStampedMixin, UserStampedMixin):
@@ -2306,6 +2373,7 @@ class Evaluation(AccessControlledMixin, CompanyOwnedMixin, TimeStampedMixin, Use
                 raise ValidationError({
                     "template": "Selected EvaluationTemplate does not match the chosen EvaluationType."
                 })
+
 
     # ============================================================
     #  Scoring Engine (unchanged)
