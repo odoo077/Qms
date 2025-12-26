@@ -1,0 +1,35 @@
+<div class="card bg-base-100 shadow-sm">
+  <div class="card-body">
+
+    <h3 class="font-semibold text-lg mb-4">Sub-Departments</h3>
+
+    {% if children %}
+      <div class="space-y-2">
+        {% for dept in children %}
+          <div class="flex items-center justify-between
+                      px-4 py-3 rounded-lg
+                      bg-base-200 hover:bg-base-300">
+
+            <div class="flex items-center gap-3">
+              <span class="font-medium">{{ dept.name }}</span>
+              <span class="badge badge-ghost badge-sm">
+                {{ dept.employee_count }} employees
+              </span>
+            </div>
+
+            <a href="{% url 'hr:department_detail' dept.pk %}"
+               class="btn btn-xs btn-outline">
+              View
+            </a>
+
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="text-sm opacity-60">
+        No sub-departments.
+      </p>
+    {% endif %}
+
+  </div>
+</div>

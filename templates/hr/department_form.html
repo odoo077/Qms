@@ -2,45 +2,36 @@
 {% load static %}
 
 {% block title %}
-{% if object %}
-Edit Department · {{ object.name }}
-{% else %}
-Create Department
-{% endif %}
+  {% if object %}
+    Edit Department · {{ object.name }}
+  {% else %}
+    Create Department
+  {% endif %}
 {% endblock %}
 
 {% block content %}
 
-<div class="max-w-4xl mx-auto space-y-6">
+<div class="max-w-4xl mx-auto space-y-8">
 
-  <!-- ========================= -->
+  <!-- ================================================= -->
   <!-- Header -->
-  <!-- ========================= -->
-  <div class="flex items-center justify-between">
+  <!-- ================================================= -->
+  <div class="flex items-start justify-between">
     <div>
       <h1 class="text-2xl font-semibold">
-        {% if object %}
-          Edit Department
-        {% else %}
-          Create Department
-        {% endif %}
+        {% if object %} Edit Department {% else %} Create Department {% endif %}
       </h1>
-      <p class="text-sm opacity-70">
-        Manage department structure and hierarchy
-      </p>
+      <p class="text-sm opacity-70">Manage department structure and hierarchy</p>
     </div>
 
-    <a href="{% url 'hr:department_list' %}"
-       class="btn btn-sm btn-ghost">
-      Back
-    </a>
+    <a href="{% url 'hr:department_list' %}" class="btn btn-sm btn-ghost">Back</a>
   </div>
 
-  <!-- ========================= -->
+  <!-- ================================================= -->
   <!-- Global Form Errors -->
-  <!-- ========================= -->
+  <!-- ================================================= -->
   {% if form.non_field_errors %}
-    <div class="alert alert-error">
+    <div class="alert alert-error shadow-sm">
       <ul class="list-disc list-inside text-sm">
         {% for err in form.non_field_errors %}
           <li>{{ err }}</li>
@@ -49,64 +40,48 @@ Create Department
     </div>
   {% endif %}
 
-  <!-- ========================= -->
-  <!-- Form -->
-  <!-- ========================= -->
   <form method="post" class="space-y-6">
     {% csrf_token %}
 
-    <div class="card">
+    {# IMPORTANT: include hidden fields (e.g., color) #}
+    {% for hidden in form.hidden_fields %}
+      {{ hidden }}
+    {% endfor %}
+
+    <div class="card bg-base-100 shadow-sm">
       <div class="card-body grid grid-cols-1 md:grid-cols-2 gap-6">
 
         <!-- Name -->
-        <div>
+        <div class="md:col-span-2">
           <label class="label">
-            <span class="label-text">Name</span>
+            <span class="label-text font-medium">Department Name</span>
           </label>
           {{ form.name }}
           {% if form.name.errors %}
-            <p class="text-error text-sm mt-1">
-              {{ form.name.errors.0 }}
-            </p>
-          {% endif %}
-        </div>
-
-        <!-- Company -->
-        <div>
-          <label class="label">
-            <span class="label-text">Company</span>
-          </label>
-          {{ form.company }}
-          {% if form.company.errors %}
-            <p class="text-error text-sm mt-1">
-              {{ form.company.errors.0 }}
-            </p>
+            <p class="text-error text-sm mt-1">{{ form.name.errors.0 }}</p>
           {% endif %}
         </div>
 
         <!-- Parent -->
         <div>
           <label class="label">
-            <span class="label-text">Parent Department</span>
+            <span class="label-text font-medium">Parent Department</span>
           </label>
           {{ form.parent }}
           {% if form.parent.errors %}
-            <p class="text-error text-sm mt-1">
-              {{ form.parent.errors.0 }}
-            </p>
+            <p class="text-error text-sm mt-1">{{ form.parent.errors.0 }}</p>
           {% endif %}
+          <p class="text-xs opacity-60 mt-1">Leave empty if this is a top-level department</p>
         </div>
 
         <!-- Manager -->
         <div>
           <label class="label">
-            <span class="label-text">Manager</span>
+            <span class="label-text font-medium">Manager</span>
           </label>
           {{ form.manager }}
           {% if form.manager.errors %}
-            <p class="text-error text-sm mt-1">
-              {{ form.manager.errors.0 }}
-            </p>
+            <p class="text-error text-sm mt-1">{{ form.manager.errors.0 }}</p>
           {% endif %}
         </div>
 
@@ -114,33 +89,41 @@ Create Department
         <div class="md:col-span-2">
           <label class="label cursor-pointer justify-start gap-3">
             {{ form.active }}
-            <span class="label-text">Active</span>
+            <span class="label-text font-medium">Active</span>
           </label>
           {% if form.active.errors %}
-            <p class="text-error text-sm mt-1">
-              {{ form.active.errors.0 }}
-            </p>
+            <p class="text-error text-sm mt-1">{{ form.active.errors.0 }}</p>
           {% endif %}
         </div>
 
       </div>
     </div>
 
-    <!-- ========================= -->
-    <!-- Actions -->
-    <!-- ========================= -->
-    <div class="flex justify-end gap-3">
-      <a href="{% url 'hr:department_list' %}"
-         class="btn btn-ghost">
-        Cancel
-      </a>
+    <!-- Advanced (Notes) -->
+    <div class="collapse collapse-arrow bg-base-100 shadow-sm">
+      <input type="checkbox" />
+      <div class="collapse-title font-medium">
+        Advanced
+        <span class="text-xs opacity-60 ml-2">optional</span>
+      </div>
+      <div class="collapse-content space-y-4">
+        <div>
+          <label class="label">
+            <span class="label-text font-medium">Notes</span>
+          </label>
+          {{ form.note }}
+          {% if form.note.errors %}
+            <p class="text-error text-sm mt-1">{{ form.note.errors.0 }}</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
 
+    <!-- Actions -->
+    <div class="flex justify-end gap-3">
+      <a href="{% url 'hr:department_list' %}" class="btn btn-ghost">Cancel</a>
       <button type="submit" class="btn btn-primary">
-        {% if object %}
-          Save Changes
-        {% else %}
-          Create Department
-        {% endif %}
+        {% if object %}Save Changes{% else %}Create Department{% endif %}
       </button>
     </div>
 

@@ -1,0 +1,37 @@
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+  <div class="card bg-base-100 shadow-sm">
+    <div class="card-body">
+      <h3 class="font-semibold mb-4">General Information</h3>
+
+      <div class="space-y-2 text-sm">
+        <div><span class="opacity-60">Company:</span> {{ object.company }}</div>
+
+        <div>
+          <span class="opacity-60">Level:</span>
+          <span class="badge badge-outline">{{ object.level|title }}</span>
+        </div>
+
+        <div>
+          <span class="opacity-60">Manager:</span>
+          {{ object.manager|default:"—" }}
+        </div>
+
+        <div>
+          <span class="opacity-60">Employees:</span>
+          {{ object.employee_count }}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card bg-base-100 shadow-sm">
+    <div class="card-body">
+      <h3 class="font-semibold mb-4">Hierarchy</h3>
+      <p class="text-sm opacity-70">
+        {{ object.complete_name }}
+      </p>
+    </div>
+  </div>
+
+</div>

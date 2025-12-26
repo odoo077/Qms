@@ -110,13 +110,13 @@ class Department(AccessControlledMixin,CompanyOwnedMixin, ActivableMixin, TimeSt
     @property
     def level(self):
         """
-        Computes department level based on parent depth.
-        Used for UI and org-tree styling.
+        Hierarchical level used for UI rendering.
         """
-        if not self.parent:
+        depth = self.parent_path.count("/") - 1 if self.parent_path else 0
+
+        if depth <= 0:
             return "division"
-        depth = self.parent_path.count("/") - 1
-        if depth == 1:
+        elif depth == 1:
             return "department"
         elif depth == 2:
             return "section"
@@ -265,9 +265,9 @@ class Department(AccessControlledMixin,CompanyOwnedMixin, ActivableMixin, TimeSt
         # 1) Parent department must belong to the same company
         # --------------------------------------------------
         if self.parent and self.parent.company_id != self.company_id:
-            raise ValidationError({
-                "company": "Parent department must belong to the same company."
-            })
+            raise ValidationError(
+                "Parent department must belong to the same company."
+            )
 
         # --------------------------------------------------
         # 2) Prevent self-parent and cyclic hierarchy
@@ -1134,15 +1134,25 @@ def get_root_departments(company_id):
     ).order_by("name")
 
 
-def build_department_tree(nodes):
+def build_department_tree(nodes, depth=0):
     """
-    Convert queryset of root departments into full tree data structure.
-    Used in department_list template.
+    Build a UI-ready department tree.
+    Each node carries presentation metadata.
     """
-    def build(node):
-        return {
+
+    tree = []
+
+    for node in nodes:
+        children = build_department_tree(node.children_list, depth + 1)
+
+        tree.append({
             "id": node.id,
             "obj": node,
-            "children": [build(child) for child in node.children_list],
-        }
-    return [build(n) for n in nodes]
+            "depth": depth,                     # مهم جدًا للـ UI
+            "level": node.level,                # division / department / section / team
+            "has_children": bool(children),
+            "children": children,
+        })
+
+    return tree
+

@@ -1,111 +1,44 @@
 {% extends "base.html" %}
-{% load static %}
 
 {% block title %}Departments{% endblock %}
-
-{% block page_title %}
-Departments
-{% endblock %}
+{% block page_title %}Departments{% endblock %}
 
 {% block page_actions %}
-  {% if can_add_department %}
-    <a href="{% url 'hr:department_create' %}"
-       class="btn btn-primary btn-sm gap-2">
-      <span class="text-lg leading-none">+</span>
-      <span>New Department</span>
+  {% if can_add %}
+    <a href="{% url 'hr:department_create' %}" class="btn btn-primary btn-sm">
+      + New Department
     </a>
   {% endif %}
 {% endblock %}
 
 {% block content %}
 
-<div class="card">
-  <div class="card-body p-0 overflow-x-auto">
+<div class="space-y-8">
 
-    <table class="table table-zebra w-full">
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Company</th>
-          <th>Parent</th>
-          <th>Manager</th>
-          <th>Status</th>
-          <th class="text-right">Actions</th>
-        </tr>
-      </thead>
+  {% for company, tree in departments_by_company.items %}
 
-      <tbody>
-        {% for dept in object_list %}
-          <tr>
+    <div class="card bg-base-100 shadow-sm">
+      <div class="card-body">
 
-            <!-- Name -->
-            <td class="font-medium">
-              {{ dept.complete_name|default:dept.name }}
-            </td>
+        <h2 class="text-xl font-semibold mb-6">
+          {{ company.name }}
+        </h2>
 
-            <!-- Company -->
-            <td>
-              {{ dept.company }}
-            </td>
+        {% if tree %}
+          <div class="space-y-4">
+            {% for node in tree %}
+              {% include "hr/partials/department_card.html" with node=node %}
+            {% endfor %}
+          </div>
+        {% else %}
+          <p class="opacity-60 text-sm">No departments found.</p>
+        {% endif %}
 
-            <!-- Parent -->
-            <td>
-              {% if dept.parent %}
-                {{ dept.parent.name }}
-              {% else %}
-                <span class="opacity-60">—</span>
-              {% endif %}
-            </td>
+      </div>
+    </div>
 
-            <!-- Manager -->
-            <td>
-              {% if dept.manager %}
-                {{ dept.manager }}
-              {% else %}
-                <span class="opacity-60">—</span>
-              {% endif %}
-            </td>
+  {% endfor %}
 
-            <!-- Status -->
-            <td>
-              {% if dept.active %}
-                <span class="badge badge-success badge-sm">Active</span>
-              {% else %}
-                <span class="badge badge-ghost badge-sm">Archived</span>
-              {% endif %}
-            </td>
-
-            <!-- Actions -->
-            <td class="text-right">
-              <div class="flex justify-end gap-2">
-
-                <a href="{% url 'hr:department_detail' dept.pk %}"
-                   class="btn btn-xs btn-outline">
-                  View
-                </a>
-
-                {% if dept.id in department_change_ids %}
-                  <a href="{% url 'hr:department_edit' dept.pk %}"
-                     class="btn btn-xs btn-ghost">
-                    Edit
-                  </a>
-                {% endif %}
-
-              </div>
-            </td>
-
-          </tr>
-        {% empty %}
-          <tr>
-            <td colspan="6" class="text-center py-6 opacity-60">
-              No departments found.
-            </td>
-          </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-
-  </div>
 </div>
 
 {% endblock %}
