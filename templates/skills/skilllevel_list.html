@@ -1,64 +1,124 @@
 {% extends "base.html" %}
-{% load skills_permissions  %}
 
-{% block title %}Skill Levels{% endblock %}
-{% block page_title %}Skill Levels{% endblock %}
-{% block header_title %}Skill Levels{% endblock %}
-{% block header_subtitle %}Manage all skill levels{% endblock %}
-
-{% block page_actions %}
-  {% can_add_skilllevel user as can_add %}
-  {% if can_add %}
-    <a href="{% url 'skills:skilllevel_create' %}" class="btn btn-primary btn-sm">
-      New Skill Level
-    </a>
-  {% endif %}
+{% block title %}
+Skill Levels
 {% endblock %}
 
 {% block content %}
-<div class="card bg-base-100 shadow">
-  <div class="card-body">
+<div class="w-full px-6 py-6 space-y-6">
 
-    <table class="table table-zebra w-full text-sm">
-      <thead>
-        <tr>
-          <th>Skill Type</th>
-          <th>Name</th>
-          <th>Progress</th>
-          <th class="text-right">Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for obj in object_list %}
-        <tr>
-          <td>{{ obj.skill_type.name }}</td>
-          <td>{{ obj.name }}</td>
-          <td>{{ obj.level_progress }}</td>
+    <!-- ===================================================== -->
+    <!-- Header -->
+    <!-- ===================================================== -->
+    <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
 
-          <td class="text-right space-x-2">
-            {% can_edit_skilllevel user obj as can_edit %}
-            {% if can_edit %}
-              <a href="{% url 'skills:skilllevel_update' obj.id %}"
-                 class="btn btn-outline btn-xs">Edit</a>
-            {% endif %}
+        <div>
+            <h1 class="text-3xl font-bold">Skill Levels</h1>
+            <p class="text-sm opacity-70 mt-1">
+                Define progression levels for each skill type
+            </p>
+        </div>
 
-            {% can_delete_skilllevel user obj as can_del %}
-            {% if can_del %}
-              <a href="{% url 'skills:skilllevel_delete' obj.id %}"
-                 class="btn btn-error btn-xs">Delete</a>
-            {% endif %}
-          </td>
-        </tr>
-        {% empty %}
-        <tr>
-          <td colspan="4" class="text-center opacity-70">No records found</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+        <div>
+            <a href="{% url 'skills:skilllevel_create' %}"
+               class="btn btn-primary">
+                + New Skill Level
+            </a>
+        </div>
 
+    </div>
+
+    <!-- ===================================================== -->
+    <!-- Table Card -->
+    <!-- ===================================================== -->
+    <div class="card bg-base-100 shadow w-full">
+
+        <div class="card-body p-0">
+
+            <div class="overflow-x-auto">
+                <table class="table w-full">
+                    <thead>
+                        <tr class="bg-base-200 text-sm">
+                            <th>Skill Type</th>
+                            <th>Level Name</th>
+                            <th class="w-64">Progress</th>
+                            <th class="text-right w-40">Actions</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for obj in object_list %}
+                        <tr class="hover:bg-base-200 transition">
+
+                            <td class="font-medium">
+                                {{ obj.skill_type.name }}
+                            </td>
+
+                            <td>
+                                {{ obj.name }}
+                            </td>
+
+                            <td>
+                                <div class="flex items-center gap-3">
+                                    <progress class="progress progress-primary w-full"
+                                              value="{{ obj.level_progress }}"
+                                              max="100">
+                                    </progress>
+                                    <span class="text-xs opacity-70">
+                                        {{ obj.level_progress }}%
+                                    </span>
+                                </div>
+                            </td>
+
+                            <td class="text-right">
+                                <div class="flex justify-end gap-2">
+
+                                    <a href="{% url 'skills:skilllevel_update' obj.id %}"
+                                       class="btn btn-xs btn-outline">
+                                        Edit
+                                    </a>
+
+                                    <a href="{% url 'skills:skilllevel_delete' obj.id %}"
+                                       class="btn btn-xs btn-error btn-outline">
+                                        Delete
+                                    </a>
+
+                                </div>
+                            </td>
+
+                        </tr>
+
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="text-center py-16">
+
+                                <p class="text-lg font-medium opacity-70">
+                                    No Skill Levels Found
+                                </p>
+
+                                <p class="text-sm opacity-50 mt-1">
+                                    Skill levels define employee proficiency progression.
+                                </p>
+
+                                <a href="{% url 'skills:skilllevel_create' %}"
+                                   class="btn btn-primary btn-sm mt-4">
+                                    + Create First Skill Level
+                                </a>
+
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- ===================================================== -->
+    <!-- Pagination -->
+    <!-- ===================================================== -->
     {% include "partials/paginator.html" %}
 
-  </div>
 </div>
 {% endblock %}

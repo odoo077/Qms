@@ -1,71 +1,169 @@
 {% extends "base.html" %}
-{% load widget_tweaks %}
 
 {% block title %}
-    {% if form.instance.pk %}Edit Employee{% else %}New Employee{% endif %}
+{% if form.instance.pk %}
+Edit Employee · {{ form.instance.name }}
+{% else %}
+New Employee
+{% endif %}
 {% endblock %}
 
 {% block content %}
-<div class="max-w-4xl mx-auto p-6">
+<div class="max-w-5xl mx-auto px-6 py-6 space-y-6">
 
-    <h1 class="text-3xl font-bold mb-6">
-        {% if form.instance.pk %}
-            Edit: {{ form.instance.display_name }}
-        {% else %}
-            New Employee
-        {% endif %}
-    </h1>
-
-    <form method="post">
-        {% csrf_token %}
-
-        <div class="card bg-base-100 shadow p-6 space-y-4">
-
-            <div>
-                <label class="label font-medium">First Name</label>
-                {{ form.first_name|add_class:"input input-bordered w-full" }}
-            </div>
-
-            <div>
-                <label class="label font-medium">Last Name</label>
-                {{ form.last_name|add_class:"input input-bordered w-full" }}
-            </div>
-
-            <div>
-                <label class="label font-medium">Email</label>
-                {{ form.email|add_class:"input input-bordered w-full" }}
-            </div>
-
-            <div>
-                <label class="label font-medium">Phone</label>
-                {{ form.phone|add_class:"input input-bordered w-full" }}
-            </div>
-
-            <div>
-                <label class="label font-medium">Department</label>
-                {{ form.department|add_class:"select select-bordered w-full" }}
-            </div>
-
-            <div>
-                <label class="label font-medium">Job Title</label>
-                {{ form.job|add_class:"select select-bordered w-full" }}
-            </div>
-
-            <div>
-                <label class="label font-medium">Manager</label>
-                {{ form.manager|add_class:"select select-bordered w-full" }}
-            </div>
-
-            <div>
-                <label class="label font-medium">Company</label>
-                {{ form.company|add_class:"select select-bordered w-full" }}
-            </div>
-
+    <!-- ===================================================== -->
+    <!-- Header -->
+    <!-- ===================================================== -->
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-3xl font-bold">
+                {% if form.instance.pk %}
+                    Edit Employee
+                {% else %}
+                    Create New Employee
+                {% endif %}
+            </h1>
+            <p class="text-sm opacity-70 mt-1">
+                {% if form.instance.pk %}
+                    Update employee information
+                {% else %}
+                    Fill in the employee details
+                {% endif %}
+            </p>
         </div>
 
-        <div class="mt-4 flex gap-3">
-            <button class="btn btn-primary">Save</button>
-            <a href="{% url 'hr:employee_list' %}" class="btn btn-ghost">Cancel</a>
+        <a href="{% url 'hr:employee_list' %}"
+           class="btn btn-ghost btn-sm">
+            Cancel
+        </a>
+    </div>
+
+    <!-- ===================================================== -->
+    <!-- Form -->
+    <!-- ===================================================== -->
+    <form method="post" novalidate class="space-y-8">
+        {% csrf_token %}
+
+        <!-- ================================================= -->
+        <!-- Status -->
+        <!-- ================================================= -->
+        <div class="card bg-base-100 shadow p-6">
+            <div class="flex items-center justify-between">
+                <h2 class="font-semibold text-lg">Status</h2>
+                {{ form.active }}
+            </div>
+            {% if form.active.errors %}
+                <p class="text-error text-sm mt-2">{{ form.active.errors }}</p>
+            {% endif %}
+        </div>
+
+        <!-- ================================================= -->
+        <!-- Basic Information -->
+        <!-- ================================================= -->
+        <div class="card bg-base-100 shadow p-6 space-y-4">
+            <h2 class="font-semibold text-lg">Basic Information</h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="label">Company</label>
+                    {{ form.company }}
+                    {{ form.company.errors }}
+                </div>
+
+                <div>
+                    <label class="label">Employee Name</label>
+                    {{ form.name }}
+                    {{ form.name.errors }}
+                </div>
+
+                <div>
+                    <label class="label">User</label>
+                    {{ form.user }}
+                    {{ form.user.errors }}
+                </div>
+
+                <div>
+                    <label class="label">Department</label>
+                    {{ form.department }}
+                    {{ form.department.errors }}
+                </div>
+
+                <div>
+                    <label class="label">Job Title</label>
+                    {{ form.job }}
+                    {{ form.job.errors }}
+                </div>
+
+                <div>
+                    <label class="label">Manager</label>
+                    {{ form.manager }}
+                    {{ form.manager.errors }}
+                </div>
+
+                <div>
+                    <label class="label">Coach</label>
+                    {{ form.coach }}
+                    {{ form.coach.errors }}
+                </div>
+
+                <div>
+                    <label class="label">Work Location</label>
+                    {{ form.work_location }}
+                    {{ form.work_location.errors }}
+                </div>
+            </div>
+        </div>
+
+        <!-- ================================================= -->
+        <!-- Classification -->
+        <!-- ================================================= -->
+        <div class="card bg-base-100 shadow p-6 space-y-4">
+            <h2 class="font-semibold text-lg">Classification</h2>
+
+            <div>
+                <label class="label">Categories</label>
+                {{ form.categories }}
+                {{ form.categories.errors }}
+            </div>
+        </div>
+
+        <!-- ================================================= -->
+        <!-- Identifiers -->
+        <!-- ================================================= -->
+        <div class="card bg-base-100 shadow p-6 space-y-4">
+            <h2 class="font-semibold text-lg">Identifiers</h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="label">Barcode</label>
+                    {{ form.barcode }}
+                    {{ form.barcode.errors }}
+                </div>
+
+                <div>
+                    <label class="label">PIN</label>
+                    {{ form.pin }}
+                    {{ form.pin.errors }}
+                </div>
+            </div>
+        </div>
+
+        <!-- ================================================= -->
+        <!-- Actions -->
+        <!-- ================================================= -->
+        <div class="flex items-center justify-end gap-3">
+            <a href="{% url 'hr:employee_list' %}"
+               class="btn btn-ghost">
+                Cancel
+            </a>
+
+            <button type="submit" class="btn btn-primary">
+                {% if form.instance.pk %}
+                    Save Changes
+                {% else %}
+                    Create Employee
+                {% endif %}
+            </button>
         </div>
 
     </form>

@@ -1,82 +1,73 @@
 {% extends "base.html" %}
 
-{% block title %}Job: {{ job.name }}{% endblock %}
-
 {% block content %}
-<div class="max-w-6xl mx-auto p-6">
+<div class="max-w-7xl mx-auto space-y-8">
 
-    <!-- BREADCRUMB -->
-    <div class="text-sm breadcrumbs mb-4">
-        <ul>
-            <li><a href="{% url 'hr:job_list' %}">Job Positions</a></li>
-            <li>{{ job.name }}</li>
-        </ul>
+  <!-- Header -->
+  <div class="flex justify-between items-start">
+    <div>
+      <h1 class="text-2xl font-semibold">{{ object.name }}</h1>
+      <p class="text-sm opacity-60">
+        {{ object.employee_count }} Employees
+      </p>
     </div>
 
-    <!-- HEADER -->
-    <div class="flex justify-between items-center mb-6">
-        <div>
-            <h1 class="text-3xl font-bold">{{ job.name }}</h1>
-            <p class="opacity-70 text-sm">
-                {{ job.department.complete_name }} — {{ job.company.name }}
-            </p>
+    {% if can_edit %}
+      <a href="{% url 'hr:job_edit' object.pk %}"
+         class="btn btn-sm btn-primary">
+        Edit Job
+      </a>
+    {% endif %}
+  </div>
+
+  <!-- Employees -->
+  <div class="card bg-base-100 shadow-sm">
+    <div class="card-body">
+
+      <h2 class="text-lg font-semibold mb-4">
+        Employees
+      </h2>
+
+      {% if employees %}
+        <div class="overflow-x-auto">
+          <table class="table table-sm">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Department</th>
+                <th>Manager</th>
+                {% if can_manage_employees %}
+                  <th></th>
+                {% endif %}
+              </tr>
+            </thead>
+            <tbody>
+              {% for emp in employees %}
+                <tr>
+                  <td>{{ emp.name }}</td>
+                  <td>{{ emp.department }}</td>
+                  <td>{{ emp.manager|default:"—" }}</td>
+                  {% if can_manage_employees %}
+                    <td class="text-right">
+                      <a href="{% url 'hr:employee_change_job' emp.pk %}"
+                         class="btn btn-xs btn-outline">
+                        Change Job
+                      </a>
+                    </td>
+                  {% endif %}
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
         </div>
-
-        <a href="{{ job.get_edit_url }}" class="btn btn-primary">
-            Edit Job
-        </a>
-    </div>
-
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-        <!-- INFO CARD -->
-        <div class="col-span-1">
-            <div class="card bg-base-100 shadow p-6 space-y-4">
-                <h3 class="font-semibold text-lg mb-2">Job Information</h3>
-
-                <p>
-                    <span class="opacity-70">Job Title:</span><br>
-                    {{ job.name }}
-                </p>
-
-                <p>
-                    <span class="opacity-70">Department:</span><br>
-                    <a href="{{ job.department.get_absolute_url }}" class="text-primary">
-                        {{ job.department.complete_name }}
-                    </a>
-                </p>
-
-                <p>
-                    <span class="opacity-70">Company:</span><br>
-                    {{ job.company.name }}
-                </p>
-            </div>
-        </div>
-
-        <!-- EMPLOYEES WITH THIS JOB -->
-        <div class="col-span-2">
-            <div class="card bg-base-100 shadow p-6">
-                <h3 class="text-xl font-semibold mb-4">Employees in this Job</h3>
-
-                {% with employees=job.employee_set.all %}
-                    {% if employees %}
-                        <ul class="space-y-2">
-                        {% for emp in employees %}
-                            <li>
-                                <a href="{{ emp.get_absolute_url }}" class="text-primary font-medium">
-                                    {{ emp.display_name }}
-                                </a>
-                            </li>
-                        {% endfor %}
-                        </ul>
-                    {% else %}
-                        <p class="opacity-70">No employees assigned to this job.</p>
-                    {% endif %}
-                {% endwith %}
-            </div>
-        </div>
+      {% else %}
+        <p class="text-sm opacity-60">
+          No employees assigned to this job.
+        </p>
+      {% endif %}
 
     </div>
+  </div>
 
 </div>
 {% endblock %}

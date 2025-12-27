@@ -1,0 +1,5 @@
+{# templates/hr/partials/department_options.html  (NEW FILE) #}
+<option value="">— Select department —</option>
+{% for d in departments %}
+  <option value="{{ d.id }}">{{ d.complete_name|default:d.name }}</option>
+{% endfor %}

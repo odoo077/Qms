@@ -1,49 +1,125 @@
+{# templates/hr/job_form.html  (REPLACE بالكامل) #}
 {% extends "base.html" %}
-{% load widget_tweaks %}
+{% load static %}
 
 {% block title %}
-    {% if form.instance.pk %}Edit Job{% else %}New Job{% endif %}
+  {% if object %}Edit Job · {{ object.name }}{% else %}Create Job{% endif %}
 {% endblock %}
 
 {% block content %}
-<div class="max-w-3xl mx-auto p-6">
 
-    <h1 class="text-3xl font-bold mb-6">
-        {% if form.instance.pk %}
-            Edit: {{ form.instance.name }}
-        {% else %}
-            New Job Position
-        {% endif %}
-    </h1>
+<div class="max-w-5xl mx-auto space-y-8">
 
-    <form method="post">
-        {% csrf_token %}
+  <!-- Header -->
+  <div class="flex items-start justify-between">
+    <div>
+      <h1 class="text-2xl font-semibold">
+        {% if object %}Edit Job{% else %}Create Job{% endif %}
+      </h1>
+      <p class="text-sm opacity-70">Manage job position, department, recruitment and details.</p>
+    </div>
 
-        <div class="card bg-base-100 shadow p-6 space-y-4">
+    <a href="{% url 'hr:job_list' %}" class="btn btn-sm btn-ghost">Back</a>
+  </div>
 
-            <div>
-                <label class="label font-medium">Job Title</label>
-                {{ form.name|add_class:"input input-bordered w-full" }}
-            </div>
+  {% if form.non_field_errors %}
+    <div class="alert alert-error shadow-sm">
+      <ul class="list-disc list-inside text-sm">
+        {% for err in form.non_field_errors %}<li>{{ err }}</li>{% endfor %}
+      </ul>
+    </div>
+  {% endif %}
 
-            <div>
-                <label class="label font-medium">Department</label>
-                {{ form.department|add_class:"select select-bordered w-full" }}
-            </div>
+  <form method="post" class="space-y-6">
+    {% csrf_token %}
 
-            <div>
-                <label class="label font-medium">Company</label>
-                {{ form.company|add_class:"select select-bordered w-full" }}
-            </div>
+    <div class="card bg-base-100 shadow-sm">
+      <div class="card-body grid grid-cols-1 md:grid-cols-2 gap-6">
 
+        <!-- Company -->
+        <div>
+          <label class="label"><span class="label-text font-medium">Company</span></label>
+          {{ form.company }}
+          {% if form.company.errors %}<p class="text-error text-sm mt-1">{{ form.company.errors.0 }}</p>{% endif %}
         </div>
 
-        <div class="mt-4 flex gap-3">
-            <button type="submit" class="btn btn-primary">Save</button>
-            <a href="{% url 'hr:job_list' %}" class="btn btn-ghost">Cancel</a>
+        <!-- Department -->
+        <div>
+          <label class="label"><span class="label-text font-medium">Department</span></label>
+          {{ form.department }}
+          {% if form.department.errors %}<p class="text-error text-sm mt-1">{{ form.department.errors.0 }}</p>{% endif %}
+          <p class="text-xs opacity-60 mt-1">Filtered automatically by company.</p>
         </div>
 
-    </form>
+        <!-- Name -->
+        <div>
+          <label class="label"><span class="label-text font-medium">Job Title</span></label>
+          {{ form.name }}
+          {% if form.name.errors %}<p class="text-error text-sm mt-1">{{ form.name.errors.0 }}</p>{% endif %}
+        </div>
 
+        <!-- Sequence -->
+        <div>
+          <label class="label"><span class="label-text font-medium">Sequence</span></label>
+          {{ form.sequence }}
+          {% if form.sequence.errors %}<p class="text-error text-sm mt-1">{{ form.sequence.errors.0 }}</p>{% endif %}
+        </div>
+
+        <!-- Recruitment -->
+        <div>
+          <label class="label"><span class="label-text font-medium">Planned Recruitment</span></label>
+          {{ form.no_of_recruitment }}
+          {% if form.no_of_recruitment.errors %}<p class="text-error text-sm mt-1">{{ form.no_of_recruitment.errors.0 }}</p>{% endif %}
+        </div>
+
+        <!-- Recruiter -->
+        <div>
+          <label class="label"><span class="label-text font-medium">Recruiter</span></label>
+          {{ form.recruiter }}
+          {% if form.recruiter.errors %}<p class="text-error text-sm mt-1">{{ form.recruiter.errors.0 }}</p>{% endif %}
+        </div>
+
+        <!-- Contract Type -->
+        <div class="md:col-span-2">
+          <label class="label"><span class="label-text font-medium">Contract Type</span></label>
+          {{ form.contract_type }}
+          {% if form.contract_type.errors %}<p class="text-error text-sm mt-1">{{ form.contract_type.errors.0 }}</p>{% endif %}
+        </div>
+
+        <!-- Description -->
+        <div class="md:col-span-2">
+          <label class="label"><span class="label-text font-medium">Description</span></label>
+          {{ form.description }}
+          {% if form.description.errors %}<p class="text-error text-sm mt-1">{{ form.description.errors.0 }}</p>{% endif %}
+        </div>
+
+        <!-- Requirements -->
+        <div class="md:col-span-2">
+          <label class="label"><span class="label-text font-medium">Requirements</span></label>
+          {{ form.requirements }}
+          {% if form.requirements.errors %}<p class="text-error text-sm mt-1">{{ form.requirements.errors.0 }}</p>{% endif %}
+        </div>
+
+        <!-- Active -->
+        <div class="md:col-span-2">
+          <label class="label cursor-pointer justify-start gap-3">
+            {{ form.active }}
+            <span class="label-text font-medium">Active</span>
+          </label>
+          {% if form.active.errors %}<p class="text-error text-sm mt-1">{{ form.active.errors.0 }}</p>{% endif %}
+        </div>
+
+      </div>
+    </div>
+
+    <div class="flex justify-end gap-3">
+      <a href="{% url 'hr:job_list' %}" class="btn btn-ghost">Cancel</a>
+      <button type="submit" class="btn btn-primary">
+        {% if object %}Save Changes{% else %}Create Job{% endif %}
+      </button>
+    </div>
+
+  </form>
 </div>
+
 {% endblock %}

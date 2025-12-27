@@ -1,76 +1,94 @@
 {% extends "base.html" %}
-{% load assets_access %}
 
-{% block title %}Category Form{% endblock %}
-{% block page_title %}Category{% endblock %}
-{% block header_title %}Category{% endblock %}
-{% block header_subtitle %}
-  {% if object %}Edit Category{% else %}Create New Category{% endif %}
-{% endblock %}
-
-{% block page_actions %}
-  <a href="{% url 'assets:category_list' %}" class="btn btn-sm">Back</a>
-
-  {% if object %}
-      {% can_delete_category user object as can_del %}
-      {% if can_del %}
-          <a href="{% url 'assets:category_delete' object.id %}"
-             class="btn btn-error btn-sm">Delete</a>
-      {% endif %}
-  {% endif %}
+{% block title %}
+{% if object %}Edit Category{% else %}Create Category{% endif %}
 {% endblock %}
 
 {% block content %}
-<div class="card bg-base-100 shadow">
-  <div class="card-body">
+<div class="w-full px-6 py-6 space-y-6">
 
-    <form method="post" enctype="multipart/form-data" class="space-y-6">
-      {% csrf_token %}
-
-      {# أخطاء عامة على مستوى الفورم #}
-      {% if form.non_field_errors %}
-        <div class="alert alert-error text-sm">
-          {{ form.non_field_errors }}
+    <!-- ===================================================== -->
+    <!-- Header -->
+    <!-- ===================================================== -->
+    <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div>
+            <h1 class="text-3xl font-bold">
+                {% if object %}Edit Category{% else %}Create New Category{% endif %}
+            </h1>
+            <p class="text-sm opacity-70 mt-1">
+                Define asset category details
+            </p>
         </div>
-      {% endif %}
 
-      {# الحقول المخفية #}
-      {% for hidden in form.hidden_fields %}
-        {{ hidden }}
-      {% endfor %}
+        <div>
+            <a href="{% url 'assets:category_list' %}" class="btn btn-ghost">
+                Back to Categories
+            </a>
+        </div>
+    </div>
 
-      {# جميع الحقول القابلة للعرض/التعديل #}
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {% for field in form.visible_fields %}
-          <div>
-            <label class="label">
-              <span class="label-text font-semibold">
-                {{ field.label }}
-                {% if field.field.required %}<span class="text-error">*</span>{% endif %}
-              </span>
-            </label>
+    <!-- ===================================================== -->
+    <!-- Form Card -->
+    <!-- ===================================================== -->
+    <div class="card bg-base-100 shadow max-w-5xl">
+        <div class="card-body">
 
-            {{ field }}
+            <form method="post" enctype="multipart/form-data" class="space-y-6">
+                {% csrf_token %}
 
-            {% if field.help_text %}
-              <p class="text-xs opacity-70 mt-1">{{ field.help_text }}</p>
-            {% endif %}
+                {% if form.non_field_errors %}
+                    <div class="alert alert-error text-sm">
+                        {{ form.non_field_errors }}
+                    </div>
+                {% endif %}
 
-            {% for error in field.errors %}
-              <p class="text-error text-xs mt-1">{{ error }}</p>
-            {% endfor %}
-          </div>
-        {% endfor %}
-      </div>
+                {% for hidden in form.hidden_fields %}
+                    {{ hidden }}
+                {% endfor %}
 
-      <div class="mt-6">
-        <button type="submit" class="btn btn-primary">
-          {% if object %}Save Changes{% else %}Create Category{% endif %}
-        </button>
-      </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {% for field in form.visible_fields %}
+                        <div>
+                            <label class="label">
+                                <span class="label-text font-semibold">
+                                    {{ field.label }}
+                                    {% if field.field.required %}
+                                        <span class="text-error">*</span>
+                                    {% endif %}
+                                </span>
+                            </label>
 
-    </form>
+                            {{ field }}
 
-  </div>
+                            {% if field.help_text %}
+                                <p class="text-xs opacity-70 mt-1">
+                                    {{ field.help_text }}
+                                </p>
+                            {% endif %}
+
+                            {% for error in field.errors %}
+                                <p class="text-error text-xs mt-1">
+                                    {{ error }}
+                                </p>
+                            {% endfor %}
+                        </div>
+                    {% endfor %}
+                </div>
+
+                <div class="flex justify-end gap-2 pt-6">
+                    <a href="{% url 'assets:category_list' %}"
+                       class="btn btn-ghost">
+                        Cancel
+                    </a>
+                    <button type="submit" class="btn btn-primary">
+                        {% if object %}Save Changes{% else %}Create Category{% endif %}
+                    </button>
+                </div>
+
+            </form>
+
+        </div>
+    </div>
+
 </div>
 {% endblock %}

@@ -1,63 +1,160 @@
 {% extends "base.html" %}
-{% load assets_access %}
 
 {% block title %}Assets{% endblock %}
-{% block page_title %}Assets{% endblock %}
-{% block header_title %}Assets{% endblock %}
-{% block header_subtitle %}Browse all assets you have permission to view{% endblock %}
-
-{% block page_actions %}
-  {% if can_add_asset %}
-    <a href="{% url 'assets:asset_create' %}" class="btn btn-primary btn-sm">New Asset</a>
-  {% endif %}
-{% endblock %}
 
 {% block content %}
-<div class="card bg-base-100 shadow">
-  <div class="card-body">
+<div class="w-full px-6 py-6 space-y-8">
 
-    <table class="table table-zebra w-full text-sm">
-      <thead>
-        <tr>
-          <th>Code</th>
-          <th>Name</th>
-          <th>Category</th>
-          <th>Holder</th>
-          <th>Status</th>
-          <th class="text-right">Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for obj in object_list %}
-        <tr>
-          <td>{{ obj.code }}</td>
-          <td>
-            <a href="{% url 'assets:asset_detail' obj.id %}" class="link link-primary">
-              {{ obj.name }}
+    <!-- ===================================================== -->
+    <!-- Header / Breadcrumb -->
+    <!-- ===================================================== -->
+    <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div class="space-y-1">
+            <div class="text-sm breadcrumbs opacity-70">
+                <ul>
+                    <li>Assets</li>
+                    <li>All Assets</li>
+                </ul>
+            </div>
+            <h1 class="text-3xl font-bold tracking-tight">
+                Assets
+            </h1>
+            <p class="text-sm opacity-70">
+                Manage company assets, equipment, and assignments
+            </p>
+        </div>
+
+        <div class="flex gap-2">
+            <a href="{% url 'assets:asset_create' %}"
+               class="btn btn-primary">
+                + New Asset
             </a>
-          </td>
-          <td>{{ obj.category.name|default:"—" }}</td>
-          <td>{{ obj.holder.name|default:"—" }}</td>
-          <td>{{ obj.get_status_display }}</td>
+        </div>
+    </div>
 
-          <td class="text-right space-x-2">
-            {% if obj.id in asset_change_ids %}
-            <a href="{% url 'assets:asset_edit' obj.id %}" class="btn btn-outline btn-xs">Edit</a>
-            {% endif %}
+    <!-- ===================================================== -->
+    <!-- Stats -->
+    <!-- ===================================================== -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="stat bg-base-100 shadow rounded-box">
+            <div class="stat-title">Total Assets</div>
+            <div class="stat-value">{{ page_obj.paginator.count }}</div>
+        </div>
 
-            {% can_delete_asset user obj as can_del %}
-            {% if can_del %}
-                <a href="{% url 'assets:asset_delete' obj.id %}" class="btn btn-error btn-xs">Delete</a>
-            {% endif %}
-          </td>
-        </tr>
-        {% empty %}
-        <tr><td colspan="6" class="text-center opacity-70">No records found</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
+        <div class="stat bg-base-100 shadow rounded-box">
+            <div class="stat-title">Assigned</div>
+            <div class="stat-value text-primary">
+                {{ assigned_count|default:"—" }}
+            </div>
+        </div>
 
-    {% include 'partials/paginator.html' %}
-  </div>
+        <div class="stat bg-base-100 shadow rounded-box">
+            <div class="stat-title">Available</div>
+            <div class="stat-value text-success">
+                {{ available_count|default:"—" }}
+            </div>
+        </div>
+
+        <div class="stat bg-base-100 shadow rounded-box">
+            <div class="stat-title">Issues</div>
+            <div class="stat-value text-warning">
+                {{ issue_count|default:"—" }}
+            </div>
+        </div>
+    </div>
+
+    <!-- ===================================================== -->
+    <!-- Table Card -->
+    <!-- ===================================================== -->
+    <div class="card bg-base-100 shadow overflow-x-auto">
+        <table class="table table-hover w-full text-sm">
+            <thead>
+                <tr class="bg-base-200">
+                    <th>Code</th>
+                    <th>Name</th>
+                    <th>Category</th>
+                    <th>Holder</th>
+                    <th>Status</th>
+                    <th class="text-right">Actions</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for obj in object_list %}
+                <tr>
+                    <td class="font-mono opacity-80">
+                        {{ obj.code|default:"—" }}
+                    </td>
+
+                    <td class="font-medium">
+                        <a href="{% url 'assets:asset_detail' obj.id %}"
+                           class="text-primary hover:underline">
+                            {{ obj.name }}
+                        </a>
+                    </td>
+
+                    <td>
+                        {{ obj.category.name|default:"—" }}
+                    </td>
+
+                    <td>
+                        {{ obj.holder.name|default:"—" }}
+                    </td>
+
+                    <td>
+                        {% if obj.status == "assigned" %}
+                            <span class="badge badge-primary badge-outline">Assigned</span>
+                        {% elif obj.status == "available" %}
+                            <span class="badge badge-success badge-outline">Available</span>
+                        {% elif obj.status == "lost" %}
+                            <span class="badge badge-warning badge-outline">Lost</span>
+                        {% elif obj.status == "damaged" %}
+                            <span class="badge badge-error badge-outline">Damaged</span>
+                        {% else %}
+                            <span class="badge badge-ghost">
+                                {{ obj.get_status_display }}
+                            </span>
+                        {% endif %}
+                    </td>
+
+                    <td class="text-right">
+                        <div class="flex justify-end gap-2">
+                            <a href="{% url 'assets:asset_detail' obj.id %}"
+                               class="btn btn-xs btn-outline">
+                                View
+                            </a>
+                            <a href="{% url 'assets:asset_edit' obj.id %}"
+                               class="btn btn-xs btn-outline">
+                                Edit
+                            </a>
+                            <a href="{% url 'assets:asset_delete' obj.id %}"
+                               class="btn btn-xs btn-error">
+                                Delete
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="text-center py-16">
+                        <p class="text-lg font-medium opacity-70">
+                            No assets found
+                        </p>
+                        <p class="text-sm opacity-50 mt-1">
+                            Start by creating your first asset
+                        </p>
+                        <a href="{% url 'assets:asset_create' %}"
+                           class="btn btn-primary btn-sm mt-4">
+                            + Add Asset
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% include "partials/paginator.html" %}
+
 </div>
 {% endblock %}

@@ -1,75 +1,184 @@
 {% extends "base.html" %}
-{% load skills_permissions %}
 
-{% block title %}Resume Line Form{% endblock %}
-{% block page_title %}Resume Line{% endblock %}
-{% block header_title %}Resume Line{% endblock %}
-{% block header_subtitle %}
-  {% if object %}Edit Resume Line{% else %}Create New Resume Line{% endif %}
-{% endblock %}
-
-{% block page_actions %}
-  <a href="{% url 'skills:resumeline_list' %}" class="btn btn-sm">Back</a>
-
-  {% if object %}
-      {% can_delete_resumeline user object as can_del %}
-      {% if can_del %}
-          <a href="{% url 'skills:resumeline_delete' object.id %}"
-             class="btn btn-error btn-sm">
-            Delete
-          </a>
-      {% endif %}
-  {% endif %}
+{% block title %}
+Resume Line
 {% endblock %}
 
 {% block content %}
-<div class="card bg-base-100 shadow">
-  <div class="card-body">
+<div class="w-full px-6 py-6 space-y-6">
 
-    <form method="post" class="space-y-6">
-      {% csrf_token %}
+    <!-- ===================================================== -->
+    <!-- Header -->
+    <!-- ===================================================== -->
+    <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
 
-      {% if form.non_field_errors %}
-        <div class="alert alert-error text-sm">
-          {{ form.non_field_errors }}
+        <div>
+            <h1 class="text-3xl font-bold">
+                {% if object %}
+                    Edit Resume Line
+                {% else %}
+                    New Resume Line
+                {% endif %}
+            </h1>
+            <p class="text-sm opacity-70 mt-1">
+                Add or update employee resume information
+            </p>
         </div>
-      {% endif %}
 
-      {% for hidden in form.hidden_fields %}
-        {{ hidden }}
-      {% endfor %}
+        <div class="flex gap-2">
+            <a href="{% url 'skills:resumeline_list' %}" class="btn btn-ghost btn-sm">
+                ← Back to Resume Lines
+            </a>
 
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {% for field in form.visible_fields %}
-          <div>
-            <label class="label">
-              <span class="label-text font-semibold">
-                {{ field.label }}
-                {% if field.field.required %}<span class="text-error">*</span>{% endif %}
-              </span>
-            </label>
-
-            {{ field }}
-
-            {% if field.help_text %}
-              <p class="text-xs opacity-70 mt-1">{{ field.help_text }}</p>
+            {% if object %}
+                <a href="{% url 'skills:resumeline_delete' object.id %}" class="btn btn-error btn-sm">
+                    Delete
+                </a>
             {% endif %}
+        </div>
 
-            {% for error in field.errors %}
-              <p class="text-error text-xs mt-1">{{ error }}</p>
-            {% endfor %}
-          </div>
-        {% endfor %}
-      </div>
+    </div>
 
-      <div class="mt-6">
-        <button type="submit" class="btn btn-primary">
-          {% if object %}Save Changes{% else %}Create Resume Line{% endif %}
-        </button>
-      </div>
+    <!-- ===================================================== -->
+    <!-- Form -->
+    <!-- ===================================================== -->
+    <div class="card bg-base-100 shadow">
+        <div class="card-body">
 
-    </form>
+            <form method="post" class="space-y-8">
+                {% csrf_token %}
 
-  </div>
+                <!-- =============================== -->
+                <!-- Form Errors -->
+                <!-- =============================== -->
+                {% if form.non_field_errors %}
+                    <div class="alert alert-error text-sm">
+                        {{ form.non_field_errors }}
+                    </div>
+                {% endif %}
+
+                {% for hidden in form.hidden_fields %}
+                    {{ hidden }}
+                {% endfor %}
+
+                <!-- ===================================================== -->
+                <!-- Section: Main Information -->
+                <!-- ===================================================== -->
+                <div>
+                    <h3 class="text-lg font-semibold mb-4">Main Information</h3>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+                        {% if form.employee %}
+                            <div>
+                                <label class="label">
+                                    <span class="label-text font-semibold">
+                                        {{ form.employee.label }}
+                                        {% if form.employee.field.required %}<span class="text-error">*</span>{% endif %}
+                                    </span>
+                                </label>
+                                {{ form.employee }}
+                                {% if form.employee.help_text %}
+                                    <p class="text-xs opacity-70 mt-1">{{ form.employee.help_text }}</p>
+                                {% endif %}
+                                {% for error in form.employee.errors %}
+                                    <p class="text-error text-xs mt-1">{{ error }}</p>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+
+                        {% if form.line_type %}
+                            <div>
+                                <label class="label">
+                                    <span class="label-text font-semibold">
+                                        {{ form.line_type.label }}
+                                        {% if form.line_type.field.required %}<span class="text-error">*</span>{% endif %}
+                                    </span>
+                                </label>
+                                {{ form.line_type }}
+                                {% if form.line_type.help_text %}
+                                    <p class="text-xs opacity-70 mt-1">{{ form.line_type.help_text }}</p>
+                                {% endif %}
+                                {% for error in form.line_type.errors %}
+                                    <p class="text-error text-xs mt-1">{{ error }}</p>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+
+                        {% if form.name %}
+                            <div class="md:col-span-2">
+                                <label class="label">
+                                    <span class="label-text font-semibold">
+                                        {{ form.name.label }}
+                                        {% if form.name.field.required %}<span class="text-error">*</span>{% endif %}
+                                    </span>
+                                </label>
+                                {{ form.name }}
+                                {% if form.name.help_text %}
+                                    <p class="text-xs opacity-70 mt-1">{{ form.name.help_text }}</p>
+                                {% endif %}
+                                {% for error in form.name.errors %}
+                                    <p class="text-error text-xs mt-1">{{ error }}</p>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+
+                    </div>
+                </div>
+
+                <!-- ===================================================== -->
+                <!-- Section: Additional Details -->
+                <!-- ===================================================== -->
+                <div>
+                    <h3 class="text-lg font-semibold mb-4">Additional Details</h3>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {% for field in form.visible_fields %}
+                            {% if field.name != "employee" and field.name != "line_type" and field.name != "name" %}
+                                <div>
+                                    <label class="label">
+                                        <span class="label-text font-semibold">
+                                            {{ field.label }}
+                                            {% if field.field.required %}<span class="text-error">*</span>{% endif %}
+                                        </span>
+                                    </label>
+
+                                    {{ field }}
+
+                                    {% if field.help_text %}
+                                        <p class="text-xs opacity-70 mt-1">{{ field.help_text }}</p>
+                                    {% endif %}
+
+                                    {% for error in field.errors %}
+                                        <p class="text-error text-xs mt-1">{{ error }}</p>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- ===================================================== -->
+                <!-- Actions -->
+                <!-- ===================================================== -->
+                <div class="flex justify-end gap-2 pt-6 border-t">
+                    <a href="{% url 'skills:resumeline_list' %}" class="btn btn-ghost">
+                        Cancel
+                    </a>
+
+                    <button type="submit" class="btn btn-primary">
+                        {% if object %}
+                            Save Changes
+                        {% else %}
+                            Create Resume Line
+                        {% endif %}
+                    </button>
+                </div>
+
+            </form>
+
+        </div>
+    </div>
+
 </div>
 {% endblock %}

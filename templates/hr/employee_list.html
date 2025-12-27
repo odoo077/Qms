@@ -1,88 +1,210 @@
 {% extends "base.html" %}
 
-{% block title %}Employees · 360 Manager{% endblock %}
+{% block title %}Employees{% endblock %}
 
 {% block content %}
-<div class="max-w-7xl mx-auto p-6">
+<div class="w-full px-6 py-6 space-y-8">
 
-    <!-- HEADER -->
-    <div class="flex justify-between items-center mb-6">
+    <!-- ===================================================== -->
+    <!-- Header -->
+    <!-- ===================================================== -->
+    <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+
         <div>
-            <h1 class="text-3xl font-bold">Employees</h1>
-            <p class="opacity-70 text-sm">
-                {{ employees|length }} employees found
+            <h1 class="text-3xl font-bold tracking-tight">Employees</h1>
+            <p class="text-sm opacity-70 mt-1">
+                {{ page_obj.paginator.count }} employees
             </p>
         </div>
 
-        <div class="flex items-center gap-3">
-            <form method="get" class="flex items-center gap-2">
-                <input name="q" type="text" value="{{ request.GET.q }}"
-                       placeholder="Search employees..."
-                       class="input input-bordered input-sm" />
-                <button class="btn btn-sm btn-primary">Search</button>
+        <div class="flex flex-wrap gap-2 items-center">
+            <form method="get" class="flex gap-2">
+                <input type="text"
+                       name="q"
+                       value="{{ current_q }}"
+                       placeholder="Search employees…"
+                       class="input input-bordered w-64"/>
+                <button type="submit" class="btn btn-primary">
+                    Search
+                </button>
             </form>
 
-            <a href="{% url 'hr:employee_create' %}" class="btn btn-primary">
+            <a href="{% url 'hr:employee_create' %}"
+               class="btn btn-primary">
                 + New Employee
             </a>
         </div>
     </div>
 
-    <!-- EMPLOYEES TABLE -->
-    <div class="overflow-x-auto">
-        <table class="table table-zebra w-full">
+    <!-- ===================================================== -->
+    <!-- Dashboard Cards (SAFE & ERROR-FREE) -->
+    <!-- ===================================================== -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+
+        <div class="card bg-base-100 shadow p-5">
+            <div class="text-sm opacity-70">Total Employees</div>
+            <div class="text-3xl font-bold mt-1">
+                {{ page_obj.paginator.count }}
+            </div>
+        </div>
+
+        <div class="card bg-base-100 shadow p-5">
+            <div class="text-sm opacity-70">Displayed</div>
+            <div class="text-3xl font-bold text-primary mt-1">
+                {{ employees|length }}
+            </div>
+        </div>
+
+        <div class="card bg-base-100 shadow p-5">
+            <div class="text-sm opacity-70">Departments</div>
+            <div class="text-3xl font-bold mt-1">
+                {{ filter_departments|length }}
+            </div>
+        </div>
+
+        <div class="card bg-base-100 shadow p-5">
+            <div class="text-sm opacity-70">Jobs</div>
+            <div class="text-3xl font-bold mt-1">
+                {{ filter_jobs|length }}
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ===================================================== -->
+    <!-- Filters -->
+    <!-- ===================================================== -->
+    <form method="get"
+          class="card bg-base-100 shadow p-6 grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
+
+        <div>
+            <label class="label text-sm">Department</label>
+            <select name="department" class="select select-bordered w-full">
+                <option value="">All departments</option>
+                {% for d in filter_departments %}
+                <option value="{{ d.id }}"
+                        {% if current_department == d.id|stringformat:"s" %}selected{% endif %}>
+                    {{ d.complete_name }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div>
+            <label class="label text-sm">Job</label>
+            <select name="job" class="select select-bordered w-full">
+                <option value="">All jobs</option>
+                {% for j in filter_jobs %}
+                <option value="{{ j.id }}"
+                        {% if current_job == j.id|stringformat:"s" %}selected{% endif %}>
+                    {{ j.name }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div>
+            <label class="label text-sm">Status</label>
+            <select name="active" class="select select-bordered w-full">
+                <option value="">Active & Archived</option>
+                <option value="1" {% if current_active == "1" %}selected{% endif %}>Active</option>
+                <option value="0" {% if current_active == "0" %}selected{% endif %}>Archived</option>
+            </select>
+        </div>
+
+        <div class="flex gap-2 md:col-span-2">
+            <button type="submit" class="btn btn-primary flex-1">
+                Apply
+            </button>
+            <a href="{% url 'hr:employee_list' %}" class="btn btn-ghost">
+                Reset
+            </a>
+        </div>
+    </form>
+
+    <!-- ===================================================== -->
+    <!-- Table -->
+    <!-- ===================================================== -->
+    <div class="card bg-base-100 shadow overflow-x-auto">
+        <table class="table w-full">
             <thead>
-                <tr>
-                    <th>Name</th>
-                    <th>Job Title</th>
-                    <th>Department</th>
-                    <th>Manager</th>
-                    <th></th>
-                </tr>
+            <tr>
+                <th>Name</th>
+                <th>Job</th>
+                <th>Department</th>
+                <th>Manager</th>
+                <th>Status</th>
+                <th class="text-right">Actions</th>
+            </tr>
             </thead>
-
             <tbody>
-                {% for emp in employees %}
-                <tr>
-                    <td>
-                        <a href="{{ emp.get_absolute_url }}"
-                           class="font-medium text-primary">
-                           {{ emp.display_name }}
+            {% for emp in employees %}
+            <tr class="hover:bg-base-200 transition">
+                <td class="font-medium">
+                    <a href="{{ emp.get_absolute_url }}"
+                       class="text-primary hover:underline">
+                        {{ emp.name }}
+                    </a>
+                </td>
+
+                <td>{{ emp.job.name|default:"—" }}</td>
+
+                <td>{{ emp.department.complete_name|default:"—" }}</td>
+
+                <td>{{ emp.manager.name|default:"—" }}</td>
+
+                <td>
+                    {% if emp.active %}
+                        <span class="badge badge-success">Active</span>
+                    {% else %}
+                        <span class="badge badge-ghost">Archived</span>
+                    {% endif %}
+                </td>
+
+                <td class="text-right">
+                    <div class="flex justify-end gap-2">
+                        <a href="{{ emp.get_absolute_url }}" class="btn btn-xs btn-outline">
+                            View
                         </a>
-                    </td>
-
-                    <td>{{ emp.job.name }}</td>
-
-                    <td>
-                        {% if emp.department %}
-                        <a class="text-primary" href="{{ emp.department.get_absolute_url }}">
-                            {{ emp.department.complete_name }}
-                        </a>
-                        {% else %}
-                        <span class="opacity-60">No department</span>
-                        {% endif %}
-                    </td>
-
-                    <td>
-                        {% if emp.manager %}
-                        <a class="text-primary" href="{{ emp.manager.get_absolute_url }}">
-                            {{ emp.manager.display_name }}
-                        </a>
-                        {% else %}
-                        <span class="opacity-60">No manager</span>
-                        {% endif %}
-                    </td>
-
-                    <td>
                         <a href="{{ emp.get_edit_url }}" class="btn btn-xs btn-outline">
                             Edit
                         </a>
-                    </td>
-                </tr>
-                {% endfor %}
+                    </div>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="6" class="text-center py-16">
+                    <p class="text-lg font-medium opacity-70">
+                        No employees found
+                    </p>
+                </td>
+            </tr>
+            {% endfor %}
             </tbody>
         </table>
     </div>
+
+    <!-- ===================================================== -->
+    <!-- Pagination -->
+    <!-- ===================================================== -->
+    {% if is_paginated %}
+    <div class="flex justify-center">
+        <div class="join">
+            {% if page_obj.has_previous %}
+                <a href="?page={{ page_obj.previous_page_number }}"
+                   class="join-item btn btn-sm">Prev</a>
+            {% endif %}
+            <span class="join-item btn btn-sm btn-disabled">
+                Page {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}
+            </span>
+            {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}"
+                   class="join-item btn btn-sm">Next</a>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
 
 </div>
 {% endblock %}

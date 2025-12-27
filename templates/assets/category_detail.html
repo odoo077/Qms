@@ -1,50 +1,74 @@
 {% extends "base.html" %}
-{% load assets_access %}
 
 {% block title %}Category Details{% endblock %}
-{% block page_title %}Category Details{% endblock %}
-{% block header_title %}Category Details{% endblock %}
-{% block header_subtitle %}View complete information about this category{% endblock %}
-
-{% block page_actions %}
-  <a href="{% url 'assets:category_list' %}" class="btn btn-sm">Back</a>
-
-  {% if can_edit_object %}
-    <a href="{% url 'assets:category_edit' object.pk %}"
-       class="btn btn-primary btn-sm">Edit</a>
-  {% endif %}
-
-  {% if can_delete_object %}
-    <a href="{% url 'assets:category_delete' object.pk %}"
-       class="btn btn-error btn-sm">Delete</a>
-  {% endif %}
-{% endblock %}
 
 {% block content %}
-<div class="card bg-base-100 shadow">
-  <div class="card-body grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+<div class="w-full px-6 py-6 space-y-6">
 
-    <div class="opacity-70">Name</div>
-    <div>{{ object.name|default:"—" }}</div>
+    <!-- ===================================================== -->
+    <!-- Header -->
+    <!-- ===================================================== -->
+    <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div>
+            <h1 class="text-3xl font-bold">
+                {{ object.name }}
+            </h1>
+            <p class="text-sm opacity-70 mt-1">
+                Asset Category Details
+            </p>
+        </div>
 
-    <div class="opacity-70">Company</div>
-    <div>{{ object.company|default:"—" }}</div>
-
-    <div class="opacity-70">Parent</div>
-    <div>{{ object.parent|default:"—" }}</div>
-
-    <div class="opacity-70">Parent Path</div>
-    <div>{{ object.parent_path|default:"—" }}</div>
-
-    <div class="opacity-70">Active</div>
-    <div>
-      {% if object.active %}
-        <span class="badge badge-success badge-sm">Active</span>
-      {% else %}
-        <span class="badge badge-ghost badge-sm">Archived</span>
-      {% endif %}
+        <div class="flex gap-2">
+            <a href="{% url 'assets:category_list' %}"
+               class="btn btn-ghost">
+                Back
+            </a>
+            <a href="{% url 'assets:category_edit' object.id %}"
+               class="btn btn-outline">
+                Edit
+            </a>
+            <a href="{% url 'assets:category_delete' object.id %}"
+               class="btn btn-error">
+                Delete
+            </a>
+        </div>
     </div>
 
-  </div>
+    <!-- ===================================================== -->
+    <!-- Details Card -->
+    <!-- ===================================================== -->
+    <div class="card bg-base-100 shadow max-w-4xl">
+        <div class="card-body">
+
+            <dl class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 text-sm">
+
+                <div class="opacity-70">Name</div>
+                <div class="font-medium">{{ object.name|default:"—" }}</div>
+
+                <div class="opacity-70">Company</div>
+                <div>{{ object.company|default:"—" }}</div>
+
+                <div class="opacity-70">Parent Category</div>
+                <div>{{ object.parent|default:"—" }}</div>
+
+                <div class="opacity-70">Parent Path</div>
+                <div class="break-all">
+                    {{ object.parent_path|default:"—" }}
+                </div>
+
+                <div class="opacity-70">Status</div>
+                <div>
+                    {% if object.active %}
+                        <span class="badge badge-success">Active</span>
+                    {% else %}
+                        <span class="badge badge-ghost">Archived</span>
+                    {% endif %}
+                </div>
+
+            </dl>
+
+        </div>
+    </div>
+
 </div>
 {% endblock %}

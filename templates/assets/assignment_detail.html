@@ -1,57 +1,77 @@
-{# templates/assets/assignment_detail.html #}
 {% extends "base.html" %}
-{% load assets_access %}
 
 {% block title %}Assignment Details{% endblock %}
-{% block page_title %}Assignment Details{% endblock %}
-{% block header_title %}Assignment Details{% endblock %}
-{% block header_subtitle %}View complete assignment information{% endblock %}
-
-{% block page_actions %}
-  <a href="{% url 'assets:assignment_list' %}" class="btn btn-sm">Back</a>
-
-  {% if can_edit_object %}
-    <a href="{% url 'assets:assignment_edit' object.pk %}"
-       class="btn btn-primary btn-sm">Edit</a>
-  {% endif %}
-
-  {% if can_delete_object %}
-    <a href="{% url 'assets:assignment_delete' object.pk %}"
-       class="btn btn-error btn-sm">Delete</a>
-  {% endif %}
-{% endblock %}
 
 {% block content %}
-<div class="card bg-base-100 shadow">
-  <div class="card-body grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+<div class="w-full px-6 py-6 space-y-6">
 
-    <div class="opacity-70">Asset</div>
-    <div>{{ object.asset }}</div>
+    <!-- ===================================================== -->
+    <!-- Header -->
+    <!-- ===================================================== -->
+    <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div>
+            <h1 class="text-3xl font-bold">
+                Assignment Details
+            </h1>
+            <p class="text-sm opacity-70 mt-1">
+                Full information about this assignment
+            </p>
+        </div>
 
-    <div class="opacity-70">Employee</div>
-    <div>{{ object.employee }}</div>
-
-    <div class="opacity-70">Company</div>
-    <div>{{ object.company|default:"—" }}</div>
-
-    <div class="opacity-70">Date From</div>
-    <div>{{ object.date_from|date:"Y-m-d" }}</div>
-
-    <div class="opacity-70">Date To</div>
-    <div>{{ object.date_to|date:"Y-m-d"|default:"—" }}</div>
-
-    <div class="opacity-70">Active</div>
-    <div>
-      {% if object.active %}
-        <span class="badge badge-success badge-sm">Active</span>
-      {% else %}
-        <span class="badge badge-ghost badge-sm">Archived</span>
-      {% endif %}
+        <div class="flex gap-2">
+            <a href="{% url 'assets:assignment_list' %}" class="btn btn-ghost">
+                Back
+            </a>
+            <a href="{% url 'assets:assignment_edit' object.id %}"
+               class="btn btn-outline">
+                Edit
+            </a>
+            <a href="{% url 'assets:assignment_delete' object.id %}"
+               class="btn btn-error">
+                Delete
+            </a>
+        </div>
     </div>
 
-    <div class="opacity-70">Note</div>
-    <div>{{ object.note|default:"—" }}</div>
+    <!-- ===================================================== -->
+    <!-- Details -->
+    <!-- ===================================================== -->
+    <div class="card bg-base-100 shadow max-w-4xl">
+        <div class="card-body">
 
-  </div>
+            <dl class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 text-sm">
+
+                <div class="opacity-70">Asset</div>
+                <div class="font-medium">{{ object.asset }}</div>
+
+                <div class="opacity-70">Employee</div>
+                <div>{{ object.employee }}</div>
+
+                <div class="opacity-70">Company</div>
+                <div>{{ object.company|default:"—" }}</div>
+
+                <div class="opacity-70">Date From</div>
+                <div>{{ object.date_from|date:"Y-m-d" }}</div>
+
+                <div class="opacity-70">Date To</div>
+                <div>{{ object.date_to|date:"Y-m-d"|default:"—" }}</div>
+
+                <div class="opacity-70">Status</div>
+                <div>
+                    {% if object.active %}
+                        <span class="badge badge-success">Active</span>
+                    {% else %}
+                        <span class="badge badge-ghost">Closed</span>
+                    {% endif %}
+                </div>
+
+                <div class="opacity-70">Note</div>
+                <div class="break-all">{{ object.note|default:"—" }}</div>
+
+            </dl>
+
+        </div>
+    </div>
+
 </div>
 {% endblock %}

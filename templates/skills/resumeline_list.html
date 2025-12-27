@@ -1,70 +1,162 @@
 {% extends "base.html" %}
-{% load skills_permissions %}
 
-{% block title %}Resume Lines{% endblock %}
-{% block page_title %}Resume Lines{% endblock %}
-{% block header_title %}Resume Lines{% endblock %}
-{% block header_subtitle %}Manage all resume lines{% endblock %}
-
-{% block page_actions %}
-  {% can_add_resumeline user as can_add %}
-  {% if can_add %}
-    <a href="{% url 'skills:resumeline_create' %}" class="btn btn-primary btn-sm">
-      New Resume Line
-    </a>
-  {% endif %}
+{% block title %}
+Resume Lines
 {% endblock %}
 
 {% block content %}
-<div class="card bg-base-100 shadow">
-  <div class="card-body">
+<div class="w-full px-6 py-6 space-y-6">
 
-    <table class="table table-zebra w-full text-sm">
-      <thead>
-        <tr>
-          <th>Employee</th>
-          <th>Type</th>
-          <th>Name</th>
-          <th class="text-right">Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for obj in object_list %}
-        <tr>
-          <td>{{ obj.employee }}</td>
-          <td>{{ obj.line_type }}</td>
-          <td>{{ obj.name }}</td>
+    <!-- ===================================================== -->
+    <!-- Header -->
+    <!-- ===================================================== -->
+    <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
 
-          <td class="text-right space-x-2">
-            {% can_edit_resumeline user obj as can_edit %}
-            {% if can_edit %}
-              <a href="{% url 'skills:resumeline_update' obj.id %}"
-                 class="btn btn-outline btn-xs">
-                Edit
-              </a>
+        <div>
+            <h1 class="text-3xl font-bold">Resume Lines</h1>
+            <p class="text-sm opacity-70 mt-1">
+                Manage employee resume entries such as education, experience, and certifications
+            </p>
+        </div>
+
+        <div class="flex gap-2">
+            <a href="{% url 'skills:resumeline_create' %}"
+               class="btn btn-primary">
+                + New Resume Line
+            </a>
+        </div>
+
+    </div>
+
+    <!-- ===================================================== -->
+    <!-- Filters (UI ready – logic can be added later) -->
+    <!-- ===================================================== -->
+    <form method="get"
+          class="card bg-base-100 shadow p-6 grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+
+        <div>
+            <label class="label text-sm">Employee</label>
+            <input type="text"
+                   name="employee"
+                   placeholder="Employee name…"
+                   class="input input-bordered w-full">
+        </div>
+
+        <div>
+            <label class="label text-sm">Line Type</label>
+            <input type="text"
+                   name="type"
+                   placeholder="Resume line type…"
+                   class="input input-bordered w-full">
+        </div>
+
+        <div>
+            <label class="label text-sm">Title / Name</label>
+            <input type="text"
+                   name="name"
+                   placeholder="Resume title…"
+                   class="input input-bordered w-full">
+        </div>
+
+        <div class="flex gap-2">
+            <button type="submit" class="btn btn-primary flex-1">
+                Search
+            </button>
+            <a href="{% url 'skills:resumeline_list' %}"
+               class="btn btn-ghost">
+                Reset
+            </a>
+        </div>
+
+    </form>
+
+    <!-- ===================================================== -->
+    <!-- Table -->
+    <!-- ===================================================== -->
+    <div class="card bg-base-100 shadow overflow-x-auto">
+
+        <table class="table w-full">
+            <thead>
+                <tr>
+                    <th>Employee</th>
+                    <th>Resume Line Type</th>
+                    <th>Title / Name</th>
+                    <th class="text-right">Actions</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for obj in object_list %}
+                <tr class="hover:bg-base-200 transition">
+
+                    <td class="font-medium">
+                        {{ obj.employee }}
+                    </td>
+
+                    <td>
+                        {{ obj.line_type }}
+                    </td>
+
+                    <td>
+                        {{ obj.name }}
+                    </td>
+
+                    <td class="text-right">
+                        <div class="flex justify-end gap-2">
+                            <a href="{% url 'skills:resumeline_update' obj.id %}"
+                               class="btn btn-xs btn-outline">
+                                Edit
+                            </a>
+                            <a href="{% url 'skills:resumeline_delete' obj.id %}"
+                               class="btn btn-xs btn-outline btn-error">
+                                Delete
+                            </a>
+                        </div>
+                    </td>
+
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="4" class="text-center py-16">
+                        <p class="text-lg font-medium opacity-70">
+                            No resume lines found
+                        </p>
+                        <p class="text-sm opacity-50 mt-1">
+                            Start by adding resume details for employees
+                        </p>
+                        <a href="{% url 'skills:resumeline_create' %}"
+                           class="btn btn-primary btn-sm mt-4">
+                            + Add Resume Line
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+
+        </table>
+
+    </div>
+
+    <!-- ===================================================== -->
+    <!-- Pagination -->
+    <!-- ===================================================== -->
+    {% if is_paginated %}
+    <div class="flex justify-center">
+        <div class="join">
+            {% if page_obj.has_previous %}
+                <a href="?page={{ page_obj.previous_page_number }}"
+                   class="join-item btn btn-sm">Prev</a>
             {% endif %}
-
-            {% can_delete_resumeline user obj as can_del %}
-            {% if can_del %}
-              <a href="{% url 'skills:resumeline_delete' obj.id %}"
-                 class="btn btn-error btn-xs">
-                Delete
-              </a>
+            <span class="join-item btn btn-sm btn-disabled">
+                Page {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}
+            </span>
+            {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}"
+                   class="join-item btn btn-sm">Next</a>
             {% endif %}
-          </td>
-        </tr>
-        {% empty %}
-        <tr>
-          <td colspan="4" class="text-center opacity-70">
-            No records found
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+        </div>
+    </div>
+    {% endif %}
 
-    {% include "partials/paginator.html" %}
-
-  </div>
 </div>
 {% endblock %}

@@ -11,6 +11,7 @@ Structure principles:
 
 from django.urls import path
 from . import views
+from .views import JobEmployeeUpdateView, JobDetailView
 
 app_name = "hr"
 
@@ -63,6 +64,20 @@ urlpatterns = [
         views.JobUpdateView.as_view(),
         name="job_edit",
     ),
+    path(
+        "employees/<int:pk>/change-job/",
+        JobEmployeeUpdateView.as_view(),
+        name="employee_change_job",
+    ),
+
+    # ==========================================================
+    # Ajax (HTMX)
+    # ==========================================================
+    path(
+        "ajax/departments/options/",
+        views.AjaxDepartmentOptionsView.as_view(),
+        name="ajax_department_options",
+    ),
 
     # ==========================================================
     # Employees
@@ -86,5 +101,10 @@ urlpatterns = [
         "employees/<int:pk>/edit/",
         views.EmployeeUpdateView.as_view(),
         name="employee_edit",
+    ),
+    path(
+        "employees/bulk/",
+        views.EmployeeBulkActionView.as_view(),
+        name="employee_bulk",
     ),
 ]

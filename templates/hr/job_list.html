@@ -1,71 +1,64 @@
+{# templates/hr/job_list.html  (REPLACE بالكامل) #}
 {% extends "base.html" %}
 
-{% block title %}Job Positions{% endblock %}
+{% block title %}Jobs{% endblock %}
+{% block page_title %}Jobs{% endblock %}
+
+{% block page_actions %}
+  {% if can_add %}
+    <a href="{% url 'hr:job_create' %}" class="btn btn-primary btn-sm">+ New Job</a>
+  {% endif %}
+{% endblock %}
 
 {% block content %}
-<div class="max-w-7xl mx-auto p-6">
 
-    <!-- HEADER -->
-    <div class="flex justify-between items-center mb-6">
+<div class="card bg-base-100 shadow-sm">
+  <div class="card-body p-0 overflow-x-auto">
 
-        <div>
-            <h1 class="text-3xl font-bold">Job Positions</h1>
-            <p class="opacity-70 text-sm">
-                {{ jobs|length }} jobs found
-            </p>
-        </div>
+    <table class="table table-zebra w-full">
+      <thead>
+        <tr>
+          <th>Job</th>
+          <th>Company</th>
+          <th>Department</th>
+          <th class="text-center">Employees</th>
+          <th class="text-center">Vacancies</th>
+          <th class="text-right">Actions</th>
+        </tr>
+      </thead>
 
-        <a href="{% url 'hr:job_create' %}" class="btn btn-primary">
-            + New Job
-        </a>
-    </div>
+      <tbody>
+        {% for job in object_list %}
+          <tr>
+            <td class="font-medium">{{ job.name }}</td>
+            <td>{{ job.company }}</td>
+            <td>{{ job.department|default:"—" }}</td>
+            <td class="text-center">
+              <span class="badge badge-ghost badge-sm">{{ job.employees_count|default:0 }}</span>
+            </td>
+            <td class="text-center">
+              {% if job.vacancies|default:0 > 0 %}
+                <span class="badge badge-success badge-sm">{{ job.vacancies }}</span>
+              {% else %}
+                <span class="badge badge-ghost badge-sm">0</span>
+              {% endif %}
+            </td>
+            <td class="text-right">
+              <div class="flex justify-end gap-2">
+                <a href="{% url 'hr:job_detail' job.pk %}" class="btn btn-xs btn-outline">View</a>
+                <a href="{% url 'hr:job_edit' job.pk %}" class="btn btn-xs btn-ghost">Edit</a>
+              </div>
+            </td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="6" class="text-center py-10 opacity-60">No jobs found.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
 
-
-    <!-- JOB LIST -->
-    <div class="overflow-x-auto">
-        <table class="table table-zebra w-full">
-            <thead>
-                <tr>
-                    <th>Job Title</th>
-                    <th>Department</th>
-                    <th>Company</th>
-                    <th></th>
-                </tr>
-            </thead>
-
-            <tbody>
-                {% for job in jobs %}
-                <tr>
-                    <td>
-                        <a href="{{ job.get_absolute_url }}"
-                           class="font-medium text-primary">
-                           {{ job.name }}
-                        </a>
-                    </td>
-
-                    <td>
-                        {% if job.department %}
-                            <a href="{{ job.department.get_absolute_url }}" class="text-primary">
-                                {{ job.department.complete_name }}
-                            </a>
-                        {% else %}
-                            <span class="opacity-60">No department</span>
-                        {% endif %}
-                    </td>
-
-                    <td>{{ job.company.name }}</td>
-
-                    <td>
-                        <a href="{{ job.get_edit_url }}" class="btn btn-xs btn-outline">
-                            Edit
-                        </a>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-
-        </table>
-    </div>
-
+  </div>
 </div>
+
 {% endblock %}

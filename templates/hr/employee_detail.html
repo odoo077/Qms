@@ -1,118 +1,142 @@
 {% extends "base.html" %}
 
-{% block title %}{{ employee.display_name }}{% endblock %}
+{% block title %}
+{{ employee.name }} · Employee
+{% endblock %}
 
 {% block content %}
-<div class="max-w-6xl mx-auto p-6">
+<div class="max-w-7xl mx-auto px-6 py-6 space-y-6">
 
-    <!-- BREADCRUMB -->
-    <div class="text-sm breadcrumbs mb-4">
-        <ul>
-            <li><a href="{% url 'hr:employee_list' %}">Employees</a></li>
-            <li>{{ employee.display_name }}</li>
-        </ul>
-    </div>
-
-    <!-- HEADER -->
-    <div class="flex justify-between items-center mb-6">
+    <!-- ===================================================== -->
+    <!-- Header -->
+    <!-- ===================================================== -->
+    <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-            <h1 class="text-3xl font-bold">{{ employee.display_name }}</h1>
-            <p class="opacity-70">{{ employee.job.name }}</p>
+            <h1 class="text-3xl font-bold">
+                {{ employee.name }}
+                {% if not employee.active %}
+                    <span class="badge badge-ghost ml-2">Archived</span>
+                {% endif %}
+            </h1>
+
+            <p class="text-sm opacity-70 mt-1">
+                {{ employee.job.name|default:"No job title" }}
+                {% if employee.department %}
+                    · {{ employee.department.complete_name }}
+                {% endif %}
+            </p>
         </div>
 
         {% if can_edit %}
-        <a href="{{ employee.get_edit_url }}" class="btn btn-primary">
-            Edit Employee
-        </a>
+            <a href="{{ employee.get_edit_url }}" class="btn btn-primary btn-sm">
+                Edit
+            </a>
         {% endif %}
     </div>
 
-    <!-- LAYOUT -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- ===================================================== -->
+    <!-- Tabs (DaisyUI – Radio Tabs, NO JS) -->
+    <!-- ===================================================== -->
+    <div class="tabs tabs-bordered">
 
-        <!-- LEFT: Profile -->
-        <div class="col-span-1">
-            <div class="card bg-base-100 shadow p-6 space-y-4">
-                <h3 class="text-lg font-semibold mb-3">Profile Information</h3>
+        <!-- ================= Overview ================= -->
+        <input type="radio" name="emp_tabs" class="tab" aria-label="Overview" checked />
+        <div class="tab-content bg-base-100 p-6 rounded-box mt-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="card bg-base-100 shadow p-6">
+                    <h3 class="font-semibold text-lg mb-4">General</h3>
+                    <ul class="space-y-2 text-sm">
+                        <li><span class="opacity-70">Company:</span> {{ employee.company.name }}</li>
+                        <li><span class="opacity-70">Department:</span> {{ employee.department.complete_name|default:"—" }}</li>
+                        <li><span class="opacity-70">Job:</span> {{ employee.job.name|default:"—" }}</li>
+                        <li><span class="opacity-70">Manager:</span> {{ employee.manager.name|default:"No manager" }}</li>
+                    </ul>
+                </div>
 
-                <p><span class="opacity-70">Email: </span> {{ employee.email }}</p>
-                <p><span class="opacity-70">Phone: </span> {{ employee.phone }}</p>
-
-                <p>
-                    <span class="opacity-70">Company:</span>
-                    {{ employee.company.name }}
-                </p>
-
-                <p>
-                    <span class="opacity-70">Department:</span>
-                    {% if employee.department %}
-                        <a class="text-primary" href="{{ employee.department.get_absolute_url }}">
-                            {{ employee.department.complete_name }}
-                        </a>
-                    {% else %}
-                        <span class="opacity-60">None</span>
-                    {% endif %}
-                </p>
-
-                <p>
-                    <span class="opacity-70">Job Title:</span>
-                    {{ employee.job.name }}
-                </p>
-
-                <p>
-                    <span class="opacity-70">Manager:</span>
-                    {% if employee.manager %}
-                        <a href="{{ employee.manager.get_absolute_url }}" class="text-primary">
-                            {{ employee.manager.display_name }}
-                        </a>
-                    {% else %}
-                        <span class="opacity-60">None</span>
-                    {% endif %}
-                </p>
+                <div class="card bg-base-100 shadow p-6">
+                    <h3 class="font-semibold text-lg mb-4">Account</h3>
+                    <ul class="space-y-2 text-sm">
+                        <li><span class="opacity-70">User:</span> {{ employee.user.email|default:"—" }}</li>
+                        <li><span class="opacity-70">Barcode:</span> {{ employee.barcode|default:"—" }}</li>
+                        <li><span class="opacity-70">PIN:</span> {{ employee.pin|default:"—" }}</li>
+                    </ul>
+                </div>
             </div>
         </div>
 
-        <!-- RIGHT: Teams & Structure -->
-        <div class="col-span-2 space-y-6">
+        <!-- ================= Skills ================= -->
+        <input type="radio" name="emp_tabs" class="tab" aria-label="Skills" />
+        <div class="tab-content bg-base-100 p-6 rounded-box mt-4">
 
-            <!-- MANAGER CHAIN -->
-            <div class="card bg-base-100 shadow p-6">
-                <h3 class="text-xl font-semibold mb-4">Management Chain</h3>
-
-                {% if manager_chain %}
-                    <ul class="space-y-2">
-                        {% for m in manager_chain %}
-                        <li>
-                            <a class="text-primary font-medium" href="{{ m.get_absolute_url }}">
-                                {{ m.display_name }}
-                            </a>
-                        </li>
-                        {% endfor %}
-                    </ul>
-                {% else %}
-                    <p class="opacity-60">No managers above.</p>
-                {% endif %}
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold">Employee Skills</h3>
+                <a href="{% url 'skills:employeeskill_create' %}?employee={{ employee.id }}"
+                   class="btn btn-sm btn-primary">
+                    + Add Skill
+                </a>
             </div>
 
-            <!-- SUBORDINATES -->
-            <div class="card bg-base-100 shadow p-6">
-                <h3 class="text-xl font-semibold mb-4">Subordinates</h3>
-
-                {% if subordinates %}
-                    <ul class="space-y-2">
-                        {% for sub in subordinates %}
-                        <li>
-                            <a href="{{ sub.get_absolute_url }}" class="text-primary font-medium">
-                                {{ sub.display_name }}
-                            </a>
-                        </li>
+            <div class="overflow-x-auto">
+                <table class="table table-zebra w-full text-sm">
+                    <thead>
+                        <tr>
+                            <th>Skill Type</th>
+                            <th>Skill</th>
+                            <th>Level</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for es in employee_skills %}
+                        <tr>
+                            <td>{{ es.skill_type.name }}</td>
+                            <td>{{ es.skill.name }}</td>
+                            <td>{{ es.skill_level.name|default:"—" }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="3" class="text-center opacity-70">
+                                No skills assigned to this employee
+                            </td>
+                        </tr>
                         {% endfor %}
-                    </ul>
-                {% else %}
-                    <p class="opacity-60">No subordinates</p>
-                {% endif %}
+                    </tbody>
+                </table>
             </div>
 
+        </div>
+
+        <!-- ================= Organization ================= -->
+        <input type="radio" name="emp_tabs" class="tab" aria-label="Organization" />
+        <div class="tab-content bg-base-100 p-6 rounded-box mt-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+                <div>
+                    <h3 class="font-semibold mb-2">Management Chain</h3>
+                    {% if manager_chain %}
+                        <ul class="list-disc ml-5 text-sm">
+                            {% for m in manager_chain %}
+                                <li>{{ m.name }}</li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p class="opacity-60 text-sm">No managers above.</p>
+                    {% endif %}
+                </div>
+
+                <div>
+                    <h3 class="font-semibold mb-2">Subordinates</h3>
+                    {% if subordinates %}
+                        <ul class="list-disc ml-5 text-sm">
+                            {% for s in subordinates %}
+                                <li>{{ s.name }}</li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p class="opacity-60 text-sm">No subordinates.</p>
+                    {% endif %}
+                </div>
+
+            </div>
         </div>
 
     </div>

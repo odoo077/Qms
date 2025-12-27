@@ -1,73 +1,198 @@
 {% extends "base.html" %}
-{% load assets_access %}
 
-{% block title %}Categories{% endblock %}
-{% block page_title %}Categories{% endblock %}
-{% block header_title %}Asset Categories{% endblock %}
-{% block header_subtitle %}Browse all asset categories{% endblock %}
-
-{% block page_actions %}
-  {% if can_add_category %}
-    <a href="{% url 'assets:category_create' %}" class="btn btn-primary btn-sm">New Category</a>
-  {% endif %}
-{% endblock %}
+{% block title %}Asset Categories{% endblock %}
 
 {% block content %}
-<div class="card bg-base-100 shadow">
-  <div class="card-body">
+<div class="w-full px-6 py-6 space-y-6">
 
-    <table class="table table-zebra w-full text-sm">
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Parent</th>
-          <th>Company</th>
-          <th>Active</th>
-          <th class="text-right">Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for obj in object_list %}
-        <tr>
-          <td>
-            <a href="{% url 'assets:category_detail' obj.id %}" class="link link-primary">
-              {{ obj.name }}
+    <!-- ===================================================== -->
+    <!-- Header -->
+    <!-- ===================================================== -->
+    <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div>
+            <h1 class="text-3xl font-bold">Asset Categories</h1>
+            <p class="text-sm opacity-70 mt-1">
+                Manage and organize asset categories
+            </p>
+        </div>
+
+        <div>
+            <a href="{% url 'assets:category_create' %}"
+               class="btn btn-primary">
+                + New Category
             </a>
-          </td>
-          <td>{{ obj.parent|default:"—" }}</td>
-          <td>{{ obj.company|default:"—" }}</td>
-          <td>
-            {% if obj.active %}
-              <span class="badge badge-success badge-sm">Active</span>
-            {% else %}
-              <span class="badge badge-ghost badge-sm">Archived</span>
-            {% endif %}
-          </td>
+        </div>
+    </div>
 
-          <td class="text-right space-x-2">
-            {% if obj.id in category_change_ids %}
-              <a href="{% url 'assets:category_edit' obj.id %}"
-                 class="btn btn-outline btn-xs">Edit</a>
-            {% endif %}
+    <!-- ===================================================== -->
+    <!-- Dashboard Cards -->
+    <!-- ===================================================== -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
 
-            {% can_delete_category user obj as can_del %}
-            {% if can_del %}
-              <a href="{% url 'assets:category_delete' obj.id %}"
-                 class="btn btn-error btn-xs">Delete</a>
-            {% endif %}
-          </td>
-        </tr>
-        {% empty %}
-        <tr>
-          <td colspan="5" class="text-center opacity-70">
-            No categories found
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+        <div class="card bg-base-100 shadow">
+            <div class="card-body">
+                <p class="text-sm opacity-70">Total Categories</p>
+                <h2 class="text-3xl font-bold">
+                    {{ page_obj.paginator.count }}
+                </h2>
+            </div>
+        </div>
 
-    {% include "partials/paginator.html" %}
-  </div>
+        <div class="card bg-base-100 shadow">
+            <div class="card-body">
+                <p class="text-sm opacity-70">Active Categories</p>
+                <h2 class="text-3xl font-bold">
+                    {{ active_count|default:"—" }}
+                </h2>
+            </div>
+        </div>
+
+        <div class="card bg-base-100 shadow">
+            <div class="card-body">
+                <p class="text-sm opacity-70">Archived Categories</p>
+                <h2 class="text-3xl font-bold">
+                    {{ archived_count|default:"—" }}
+                </h2>
+            </div>
+        </div>
+
+        <div class="card bg-base-100 shadow">
+            <div class="card-body">
+                <p class="text-sm opacity-70">Companies</p>
+                <h2 class="text-3xl font-bold">
+                    {{ company_count|default:"—" }}
+                </h2>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ===================================================== -->
+    <!-- Filters -->
+    <!-- ===================================================== -->
+    <form method="get"
+          class="card bg-base-100 shadow p-6 grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+
+        <div>
+            <label class="label text-sm">Search</label>
+            <input type="text"
+                   name="q"
+                   value="{{ request.GET.q }}"
+                   placeholder="Search by name..."
+                   class="input input-bordered w-full">
+        </div>
+
+        <div>
+            <label class="label text-sm">Status</label>
+            <select name="active" class="select select-bordered w-full">
+                <option value="">All</option>
+                <option value="1" {% if request.GET.active == "1" %}selected{% endif %}>Active</option>
+                <option value="0" {% if request.GET.active == "0" %}selected{% endif %}>Archived</option>
+            </select>
+        </div>
+
+        <div class="md:col-span-2 flex gap-2">
+            <button type="submit" class="btn btn-primary">
+                Apply
+            </button>
+            <a href="{% url 'assets:category_list' %}" class="btn btn-ghost">
+                Reset
+            </a>
+        </div>
+    </form>
+
+    <!-- ===================================================== -->
+    <!-- Table -->
+    <!-- ===================================================== -->
+    <div class="card bg-base-100 shadow overflow-x-auto">
+        <table class="table w-full">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Parent</th>
+                    <th>Company</th>
+                    <th>Status</th>
+                    <th class="text-right">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for obj in object_list %}
+                <tr class="hover:bg-base-200 transition">
+                    <td class="font-medium">
+                        <a href="{% url 'assets:category_detail' obj.id %}"
+                           class="text-primary hover:underline">
+                            {{ obj.name }}
+                        </a>
+                    </td>
+
+                    <td>{{ obj.parent|default:"—" }}</td>
+                    <td>{{ obj.company|default:"—" }}</td>
+
+                    <td>
+                        {% if obj.active %}
+                            <span class="badge badge-success">Active</span>
+                        {% else %}
+                            <span class="badge badge-ghost">Archived</span>
+                        {% endif %}
+                    </td>
+
+                    <td class="text-right">
+                        <div class="flex justify-end gap-2">
+                            <a href="{% url 'assets:category_detail' obj.id %}"
+                               class="btn btn-xs btn-outline">
+                                View
+                            </a>
+                            <a href="{% url 'assets:category_edit' obj.id %}"
+                               class="btn btn-xs btn-outline">
+                                Edit
+                            </a>
+                            <a href="{% url 'assets:category_delete' obj.id %}"
+                               class="btn btn-xs btn-error">
+                                Delete
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="text-center py-16">
+                        <p class="text-lg font-medium opacity-70">
+                            No categories found
+                        </p>
+                        <p class="text-sm opacity-50 mt-1">
+                            Start by creating your first asset category
+                        </p>
+                        <a href="{% url 'assets:category_create' %}"
+                           class="btn btn-primary btn-sm mt-4">
+                            + Add Category
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- ===================================================== -->
+    <!-- Pagination -->
+    <!-- ===================================================== -->
+    {% if is_paginated %}
+    <div class="flex justify-center">
+        <div class="join">
+            {% if page_obj.has_previous %}
+                <a href="?page={{ page_obj.previous_page_number }}"
+                   class="join-item btn btn-sm">Prev</a>
+            {% endif %}
+            <span class="join-item btn btn-sm btn-disabled">
+                Page {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}
+            </span>
+            {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}"
+                   class="join-item btn btn-sm">Next</a>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
 </div>
 {% endblock %}
