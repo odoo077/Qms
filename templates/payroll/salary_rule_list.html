@@ -1,33 +1,153 @@
 <!-- templates/payroll/salary_rule_list.html -->
 {% extends "base.html" %}
+
 {% block page_title %}Salary Rules{% endblock %}
-{% block page_actions %}{% if can_add %}<a href="{% url 'payroll:salary_rule_create' %}" class="btn btn-primary btn-sm">+ New rule</a>{% endif %}{% endblock %}
 {% block title %}Payroll · Salary Rules{% endblock %}
+
+{% block page_actions %}
+  <a href="{% url 'payroll:salary_rule_create' %}"
+     class="btn btn-primary btn-sm gap-2">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none"
+         viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M12 4v16m8-8H4"/>
+    </svg>
+    New Rule
+  </a>
+{% endblock %}
+
 {% block content %}
-<div class="px-4 py-6">
-  <div class="mb-5">
+<div class="w-full px-6 py-8">
+  <div class="mx-auto w-full  space-y-6">
+
+    <!-- Header -->
+    <div class="space-y-1">
+      <h1 class="text-2xl font-semibold">Salary Rules</h1>
+      <p class="text-sm text-base-content/60">
+        Define calculation rules per payroll structure.
+      </p>
+    </div>
+
     {% include "base/includes/search_panel.html" %}
-    <p class="text-sm text-base-content/60">{{ page_obj.paginator.count }} result{{ page_obj.paginator.count|pluralize }}</p>
-  </div>
-  {% if object_list %}
-  <div class="space-y-3">
-    {% for r in object_list %}
+
     <div class="card bg-base-100 border border-base-300">
-      <div class="card-body p-4">
-        <div class="flex items-center justify-between">
-          <div class="min-w-0">
-            <div class="font-semibold truncate">{{ r.name }} <span class="badge badge-outline">{{ r.code }}</span></div>
-            <div class="text-sm text-base-content/60 truncate">{{ r.struct.company }} • {{ r.struct.name }} • {{ r.category.name }}</div>
+      <div class="card-body p-0">
+
+        {% if object_list %}
+
+        <!-- Meta -->
+        <div class="px-6 pt-5 pb-3 flex items-center justify-between text-sm text-base-content/60">
+          <div>
+            {{ page_obj.paginator.count }}
+            result{{ page_obj.paginator.count|pluralize }}
           </div>
-          <a href="{% url 'payroll:salary_rule_edit' r.pk %}" class="btn btn-xs btn-outline">Edit</a>
+          <div>
+            Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+          </div>
         </div>
+
+        <!-- Table -->
+        <div class="overflow-x-auto">
+          <table class="table table-zebra w-full">
+            <thead>
+              <tr class="bg-base-200">
+                <th class="w-[22%]">Rule</th>
+                <th class="w-[14%]">Code</th>
+                <th class="w-[18%]">Structure</th>
+                <th class="w-[16%]">Category</th>
+                <th class="w-[10%]">Sequence</th>
+                <th class="w-[10%]">Condition</th>
+                <th class="w-[10%] text-right">Actions</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {% for r in object_list %}
+              <tr>
+                <td class="font-medium">
+                  <div class="flex flex-col">
+                    <span>{{ r.name }}</span>
+                    <span class="text-xs text-base-content/60">
+                      ID: {{ r.pk }}
+                    </span>
+                  </div>
+                </td>
+
+                <td>
+                  <span class="font-mono text-sm">{{ r.code }}</span>
+                </td>
+
+                <td class="text-sm">
+                  {{ r.struct.name }}
+                  <div class="text-xs text-base-content/60">
+                    {{ r.struct.company }}
+                  </div>
+                </td>
+
+                <td>
+                  <span class="badge badge-outline">
+                    {{ r.category.code }}
+                  </span>
+                </td>
+
+                <td>
+                  {{ r.sequence }}
+                </td>
+
+                <td>
+                  {% if r.condition_select == "python" %}
+                    <span class="badge badge-warning badge-outline">
+                      Python
+                    </span>
+                  {% else %}
+                    <span class="badge badge-ghost">
+                      Always
+                    </span>
+                  {% endif %}
+                </td>
+
+                <td class="text-right">
+                  <div class="inline-flex gap-2">
+                    <a href="{% url 'payroll:salary_rule_edit' r.pk %}"
+                       class="btn btn-xs btn-outline btn-primary">
+                      Edit
+                    </a>
+                    <a href="{% url 'payroll:salary_rule_delete' r.pk %}"
+                       class="btn btn-xs btn-outline btn-error">
+                      Delete
+                    </a>
+                  </div>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Pagination -->
+        <div class="px-6 py-4 border-t border-base-300">
+          {% include "partials/paginator.html" %}
+        </div>
+
+        {% else %}
+
+        <!-- Empty State -->
+        <div class="p-12 text-center space-y-3">
+          <h3 class="text-lg font-semibold">No Salary Rules</h3>
+          <p class="text-sm text-base-content/60">
+            Start by creating your first salary rule.
+          </p>
+          <a href="{% url 'payroll:salary_rule_create' %}"
+             class="btn btn-primary btn-sm">
+            Create first rule
+          </a>
+        </div>
+
+        {% endif %}
+
       </div>
     </div>
-    {% endfor %}
+
   </div>
-  {% include "base/includes/pagination.html" %}
-  {% else %}
-  <div class="rounded-lg border border-dashed border-base-300 bg-base-100 p-10 text-center">No rules.</div>
-  {% endif %}
 </div>
 {% endblock %}

@@ -1,18 +1,22 @@
-<!-- templates/payroll/rule_parameter_list.html -->
 {% extends "base.html" %}
 
-{% block page_title %}Rule Parameters{% endblock %}
-{% block title %}Payroll · Rule Parameters{% endblock %}
+{% block page_title %}Payslip Inputs{% endblock %}
+{% block title %}Payroll · Payslip Inputs{% endblock %}
 
 {% block page_actions %}
-  <a href="{% url 'payroll:rule_parameter_create' %}"
+  <a href="{% url 'payroll:payslip_input_create' %}"
      class="btn btn-primary btn-sm gap-2">
-    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none"
-         viewBox="0 0 24 24" stroke="currentColor">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-            d="M12 4v16m8-8H4"/>
+    <svg xmlns="http://www.w3.org/2000/svg"
+         class="h-4 w-4"
+         fill="none"
+         viewBox="0 0 24 24"
+         stroke="currentColor">
+      <path stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M12 4v16m8-8H4" />
     </svg>
-    New Parameter
+    New Input
   </a>
 {% endblock %}
 
@@ -22,9 +26,9 @@
 
     <!-- Header -->
     <div class="space-y-1">
-      <h1 class="text-2xl font-semibold">Rule Parameters</h1>
+      <h1 class="text-2xl font-semibold">Payslip Inputs</h1>
       <p class="text-sm text-base-content/60">
-        Global values used inside salary rule calculations.
+        Manual inputs linked to specific payslips.
       </p>
     </div>
 
@@ -36,7 +40,8 @@
         {% if object_list %}
 
         <!-- Meta -->
-        <div class="px-6 pt-5 pb-3 flex items-center justify-between text-sm text-base-content/60">
+        <div class="px-6 pt-5 pb-3 flex items-center justify-between
+                    text-sm text-base-content/60">
           <div>
             {{ page_obj.paginator.count }}
             result{{ page_obj.paginator.count|pluralize }}
@@ -51,42 +56,52 @@
           <table class="table table-zebra w-full">
             <thead>
               <tr class="bg-base-200">
-                <th class="w-[28%]">Code</th>
-                <th class="w-[22%]">Value</th>
-                <th class="w-[30%]">Company</th>
-                <th class="w-[20%] text-right">Actions</th>
+                <th class="w-[20%]">Payslip</th>
+                <th class="w-[16%]">Employee</th>
+                <th class="w-[14%]">Input Type</th>
+                <th class="w-[18%]">Name</th>
+                <th class="w-[10%]">Sequence</th>
+                <th class="w-[12%] text-right">Amount</th>
+                <th class="w-[10%] text-right">Actions</th>
               </tr>
             </thead>
 
             <tbody>
-              {% for p in object_list %}
+              {% for pi in object_list %}
               <tr>
-                <td class="font-medium">
-                  <div class="flex flex-col">
-                    <span class="font-mono">{{ p.code }}</span>
-                    <span class="text-xs text-base-content/60">
-                      ID: {{ p.pk }}
-                    </span>
-                  </div>
-                </td>
-
-                <td>
-                  <span class="font-mono text-sm">
-                    {{ p.value }}
-                  </span>
+                <td class="text-sm">
+                  {{ pi.payslip.period.year }}-{{ pi.payslip.period.month }}
                 </td>
 
                 <td class="text-sm">
-                  {{ p.company }}
+                  {{ pi.payslip.employee }}
+                </td>
+
+                <td>
+                  <span class="badge badge-outline">
+                    {{ pi.input_type.code }}
+                  </span>
+                </td>
+
+                <td>
+                  {{ pi.name|default:"—" }}
+                </td>
+
+                <td>
+                  {{ pi.sequence }}
+                </td>
+
+                <td class="text-right font-mono">
+                  {{ pi.amount }}
                 </td>
 
                 <td class="text-right">
                   <div class="inline-flex gap-2">
-                    <a href="{% url 'payroll:rule_parameter_edit' p.pk %}"
+                    <a href="{% url 'payroll:payslip_input_edit' pi.pk %}"
                        class="btn btn-xs btn-outline btn-primary">
                       Edit
                     </a>
-                    <a href="{% url 'payroll:rule_parameter_delete' p.pk %}"
+                    <a href="{% url 'payroll:payslip_input_delete' pi.pk %}"
                        class="btn btn-xs btn-outline btn-error">
                       Delete
                     </a>
@@ -107,13 +122,13 @@
 
         <!-- Empty State -->
         <div class="p-12 text-center space-y-3">
-          <h3 class="text-lg font-semibold">No Rule Parameters</h3>
+          <h3 class="text-lg font-semibold">No Payslip Inputs</h3>
           <p class="text-sm text-base-content/60">
-            Create parameters to reuse values across salary rules.
+            Add manual inputs to affect payslip calculations.
           </p>
-          <a href="{% url 'payroll:rule_parameter_create' %}"
+          <a href="{% url 'payroll:payslip_input_create' %}"
              class="btn btn-primary btn-sm">
-            Create first parameter
+            Create first input
           </a>
         </div>
 

@@ -1,15 +1,82 @@
 <!-- templates/payroll/input_type_form.html -->
 {% extends "base.html" %}
-{% block page_title %}Input Type{% endblock %}
+
 {% block title %}Payroll · Input Type{% endblock %}
+
 {% block content %}
-<div class="px-4 py-6 max-w-2xl">
-  <form method="post" class="space-y-4">{% csrf_token %}
-    {{ form.as_p }}
-    <div class="mt-4 flex gap-2">
-      <button class="btn btn-primary">Save</button>
-      <a href="{% url 'payroll:input_type_list' %}" class="btn">Cancel</a>
+<div class="w-full px-6 py-6 mx-auto space-y-6">
+
+  <!-- Header -->
+  <div>
+    <h1 class="text-3xl font-bold">
+      {% if object %}Edit Input Type{% else %}Create Input Type{% endif %}
+    </h1>
+    <p class="text-sm opacity-70 mt-1">
+      Define manual inputs applied during payslip calculation
+    </p>
+  </div>
+
+  <div class="card bg-base-100 shadow">
+    <div class="card-body">
+
+      <form method="post" class="space-y-6">
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+          <div class="alert alert-error text-sm">
+            {{ form.non_field_errors }}
+          </div>
+        {% endif %}
+
+        {% for hidden in form.hidden_fields %}
+          {{ hidden }}
+        {% endfor %}
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {% for field in form.visible_fields %}
+          <div>
+            <label class="label">
+              <span class="label-text font-semibold">
+                {{ field.label }}
+                {% if field.field.required %}
+                  <span class="text-error">*</span>
+                {% endif %}
+              </span>
+            </label>
+
+            {{ field }}
+
+            {% if field.help_text %}
+              <p class="text-xs opacity-60 mt-1">
+                {{ field.help_text }}
+              </p>
+            {% endif %}
+
+            {% for error in field.errors %}
+              <p class="text-error text-xs mt-1">
+                {{ error }}
+              </p>
+            {% endfor %}
+          </div>
+          {% endfor %}
+        </div>
+
+        <!-- Actions -->
+        <div class="flex gap-3 pt-4">
+          <button type="submit" class="btn btn-primary">
+            {% if object %}Save Changes{% else %}Create Input Type{% endif %}
+          </button>
+
+          <a href="{% url 'payroll:input_type_list' %}"
+             class="btn btn-ghost">
+            Cancel
+          </a>
+        </div>
+
+      </form>
+
     </div>
-  </form>
+  </div>
+
 </div>
 {% endblock %}

@@ -118,86 +118,137 @@
             </ul>
           </div>
 
-          {# Performance #}
-          <div class="dropdown dropdown-hover">
-            <label tabindex="0"
-                   class="btn btn-ghost btn-sm
-                          {% if ns == 'performance' %}btn-active font-semibold{% endif %}">
-              Performance
-            </label>
+<!--          {# Performance #}-->
+<!--          <div class="dropdown dropdown-hover">-->
+<!--            <label tabindex="0"-->
+<!--                   class="btn btn-ghost btn-sm-->
+<!--                          {% if ns == 'performance' %}btn-active font-semibold{% endif %}">-->
+<!--              Performance-->
+<!--            </label>-->
 
-            <ul tabindex="0"
-                class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-64 text-sm">
+<!--            <ul tabindex="0"-->
+<!--                class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-64 text-sm">-->
 
-              {# العمليات اليومية #}
-              <li class="menu-title">Operational</li>
-              <li>
-                <a href="{% url 'performance:objective_list' %}">
-                  Objectives
-                </a>
-              </li>
-              <li>
-                <a href="{% url 'performance:kpi_list' %}">
-                  KPIs
-                </a>
-              </li>
-              <li>
-                <a href="{% url 'performance:task_list' %}">
-                  Tasks
-                </a>
-              </li>
-              <li>
-                <a href="{% url 'performance:evaluation_list' %}">
-                  Evaluations
-                </a>
-              </li>
-              <li>
-                <a href="{% url 'performance:my_evaluation_list' %}">
-                  My Evaluations
-                </a>
-              </li>
+<!--              {# العمليات اليومية #}-->
+<!--              <li class="menu-title">Operational</li>-->
+<!--              <li>-->
+<!--                <a href="{% url 'performance:objective_list' %}">-->
+<!--                  Objectives-->
+<!--                </a>-->
+<!--              </li>-->
+<!--              <li>-->
+<!--                <a href="{% url 'performance:kpi_list' %}">-->
+<!--                  KPIs-->
+<!--                </a>-->
+<!--              </li>-->
+<!--              <li>-->
+<!--                <a href="{% url 'performance:task_list' %}">-->
+<!--                  Tasks-->
+<!--                </a>-->
+<!--              </li>-->
+<!--              <li>-->
+<!--                <a href="{% url 'performance:evaluation_list' %}">-->
+<!--                  Evaluations-->
+<!--                </a>-->
+<!--              </li>-->
+<!--              <li>-->
+<!--                <a href="{% url 'performance:my_evaluation_list' %}">-->
+<!--                  My Evaluations-->
+<!--                </a>-->
+<!--              </li>-->
 
-              <div class="divider my-1"></div>
+<!--              <div class="divider my-1"></div>-->
 
-              {# الإعدادات #}
-              <li class="menu-title">Configuration</li>
-              <li>
-                <a href="{% url 'performance:evaluation_type_list' %}">
-                  Evaluation Types
-                </a>
-              </li>
-              <li>
-                <a href="{% url 'performance:template_list' %}">
-                  Templates
-                </a>
-              </li>
-              <li>
-                <a href="{% url 'performance:parameter_list' %}">
-                  Parameters
-                </a>
-              </li>
-            </ul>
-          </div>
+<!--              {# الإعدادات #}-->
+<!--              <li class="menu-title">Configuration</li>-->
+<!--              <li>-->
+<!--                <a href="{% url 'performance:evaluation_type_list' %}">-->
+<!--                  Evaluation Types-->
+<!--                </a>-->
+<!--              </li>-->
+<!--              <li>-->
+<!--                <a href="{% url 'performance:template_list' %}">-->
+<!--                  Templates-->
+<!--                </a>-->
+<!--              </li>-->
+<!--              <li>-->
+<!--                <a href="{% url 'performance:parameter_list' %}">-->
+<!--                  Parameters-->
+<!--                </a>-->
+<!--              </li>-->
+<!--            </ul>-->
+<!--          </div>-->
 
 
+<!-- Payroll -->
+<div class="dropdown dropdown-hover">
+  <label tabindex="0"
+         class="btn btn-ghost btn-sm
+                {% if ns == 'payroll' %}btn-active font-semibold{% endif %}">
+    Payroll
+  </label>
 
-          <!-- Payroll -->
-          <div class="dropdown dropdown-hover">
-            <label tabindex="0"
-                   class="btn btn-ghost btn-sm
-                          {% if ns == 'payroll' %}btn-active font-semibold{% endif %}">
-              Payroll
-            </label>
-            <ul tabindex="0" class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-64">
-              <li><a href="{% url 'payroll:payslip_list' %}">Payslips</a></li>
-              <li><a href="{% url 'payroll:period_list' %}">Periods</a></li>
-              <li><a href="{% url 'payroll:structure_list' %}">Structures</a></li>
-              <li><a href="{% url 'payroll:salary_rule_list' %}">Salary Rules</a></li>
-              <li><a href="{% url 'payroll:rule_parameter_list' %}">Rule Parameters</a></li>
-              <li><a href="{% url 'payroll:input_type_list' %}">Input Types</a></li>
-              <li><a href="{% url 'payroll:employee_salary_list' %}">Employee Salaries</a></li>
-            </ul>
-          </div>
+  <ul tabindex="0"
+      class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-64">
+
+    <li>
+      <a href="{% url 'payroll:payslip_list' %}">
+        Payslips
+      </a>
+    </li>
+
+    <li>
+      <a href="{% url 'payroll:period_list' %}">
+        Payroll Periods
+      </a>
+    </li>
+
+    <li>
+      <a href="{% url 'payroll:employee_salary_list' %}">
+        Employee Salaries
+      </a>
+    </li>
+
+    <li>
+      <a href="{% url 'payroll:structure_list' %}">
+        Payroll Structures
+      </a>
+    </li>
+
+    <li>
+      <a href="{% url 'payroll:salary_rule_list' %}">
+        Salary Rules
+      </a>
+    </li>
+
+    <li>
+      <a href="{% url 'payroll:rule_category_list' %}">
+        Salary Rule Categories
+      </a>
+    </li>
+
+    <li>
+      <a href="{% url 'payroll:rule_parameter_list' %}">
+        Rule Parameters
+      </a>
+    </li>
+
+    <li>
+      <a href="{% url 'payroll:input_type_list' %}">
+        Input Types
+      </a>
+    </li>
+
+    <li>
+      <a href="{% url 'payroll:payslip_input_list' %}">
+        Payslip Inputs
+      </a>
+    </li>
+
+  </ul>
+</div>
+
+
         </nav>
         {% endwith %}
       </div>

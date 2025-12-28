@@ -1,18 +1,17 @@
-<!-- templates/payroll/salary_rule_form.html -->
 {% extends "base.html" %}
 
-{% block title %}Payroll · Salary Rule{% endblock %}
+{% block title %}Payroll · Payslip Input{% endblock %}
 
 {% block content %}
-<div class="w-full px-6 py-6  mx-auto space-y-6">
+<div class="w-full px-6 py-6 mx-auto space-y-6">
 
   <!-- Header -->
   <div>
     <h1 class="text-3xl font-bold">
-      {% if object %}Edit Salary Rule{% else %}Create Salary Rule{% endif %}
+      {% if object %}Edit Payslip Input{% else %}Create Payslip Input{% endif %}
     </h1>
     <p class="text-sm opacity-70 mt-1">
-      Configure rule conditions and calculation logic
+      Define a manual value applied to a payslip
     </p>
   </div>
 
@@ -34,7 +33,7 @@
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
           {% for field in form.visible_fields %}
-          <div class="{% if field.name in 'condition_python amount_python' %}md:col-span-2{% endif %}">
+          <div>
             <label class="label">
               <span class="label-text font-semibold">
                 {{ field.label }}
@@ -64,10 +63,10 @@
         <!-- Actions -->
         <div class="flex gap-3 pt-4">
           <button type="submit" class="btn btn-primary">
-            {% if object %}Save Changes{% else %}Create Rule{% endif %}
+            {% if object %}Save Changes{% else %}Create Input{% endif %}
           </button>
 
-          <a href="{% url 'payroll:salary_rule_list' %}"
+          <a href="{% url 'payroll:payslip_input_list' %}"
              class="btn btn-ghost">
             Cancel
           </a>

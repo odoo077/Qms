@@ -1,109 +1,70 @@
 # payroll/forms.py
-from __future__ import annotations
 
 from django import forms
-
-from base.models import Company
-from base.company_context import get_company_id as get_current_company
-
 from . import models as m
-
-
-# ============================================================
-# Base Scoped ModelForm (ACL + Company aware)
-# ============================================================
-
-class _ScopedModelForm(forms.ModelForm):
-    """
-    Base reusable scoped form:
-    - Limits company-related fields to companies the user can view (ACL).
-    - Sets current company automatically on create.
-    """
-
-    def __init__(self, *args, **kwargs):
-        self.request = kwargs.pop("request", None)
-        super().__init__(*args, **kwargs)
-
-        # Companies visible by ACL (fallback to all if ACL manager not available)
-        allowed_companies = (
-            Company.objects.with_acl("view")
-            if hasattr(Company.objects, "with_acl")
-            else Company.objects.all()
-        )
-
-        # ----------------------------------------------------
-        # Company field scoping + default
-        # ----------------------------------------------------
-        if "company" in self.fields:
-            self.fields["company"].queryset = allowed_companies
-
-            cur_id = get_current_company(self.request)
-            if cur_id and allowed_companies.filter(pk=cur_id).exists():
-                if not getattr(self.instance, "pk", None):
-                    self.fields["company"].initial = cur_id
-
-    # --------------------------------------------------------
-    # Helper: filter FK fields by selected / instance company
-    # --------------------------------------------------------
-    def _filter_by_company(self, field_name: str, qs):
-        if field_name not in self.fields:
-            return
-
-        company_id = (
-            self.data.get(self.add_prefix("company"))
-            or self.initial.get("company")
-            or getattr(self.instance, "company_id", None)
-        )
-
-        if company_id:
-            try:
-                self.fields[field_name].queryset = qs.filter(company_id=company_id)
-            except Exception:
-                # Model has no company field
-                self.fields[field_name].queryset = qs
-        else:
-            try:
-                allowed_ids = (
-                    Company.objects.with_acl("view").values("id")
-                    if hasattr(Company.objects, "with_acl")
-                    else Company.objects.values("id")
-                )
-                self.fields[field_name].queryset = qs.filter(company_id__in=allowed_ids)
-            except Exception:
-                self.fields[field_name].queryset = qs
 
 
 # ============================================================
 # Configuration / Master Data
 # ============================================================
 
-class PayrollStructureForm(_ScopedModelForm):
+class PayrollStructureForm(forms.ModelForm):
     class Meta:
         model = m.PayrollStructure
         fields = ["company", "name", "code", "use_worked_day_lines"]
+        widgets = {
+            "company": forms.Select(attrs={"class": "select select-bordered w-full"}),
+            "name": forms.TextInput(attrs={
+                "class": "input input-bordered w-full",
+                "placeholder": "e.g. Staff Salary"
+            }),
+            "code": forms.TextInput(attrs={
+                "class": "input input-bordered w-full font-mono",
+                "placeholder": "STAFF"
+            }),
+            "use_worked_day_lines": forms.CheckboxInput(attrs={"class": "checkbox checkbox-sm"}),
+        }
 
 
-class SalaryRuleCategoryForm(_ScopedModelForm):
-    """
-    Salary Rule Category MUST be company-scoped
-    (fix for multi-company + ACL consistency).
-    """
+class SalaryRuleCategoryForm(forms.ModelForm):
     class Meta:
         model = m.SalaryRuleCategory
         fields = ["company", "name", "code", "sequence"]
+        widgets = {
+            "company": forms.Select(attrs={"class": "select select-bordered w-full"}),
+            "name": forms.TextInput(attrs={
+                "class": "input input-bordered w-full",
+                "placeholder": "Basic Salary"
+            }),
+            "code": forms.TextInput(attrs={
+                "class": "input input-bordered w-full font-mono",
+                "placeholder": "BASIC"
+            }),
+            "sequence": forms.NumberInput(attrs={
+                "class": "input input-bordered w-full",
+                "min": 1
+            }),
+        }
 
 
-class RuleParameterForm(_ScopedModelForm):
+class RuleParameterForm(forms.ModelForm):
     class Meta:
         model = m.RuleParameter
         fields = ["company", "code", "value"]
+        widgets = {
+            "company": forms.Select(attrs={"class": "select select-bordered w-full"}),
+            "code": forms.TextInput(attrs={
+                "class": "input input-bordered w-full font-mono",
+                "placeholder": "TAX_RATE"
+            }),
+            "value": forms.NumberInput(attrs={
+                "class": "input input-bordered w-full",
+                "step": "0.0001"
+            }),
+        }
 
 
 class SalaryRuleForm(forms.ModelForm):
-    """
-    Salary rules are indirectly company-scoped via PayrollStructure,
-    therefore no direct company field here.
-    """
     class Meta:
         model = m.SalaryRule
         fields = [
@@ -118,25 +79,76 @@ class SalaryRuleForm(forms.ModelForm):
             "input_usage_employee",
             "unique_code_per_struct",
         ]
+        widgets = {
+            "struct": forms.Select(attrs={"class": "select select-bordered w-full"}),
+            "code": forms.TextInput(attrs={
+                "class": "input input-bordered w-full font-mono",
+                "placeholder": "ALW_TRAN"
+            }),
+            "name": forms.TextInput(attrs={
+                "class": "input input-bordered w-full",
+                "placeholder": "Transport Allowance"
+            }),
+            "sequence": forms.NumberInput(attrs={"class": "input input-bordered w-full"}),
+            "category": forms.Select(attrs={"class": "select select-bordered w-full"}),
+            "condition_select": forms.Select(attrs={"class": "select select-bordered w-full"}),
+            "condition_python": forms.Textarea(attrs={
+                "class": "textarea textarea-bordered w-full font-mono",
+                "rows": 3
+            }),
+            "amount_python": forms.Textarea(attrs={
+                "class": "textarea textarea-bordered w-full font-mono",
+                "rows": 6
+            }),
+            "input_usage_employee": forms.CheckboxInput(attrs={"class": "checkbox checkbox-sm"}),
+            "unique_code_per_struct": forms.CheckboxInput(attrs={"class": "checkbox checkbox-sm"}),
+        }
 
 
-class InputTypeForm(_ScopedModelForm):
+class InputTypeForm(forms.ModelForm):
     class Meta:
         model = m.InputType
         fields = ["company", "name", "code", "active", "is_quantity"]
+        widgets = {
+            "company": forms.Select(attrs={"class": "select select-bordered w-full"}),
+            "name": forms.TextInput(attrs={
+                "class": "input input-bordered w-full",
+                "placeholder": "Transport Allowance"
+            }),
+            "code": forms.TextInput(attrs={
+                "class": "input input-bordered w-full font-mono",
+                "placeholder": "ALW_TRAN"
+            }),
+            "active": forms.CheckboxInput(attrs={"class": "checkbox checkbox-sm"}),
+            "is_quantity": forms.CheckboxInput(attrs={"class": "checkbox checkbox-sm"}),
+        }
 
 
 # ============================================================
 # Periods / Transactions
 # ============================================================
 
-class PayrollPeriodForm(_ScopedModelForm):
+class PayrollPeriodForm(forms.ModelForm):
     class Meta:
         model = m.PayrollPeriod
         fields = ["company", "date_from", "date_to", "month", "year", "state"]
+        widgets = {
+            "company": forms.Select(attrs={"class": "select select-bordered w-full"}),
+            "date_from": forms.DateInput(attrs={
+                "type": "date",
+                "class": "input input-bordered w-full"
+            }),
+            "date_to": forms.DateInput(attrs={
+                "type": "date",
+                "class": "input input-bordered w-full"
+            }),
+            "month": forms.NumberInput(attrs={"class": "input input-bordered w-full"}),
+            "year": forms.NumberInput(attrs={"class": "input input-bordered w-full"}),
+            "state": forms.Select(attrs={"class": "select select-bordered w-full"}),
+        }
 
 
-class PayslipForm(_ScopedModelForm):
+class PayslipForm(forms.ModelForm):
     class Meta:
         model = m.Payslip
         fields = [
@@ -149,26 +161,62 @@ class PayslipForm(_ScopedModelForm):
             "note",
             "state",
         ]
+        widgets = {
+            "company": forms.Select(attrs={"class": "select select-bordered w-full"}),
+            "employee": forms.Select(attrs={"class": "select select-bordered w-full"}),
+            "period": forms.Select(attrs={"class": "select select-bordered w-full"}),
+            "department": forms.Select(attrs={"class": "select select-bordered w-full"}),
+            "job": forms.Select(attrs={"class": "select select-bordered w-full"}),
+            "struct": forms.Select(attrs={"class": "select select-bordered w-full"}),
+            "note": forms.TextInput(attrs={
+                "class": "input input-bordered w-full",
+                "placeholder": "Optional note"
+            }),
+            "state": forms.Select(attrs={"class": "select select-bordered w-full"}),
+        }
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
 
-        from hr.models import Employee, Department, Job
+class PayslipInputForm(forms.ModelForm):
+    class Meta:
+        model = m.PayslipInput
+        fields = ["company", "payslip", "input_type", "name", "sequence", "amount"]
+        widgets = {
+            "company": forms.Select(attrs={"class": "select select-bordered w-full"}),
+            "payslip": forms.Select(attrs={"class": "select select-bordered w-full"}),
+            "input_type": forms.Select(attrs={"class": "select select-bordered w-full"}),
+            "name": forms.TextInput(attrs={
+                "class": "input input-bordered w-full",
+                "placeholder": "Optional description"
+            }),
+            "sequence": forms.NumberInput(attrs={"class": "input input-bordered w-full"}),
+            "amount": forms.NumberInput(attrs={
+                "class": "input input-bordered w-full",
+                "step": "0.01"
+            }),
+        }
 
-        self._filter_by_company("employee", Employee.objects.all())
-        self._filter_by_company("department", Department.objects.all())
-        self._filter_by_company("job", Job.objects.all())
-        self._filter_by_company("period", m.PayrollPeriod.objects.all())
-        self._filter_by_company("struct", m.PayrollStructure.objects.all())
 
-
-class EmployeeSalaryForm(_ScopedModelForm):
+class EmployeeSalaryForm(forms.ModelForm):
     class Meta:
         model = m.EmployeeSalary
         fields = ["company", "employee", "amount", "date_start", "date_end", "note"]
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        from hr.models import Employee
-        self._filter_by_company("employee", Employee.objects.all())
+        widgets = {
+            "company": forms.Select(attrs={"class": "select select-bordered w-full"}),
+            "employee": forms.Select(attrs={"class": "select select-bordered w-full"}),
+            "amount": forms.NumberInput(attrs={
+                "class": "input input-bordered w-full",
+                "step": "0.01"
+            }),
+            "date_start": forms.DateInput(attrs={
+                "type": "date",
+                "class": "input input-bordered w-full"
+            }),
+            "date_end": forms.DateInput(attrs={
+                "type": "date",
+                "class": "input input-bordered w-full"
+            }),
+            "note": forms.TextInput(attrs={
+                "class": "input input-bordered w-full",
+                "placeholder": "Optional note"
+            }),
+        }

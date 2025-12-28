@@ -251,18 +251,26 @@ class JobListView(LoginRequiredMixin, BaseScopedListView):
     paginate_by = 50
 
     def get_queryset(self):
-        qs = super().get_queryset().select_related("company", "department")
-
-        # stats (active employees per job)
-        qs = qs.annotate(
-            employees_count=Count("employee_set", filter=Q(employee_set__active=True), distinct=True),
-        ).annotate(
-            vacancies=Greatest(
-                Value(0),
-                Coalesce(F("no_of_recruitment"), Value(0)) - Coalesce(F("employees_count"), Value(0)),
+        qs = (
+            super()
+            .get_queryset()
+            .select_related("company", "department")
+            .annotate(
+                employees_count=Count(
+                    "employees",
+                    filter=Q(employees__active=True),
+                    distinct=True,
+                ),
             )
-        ).order_by("name")
-
+            .annotate(
+                vacancies=Greatest(
+                    Value(0),
+                    Coalesce(F("no_of_recruitment"), Value(0))
+                    - Coalesce(F("employees_count"), Value(0)),
+                )
+            )
+            .order_by("name")
+        )
         return qs
 
     def get_context_data(self, **kwargs):
@@ -280,13 +288,14 @@ class JobDetailView(LoginRequiredMixin, BaseScopedDetailView):
     template_name = "hr/job_detail.html"
 
     def get_queryset(self):
-        return Job.objects.select_related(
-            "company", "department"
-        ).prefetch_related(
-            "employee_set__department",
-            "employee_set__manager",
+        return (
+            Job.objects
+            .select_related("company", "department")
+            .prefetch_related(
+                "employees__department",
+                "employees__manager",
+            )
         )
-
 
     def _enforce_object_scope_or_404(self, obj):
         allowed = get_allowed_company_ids(self.request)
@@ -300,7 +309,7 @@ class JobDetailView(LoginRequiredMixin, BaseScopedDetailView):
         job = self.object
 
         ctx["employees"] = (
-            job.employee_set
+            job.employees
             .filter(active=True)
             .select_related("department", "manager")
             .order_by("name")

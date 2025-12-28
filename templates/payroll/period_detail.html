@@ -1,45 +1,82 @@
 <!-- templates/payroll/period_detail.html -->
 {% extends "base.html" %}
-{% block page_title %}Period Detail{% endblock %}
-{% block title %}Payroll · Period Detail{% endblock %}
-{% block content %}
-<div class="px-4 py-6 space-y-6">
-  <div class="rounded-2xl bg-base-100 ring-1 ring-base-300/70 shadow p-5">
-    <div class="flex items-center justify-between">
-      <div>
-        <h2 class="text-xl font-semibold">{{ object.company }} — {{ object.year }}-{{ object.month|stringformat:"02d" }}</h2>
-        <p class="text-sm text-base-content/60">{{ object.date_from }} → {{ object.date_to }} • {{ object.state|capfirst }}</p>
-      </div>
-      <a href="{% url 'payroll:period_edit' object.pk %}" class="btn btn-outline btn-sm">Edit</a>
-    </div>
-  </div>
 
-  <div class="rounded-2xl bg-base-100 ring-1 ring-base-300/70 shadow">
-    <header class="px-5 py-4 border-b border-base-300/70 flex items-center justify-between">
-      <h3 class="text-lg font-semibold">Payslips</h3>
-      <a href="{% url 'payroll:payslip_list' %}" class="btn btn-xs">All payslips</a>
-    </header>
-    <div class="p-5">
-      {% if object.payslips.all %}
-      <div class="space-y-2">
-        {% for ps in object.payslips.all %}
-        <div class="flex items-center justify-between border-b border-base-200 py-2">
-          <div class="min-w-0">
-            <a href="{% url 'payroll:payslip_detail' ps.pk %}" class="font-medium hover:text-primary">
-              {{ ps.employee }} — {{ ps.get_state_display|default:ps.state|capfirst }}
-            </a>
-            <div class="text-xs text-base-content/60">
-              Gross: {{ ps.gross_wage }} · Net: {{ ps.net_wage }}{% if ps.department %} • {{ ps.department }}{% endif %}
+{% block title %}Payroll · Period Details{% endblock %}
+
+{% block page_actions %}
+  <a href="{% url 'payroll:period_edit' object.pk %}"
+     class="btn btn-primary btn-sm">
+    Edit
+  </a>
+{% endblock %}
+
+{% block content %}
+<div class="w-full px-6 py-8">
+  <div class="mx-auto space-y-6">
+
+    <!-- Header -->
+    <div>
+      <h1 class="text-2xl font-semibold">Payroll Period Details</h1>
+      <p class="text-sm text-base-content/60">
+        Period configuration and status
+      </p>
+    </div>
+
+    <div class="card bg-base-100 border border-base-300">
+      <div class="card-body space-y-4">
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+          <div>
+            <span class="opacity-60">Company</span>
+            <div class="font-medium">{{ object.company }}</div>
+          </div>
+
+          <div>
+            <span class="opacity-60">State</span>
+            <div>
+              {% if object.state == "open" %}
+                <span class="badge badge-success badge-outline">Open</span>
+              {% else %}
+                <span class="badge badge-ghost">Closed</span>
+              {% endif %}
             </div>
           </div>
-          <a href="{% url 'payroll:payslip_edit' ps.pk %}" class="btn btn-xs btn-outline">Edit</a>
+
+          <div>
+            <span class="opacity-60">Month</span>
+            <div>{{ object.month }}</div>
+          </div>
+
+          <div>
+            <span class="opacity-60">Year</span>
+            <div>{{ object.year }}</div>
+          </div>
+
+          <div>
+            <span class="opacity-60">Date From</span>
+            <div>{{ object.date_from }}</div>
+          </div>
+
+          <div>
+            <span class="opacity-60">Date To</span>
+            <div>{{ object.date_to }}</div>
+          </div>
         </div>
-        {% empty %}
-        <p class="text-sm text-base-content/60">No payslips in this period.</p>
-        {% endfor %}
+
+        <div class="pt-4 border-t border-base-300 flex gap-3">
+          <a href="{% url 'payroll:period_edit' object.pk %}"
+             class="btn btn-outline btn-primary btn-sm">
+            Edit
+          </a>
+          <a href="{% url 'payroll:period_list' %}"
+             class="btn btn-ghost btn-sm">
+            Back to list
+          </a>
+        </div>
+
       </div>
-      {% endif %}
     </div>
+
   </div>
 </div>
 {% endblock %}

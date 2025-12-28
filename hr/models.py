@@ -537,7 +537,7 @@ class Job(CompanyOwnedMixin, ActivableMixin, TimeStampedMixin, UserStampedMixin,
 
     @property
     def employee_count(self):
-        return self.employee_set.filter(active=True).count()
+        return self.employees.filter(active=True).count()
 
     def __str__(self):
         return self.name
