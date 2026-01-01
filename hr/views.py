@@ -8,14 +8,15 @@ Design principles:
 - No implicit magic or hidden permissions
 - Views are thin: logic lives in models/forms
 """
-from django.shortcuts import redirect
+from django.shortcuts import redirect, get_object_or_404
 from django.utils.decorators import method_decorator
 from django.views.decorators.http import require_POST
 from django.contrib import messages
 from base.company_context import get_company_id, set_company
 from base.models import Company
-from .models import Department, Job, Employee, get_root_departments, build_department_tree
-from .forms import DepartmentForm, JobForm, EmployeeForm
+from .models import Department, Job, Employee, get_root_departments, build_department_tree, EmployeeStatusHistory, \
+    EmployeeEducation, EmployeeStatus
+from .forms import DepartmentForm, JobForm, EmployeeForm, EmployeeEducationForm
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.core.exceptions import PermissionDenied
 from django.db.models import Count, Q, F, Value
@@ -25,11 +26,11 @@ from django.template.loader import render_to_string
 from django.urls import reverse_lazy
 from django.views.generic import TemplateView
 from django.views.generic.edit import UpdateView
-from django.views import View
 from base.company_context import get_allowed_company_ids
-from base.acl_service import has_perm
 from base.views import BaseScopedListView, BaseScopedDetailView, BaseScopedCreateView, BaseScopedUpdateView
 from skills.models import EmployeeSkill
+from .services import change_employee_status
+from django.views.generic import View, DeleteView
 
 # ==========================================================
 # Departments
@@ -477,14 +478,98 @@ class EmployeeListView(LoginRequiredMixin, BaseScopedListView):
         qs = (
             super()
             .get_queryset()
-            .select_related("company", "department", "job", "manager", "user")
+            .select_related(
+                "company",
+                "department",
+                "job",
+                "manager",
+                "user",
+                "current_status",
+            )
         )
 
-        q = (self.request.GET.get("q") or "").strip()
+        request = self.request
+        SESSION_KEY = "employee_list_filters"
+
+        # --------------------------------------------------
+        # 1) Load filters:
+        #    - If GET is empty → restore from session
+        # --------------------------------------------------
+        if request.GET:
+            params = request.GET.copy()
+        else:
+            params = request.session.get(SESSION_KEY, {}).copy()
+
+        # --------------------------------------------------
+        # 2) Save filters to session (exclude pagination)
+        # --------------------------------------------------
+        if params:
+            request.session[SESSION_KEY] = {
+                k: v for k, v in params.items()
+                if v and k != "page"
+            }
+
+        # --------------------------------------------------
+        # 3) Global search
+        # --------------------------------------------------
+        q = (params.get("q") or "").strip()
         if q:
-            qs = qs.filter(name__icontains=q)
+            qs = qs.filter(
+                Q(name__icontains=q)
+                | Q(user__email__icontains=q)
+                | Q(job__name__icontains=q)
+                | Q(department__name__icontains=q)
+                | Q(manager__name__icontains=q)
+                | Q(company__name__icontains=q)
+            )
+
+        # --------------------------------------------------
+        # 4) Filters
+        # --------------------------------------------------
+        company_id = params.get("company")
+        if company_id:
+            qs = qs.filter(company_id=company_id)
+
+        department_id = params.get("department")
+        if department_id:
+            qs = qs.filter(department_id=department_id)
+
+        job_id = params.get("job")
+        if job_id:
+            qs = qs.filter(job_id=job_id)
+
+        manager_id = params.get("manager")
+        if manager_id:
+            qs = qs.filter(manager_id=manager_id)
+
+        status_id = params.get("status")
+        if status_id:
+            qs = qs.filter(current_status_id=status_id)
+
+        # --------------------------------------------------
+        # 5) Record visibility (Active / Archived)
+        # --------------------------------------------------
+        record = (params.get("record") or "").strip()
+
+        if record == "active":
+            qs = qs.filter(active=True)
+        elif record == "archived":
+            qs = qs.filter(active=False)
+        # else → show all (default behavior unchanged)
 
         return qs.order_by("name")
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+
+        ctx["companies"] = Company.objects.all().order_by("name")
+        ctx["departments"] = Department.objects.all().order_by("complete_name")
+        ctx["jobs"] = Job.objects.all().order_by("name")
+        ctx["managers"] = Employee.objects.all().order_by("name")
+        ctx["statuses"] = EmployeeStatus.objects.filter(active=True).order_by("sequence")
+
+        return ctx
+
 
 class EmployeeDetailView(LoginRequiredMixin, BaseScopedDetailView):
     """
@@ -562,7 +647,36 @@ class EmployeeDetailView(LoginRequiredMixin, BaseScopedDetailView):
             .order_by("skill_type__name", "skill__name")
         )
 
+        # ==================================================
+        # Employee Statuses (for Change Status modal)
+        # ADDITION ONLY — no side effects
+        # ==================================================
+        ctx["employee_statuses"] = (
+            EmployeeStatus.objects
+            .filter(active=True)
+            .order_by("sequence")
+        )
+
+        # -------- Employee Status History (Audit Trail)
+        ctx["status_history"] = (
+            EmployeeStatusHistory.objects
+            .filter(employee=employee)
+            .select_related(
+                "status",
+                "changed_by",
+            )
+            .order_by("-changed_at")
+        )
+
+        # -------- Education (read-only)
+        ctx["education_records"] = (
+            EmployeeEducation.objects
+            .filter(employee=employee)
+            .order_by("-end_year", "-start_year")
+        )
+
         return ctx
+
 
 class EmployeeCreateView(LoginRequiredMixin, BaseScopedCreateView):
     model = Employee
@@ -629,3 +743,105 @@ class EmployeeBulkActionView(LoginRequiredMixin, View):
 
         return redirect("hr:employee_list")
 
+
+# ==========================================================
+# Employee Status Change
+# ==========================================================
+
+class EmployeeChangeStatusView(View):
+    """
+    Handle employee status change (POST only).
+    """
+
+    def post(self, request, pk):
+        employee = get_object_or_404(Employee, pk=pk)
+
+        status_id = request.POST.get("status")
+        reason = request.POST.get("reason", "").strip()
+        note = request.POST.get("note", "").strip()
+
+        if not status_id or not reason:
+            messages.error(request, "Status and reason are required.")
+            return redirect(employee.get_absolute_url())
+
+        status = get_object_or_404(EmployeeStatus, pk=status_id)
+
+        try:
+            change_employee_status(
+                employee=employee,
+                new_status=status,
+                reason=reason,
+                note=note,
+                changed_by=request.user if request.user.is_authenticated else None,
+            )
+            messages.success(
+                request,
+                f"Employee status changed to '{status.name}'."
+            )
+        except Exception as exc:
+            messages.error(request, str(exc))
+
+        return redirect(employee.get_absolute_url())
+
+# ==========================================================
+# Employee Education Form
+# ==========================================================
+
+@method_decorator(require_POST, name="dispatch")
+class EmployeeEducationCreateView(LoginRequiredMixin, View):
+    def post(self, request, employee_id):
+        employee = get_object_or_404(Employee, pk=employee_id)
+
+        form = EmployeeEducationForm(request.POST)
+        if form.is_valid():
+            edu = form.save(commit=False)
+            edu.employee = employee
+            edu.save()
+            messages.success(request, "Education record added.")
+        else:
+            messages.error(request, "Failed to add education record.")
+
+        return redirect(employee.get_absolute_url())
+
+@method_decorator(require_POST, name="dispatch")
+class EducationUpdateView(LoginRequiredMixin, View):
+    def post(self, request, pk):
+        education = get_object_or_404(EmployeeEducation, pk=pk)
+
+        # company scope (safe)
+        allowed = get_allowed_company_ids(request)
+        if allowed and education.employee.company_id not in allowed:
+            raise PermissionDenied("Outside company scope.")
+
+        form = EmployeeEducationForm(
+            request.POST,
+            instance=education,
+        )
+
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Education record updated successfully.")
+        else:
+            messages.error(request, "Failed to update education record.")
+
+        return redirect(education.employee.get_absolute_url())
+
+class EducationDeleteView(LoginRequiredMixin, DeleteView):
+    model = EmployeeEducation
+    template_name = "partials/confirm_delete.html"
+
+    def get_success_url(self):
+        return self.object.employee.get_absolute_url()
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["object_label"] = "Education Record"
+        ctx["back_url"] = self.object.employee.get_absolute_url()
+        return ctx
+
+    def dispatch(self, request, *args, **kwargs):
+        obj = self.get_object()
+        allowed = get_allowed_company_ids(request)
+        if allowed and obj.employee.company_id not in allowed:
+            raise PermissionDenied("Outside company scope.")
+        return super().dispatch(request, *args, **kwargs)

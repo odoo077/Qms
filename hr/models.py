@@ -811,6 +811,13 @@ class Employee(
         on_delete=models.SET_NULL,
         related_name="coachees",
     )
+    current_status = models.ForeignKey(
+        "hr.EmployeeStatus",
+        on_delete=models.PROTECT,
+        related_name="employees",
+        null=True,  # مؤقتًا للترحيل الآمن
+        blank=True,
+    )
 
     work_contact = models.ForeignKey(
         "base.Partner",
@@ -902,7 +909,8 @@ class Employee(
             self.barcode = self.barcode.strip() or None
 
     def save(self, *args, **kwargs):
-        self.full_clean()
+        if kwargs.pop("_skip_full_clean", False) is not True:
+            self.full_clean()
         return super().save(*args, **kwargs)
 
     # ------------------------------------------------------------
@@ -917,6 +925,70 @@ class Employee(
     def __str__(self):
         return self.name
 
+
+# ------------------------------------------------------------
+# Employee Education
+# ------------------------------------------------------------
+class EmployeeEducation(TimeStampedMixin, models.Model):
+    """
+    Employee Education (Odoo-like)
+
+    - One employee can have multiple education records
+    - Read-only in first phase (no UI yet)
+    - Years-based (start_year / end_year)
+    """
+
+    employee = models.ForeignKey(
+        "hr.Employee",
+        on_delete=models.CASCADE,
+        related_name="education_records",
+    )
+
+    certificate = models.CharField(
+        max_length=128,
+        blank=True,
+        help_text="Degree or certificate name",
+    )
+
+    field_of_study = models.CharField(
+        max_length=128,
+        blank=True,
+    )
+
+    institution = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="School / University / Institute",
+    )
+
+    start_year = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+    )
+
+    end_year = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+    )
+
+    notes = models.TextField(
+        blank=True,
+    )
+
+    class Meta:
+        db_table = "hr_employee_education"
+        ordering = ["-end_year", "-start_year"]
+        indexes = [
+            models.Index(fields=["employee"]),
+        ]
+
+    def __str__(self):
+        parts = []
+        if self.certificate:
+            parts.append(self.certificate)
+        if self.institution:
+            parts.append(self.institution)
+        return " - ".join(parts) or f"Education #{self.pk}"
 
 
 # -------------------------------------------------------------
@@ -956,3 +1028,84 @@ def build_department_tree(nodes, depth=0):
 
     return tree
 
+# ==========================================================
+# Employee Status (Master)
+# ==========================================================
+
+class EmployeeStatus(models.Model):
+    """
+    Master table for employee statuses (configurable & extensible).
+
+    Examples:
+    - Active
+    - Suspended
+    - Terminated
+    - Resigned
+    """
+
+    name = models.CharField(max_length=64, unique=True)
+    code = models.SlugField(max_length=32, unique=True)
+    sequence = models.PositiveIntegerField(default=10, db_index=True)
+
+    # Determines technical activation
+    # If False → employee.active = False
+    is_active_flag = models.BooleanField(default=True)
+
+    # Archive status itself (not employee)
+    active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ("sequence", "name")
+        verbose_name = "Employee Status"
+        verbose_name_plural = "Employee Statuses"
+
+    def __str__(self):
+        return self.name
+
+
+# ==========================================================
+# Employee Status History (Audit / Timeline)
+# ==========================================================
+
+class EmployeeStatusHistory(models.Model):
+    """
+    Immutable audit log of employee status changes.
+    Append-only. No updates, no deletes.
+    """
+
+    employee = models.ForeignKey(
+        "hr.Employee",
+        on_delete=models.CASCADE,
+        related_name="status_history",
+    )
+
+    status = models.ForeignKey(
+        "hr.EmployeeStatus",
+        on_delete=models.PROTECT,
+        related_name="employee_history",
+    )
+
+    reason = models.CharField(
+        max_length=255,
+        help_text="Short reason for status change",
+    )
+
+    note = models.TextField(blank=True)
+
+    changed_by = models.ForeignKey(
+        "base.User",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="employee_status_changes",
+    )
+
+    changed_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ("-changed_at",)
+        verbose_name = "Employee Status History"
+        verbose_name_plural = "Employee Status History"
+
+    def __str__(self):
+        return f"{self.employee} → {self.status} @ {self.changed_at:%Y-%m-%d}"

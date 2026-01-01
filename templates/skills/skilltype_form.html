@@ -1,130 +1,182 @@
 {% extends "base.html" %}
 
 {% block title %}
-{% if object %}Edit Skill Type{% else %}New Skill Type{% endif %}
+  {% if object %}Edit Skill Type{% else %}Create Skill Type{% endif %}
 {% endblock %}
 
 {% block content %}
-<div class="w-full px-6 py-6 space-y-6">
+<div class="w-full px-6 py-8 space-y-8">
+
+  <!-- ===================================================== -->
+  <!-- Page Header (Form Standard) -->
+  <!-- ===================================================== -->
+  <div class="space-y-1">
+    <h1 class="text-3xl font-semibold tracking-tight">
+      {% if object %}
+        Edit Skill Type
+      {% else %}
+        Create Skill Type
+      {% endif %}
+    </h1>
+    <p class="text-sm text-base-content/60">
+      Define and manage skill categories used across employees.
+    </p>
+  </div>
+
+  <!-- ===================================================== -->
+  <!-- Form -->
+  <!-- ===================================================== -->
+  <form method="post" class="space-y-8">
+    {% csrf_token %}
 
     <!-- ===================================================== -->
-    <!-- Header -->
+    <!-- Main Card -->
     <!-- ===================================================== -->
-    <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+    <div class="card bg-base-100 border border-base-200 shadow-sm">
+      <div class="card-body p-8 space-y-10">
 
-        <div>
-            <h1 class="text-3xl font-bold">
-                {% if object %}
-                    Edit Skill Type
-                {% else %}
-                    Create Skill Type
-                {% endif %}
-            </h1>
-            <p class="text-sm opacity-70 mt-1">
-                Define and manage skill categories used across employees
-            </p>
+        <!-- Global Errors -->
+        {% if form.non_field_errors %}
+          <div class="alert alert-error text-sm">
+            {{ form.non_field_errors }}
+          </div>
+        {% endif %}
+
+        {% for hidden in form.hidden_fields %}
+          {{ hidden }}
+        {% endfor %}
+
+        <!-- ================================================= -->
+        <!-- Core Information -->
+        <!-- ================================================= -->
+        <div class="space-y-4">
+          <h2 class="text-xs font-semibold uppercase tracking-wider text-base-content/60">
+            Core Information
+          </h2>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+            <!-- Name -->
+            <div>
+              <label class="label pb-1">
+                <span class="label-text font-medium">
+                  Name <span class="text-error">*</span>
+                </span>
+              </label>
+              {{ form.name }}
+              {% for error in form.name.errors %}
+                <p class="text-error text-xs mt-1">{{ error }}</p>
+              {% endfor %}
+            </div>
+
+            <!-- Sequence -->
+            <div>
+              <label class="label pb-1">
+                <span class="label-text font-medium">
+                  Sequence
+                </span>
+              </label>
+              {{ form.sequence }}
+              {% for error in form.sequence.errors %}
+                <p class="text-error text-xs mt-1">{{ error }}</p>
+              {% endfor %}
+            </div>
+
+          </div>
         </div>
 
-        <div class="flex gap-2">
-            <a href="{% url 'skills:skilltype_list' %}"
-               class="btn btn-ghost">
-                Back to list
-            </a>
+        <!-- ================================================= -->
+        <!-- Behavior -->
+        <!-- ================================================= -->
+        <div class="space-y-4">
+          <h2 class="text-xs font-semibold uppercase tracking-wider text-base-content/60">
+            Behavior
+          </h2>
 
-            {% if object %}
-                <a href="{% url 'skills:skilltype_delete' object.id %}"
-                   class="btn btn-error btn-outline">
-                    Delete
-                </a>
-            {% endif %}
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+            <!-- Certification -->
+            <label class="flex items-center gap-3 p-4 border border-base-200 rounded-lg
+                          hover:bg-base-200/40 transition-colors cursor-pointer">
+              {{ form.is_certification }}
+              <span class="label-text font-medium">
+                Is Certification
+              </span>
+            </label>
+
+            <!-- Active -->
+            <label class="flex items-center gap-3 p-4 border border-base-200 rounded-lg
+                          hover:bg-base-200/40 transition-colors cursor-pointer">
+              {{ form.active }}
+              <span class="label-text font-medium">
+                Active
+              </span>
+            </label>
+
+          </div>
         </div>
 
+        <!-- ================================================= -->
+        <!-- Statistics (Edit only) -->
+        <!-- ================================================= -->
+        {% if object %}
+          <div class="space-y-4">
+            <h2 class="text-xs font-semibold uppercase tracking-wider text-base-content/60">
+              Statistics
+            </h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label class="label pb-1">
+                  <span class="label-text font-medium">
+                    Levels Count
+                  </span>
+                </label>
+                <input type="text"
+                       class="input input-bordered w-full bg-base-200 cursor-not-allowed"
+                       value="{{ object.levels_count }}"
+                       readonly>
+              </div>
+            </div>
+          </div>
+        {% endif %}
+
+      </div>
     </div>
 
     <!-- ===================================================== -->
-    <!-- Form Card -->
+    <!-- Actions (Form Standard) -->
     <!-- ===================================================== -->
-    <div class="card bg-base-100 shadow w-full">
+    <div class="flex justify-between items-center pt-4 border-t border-base-200">
 
-        <div class="card-body space-y-6">
+      <div class="flex gap-3">
+        <a href="{% url 'skills:skilltype_list' %}"
+           class="btn btn-ghost">
+          Back to list
+        </a>
 
-            <form method="post" class="space-y-6">
-                {% csrf_token %}
+        {% if object %}
+          <a href="{% url 'skills:skilltype_delete' object.id %}"
+             class="btn btn-ghost text-error">
+            Delete
+          </a>
+        {% endif %}
+      </div>
 
-                <!-- --------------------------------------------- -->
-                <!-- Form Errors -->
-                <!-- --------------------------------------------- -->
-                {% if form.non_field_errors %}
-                    <div class="alert alert-error text-sm">
-                        {{ form.non_field_errors }}
-                    </div>
-                {% endif %}
+      <div>
+        <button type="submit"
+                class="btn btn-primary shadow-sm">
+          {% if object %}
+            Save Changes
+          {% else %}
+            Create Skill Type
+          {% endif %}
+        </button>
+      </div>
 
-                <!-- Hidden fields -->
-                {% for hidden in form.hidden_fields %}
-                    {{ hidden }}
-                {% endfor %}
-
-                <!-- --------------------------------------------- -->
-                <!-- Fields -->
-                <!-- --------------------------------------------- -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-                    {% for field in form.visible_fields %}
-                    <div>
-
-                        <label class="label">
-                            <span class="label-text font-semibold">
-                                {{ field.label }}
-                                {% if field.field.required %}
-                                    <span class="text-error">*</span>
-                                {% endif %}
-                            </span>
-                        </label>
-
-                        {{ field }}
-
-                        {% if field.help_text %}
-                            <p class="text-xs opacity-70 mt-1">
-                                {{ field.help_text }}
-                            </p>
-                        {% endif %}
-
-                        {% for error in field.errors %}
-                            <p class="text-error text-xs mt-1">
-                                {{ error }}
-                            </p>
-                        {% endfor %}
-
-                    </div>
-                    {% endfor %}
-
-                </div>
-
-                <!-- --------------------------------------------- -->
-                <!-- Actions -->
-                <!-- --------------------------------------------- -->
-                <div class="pt-4 flex gap-2">
-
-                    <button type="submit" class="btn btn-primary">
-                        {% if object %}
-                            Save Changes
-                        {% else %}
-                            Create Skill Type
-                        {% endif %}
-                    </button>
-
-                    <a href="{% url 'skills:skilltype_list' %}"
-                       class="btn btn-ghost">
-                        Cancel
-                    </a>
-
-                </div>
-
-            </form>
-
-        </div>
     </div>
+
+  </form>
 
 </div>
 {% endblock %}

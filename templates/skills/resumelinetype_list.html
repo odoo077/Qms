@@ -1,129 +1,198 @@
 {% extends "base.html" %}
 
-{% block title %}
-Resume Line Types
-{% endblock %}
+{% block title %}Resume Line Types{% endblock %}
 
 {% block content %}
-<div class="w-full px-6 py-6 space-y-6">
+<div class="w-full px-6 py-8 space-y-8">
 
-    <!-- ===================================================== -->
-    <!-- Header -->
-    <!-- ===================================================== -->
-    <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-
-        <div>
-            <h1 class="text-3xl font-bold">
-                Resume Line Types
-            </h1>
-            <p class="text-sm opacity-70 mt-1">
-                Manage all resume line categories used in employee profiles
-            </p>
-        </div>
-
-        <div class="flex gap-2">
-            <a href="{% url 'skills:resumelinetype_create' %}"
-               class="btn btn-primary">
-                + New Resume Line Type
-            </a>
-        </div>
-
+  <!-- ===================================================== -->
+  <!-- Page Header (List Standard) -->
+  <!-- ===================================================== -->
+  <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+    <div class="space-y-1">
+      <h1 class="text-3xl font-semibold tracking-tight">
+        Resume Line Types
+      </h1>
+      <p class="text-sm text-base-content/60">
+        {{ page_obj.paginator.count }} resume line types defined
+      </p>
     </div>
 
-    <!-- ===================================================== -->
-    <!-- Table Card -->
-    <!-- ===================================================== -->
-    <div class="card bg-base-100 shadow overflow-x-auto">
-
-        <table class="table w-full">
-            <thead>
-                <tr>
-                    <th>Name</th>
-                    <th class="w-32">Sequence</th>
-                    <th class="text-right w-48">Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-
-                {% for obj in object_list %}
-                <tr class="hover:bg-base-200 transition">
-
-                    <td class="font-medium">
-                        {{ obj.name }}
-                    </td>
-
-                    <td>
-                        {{ obj.sequence }}
-                    </td>
-
-                    <td class="text-right">
-                        <div class="flex justify-end gap-2">
-
-                            <a href="{% url 'skills:resumelinetype_update' obj.id %}"
-                               class="btn btn-xs btn-outline">
-                                Edit
-                            </a>
-
-                            <a href="{% url 'skills:resumelinetype_delete' obj.id %}"
-                               class="btn btn-xs btn-error btn-outline">
-                                Delete
-                            </a>
-
-                        </div>
-                    </td>
-
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="3" class="text-center py-16">
-
-                        <p class="text-lg font-medium opacity-70">
-                            No resume line types found
-                        </p>
-                        <p class="text-sm opacity-50 mt-1">
-                            Start by creating your first resume line type
-                        </p>
-
-                        <a href="{% url 'skills:resumelinetype_create' %}"
-                           class="btn btn-primary btn-sm mt-4">
-                            + Add Resume Line Type
-                        </a>
-
-                    </td>
-                </tr>
-                {% endfor %}
-
-            </tbody>
-        </table>
-
+    <div>
+      <a href="{% url 'skills:resumelinetype_create' %}"
+         class="btn btn-primary btn-sm gap-2 shadow-sm">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4"
+             fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round"
+                stroke-width="2" d="M12 4v16m8-8H4"/>
+        </svg>
+        New Resume Line Type
+      </a>
     </div>
+  </div>
 
-    <!-- ===================================================== -->
-    <!-- Pagination -->
-    <!-- ===================================================== -->
-    {% if is_paginated %}
-    <div class="flex justify-center">
-        <div class="join">
-            {% if page_obj.has_previous %}
-                <a href="?page={{ page_obj.previous_page_number }}"
-                   class="join-item btn btn-sm">
-                    Prev
-                </a>
-            {% endif %}
+  <!-- ===================================================== -->
+  <!-- Filters (List Standard) -->
+  <!-- ===================================================== -->
+  <form method="get"
+        class="card bg-base-100 border border-base-200 shadow-sm">
+    <div class="card-body p-5 space-y-4">
 
-            <span class="join-item btn btn-sm btn-disabled">
-                Page {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+
+        <!-- Search -->
+        <div class="md:col-span-2">
+          <label class="label pb-1">
+            <span class="label-text text-xs text-base-content/60">
+              Search
             </span>
-
-            {% if page_obj.has_next %}
-                <a href="?page={{ page_obj.next_page_number }}"
-                   class="join-item btn btn-sm">
-                    Next
-                </a>
-            {% endif %}
+          </label>
+          <input type="text"
+                 name="q"
+                 value="{{ current_params.q }}"
+                 placeholder="Search by name"
+                 class="input input-bordered w-full" />
         </div>
+
+        <!-- Status -->
+        <div>
+          <label class="label pb-1">
+            <span class="label-text text-xs text-base-content/60">
+              Status
+            </span>
+          </label>
+          <select name="active"
+                  class="select select-bordered w-full">
+            <option value="">All</option>
+            <option value="1" {% if current_params.active == "1" %}selected{% endif %}>
+              Active
+            </option>
+            <option value="0" {% if current_params.active == "0" %}selected{% endif %}>
+              Inactive
+            </option>
+          </select>
+        </div>
+
+      </div>
+
+      <!-- Actions -->
+      <div class="flex justify-end gap-2 pt-2">
+        <button type="submit"
+                class="btn btn-primary btn-sm">
+          Apply Filters
+        </button>
+        <a href="?reset=1"
+           class="btn btn-ghost btn-sm text-base-content/60">
+          Reset
+        </a>
+      </div>
+
     </div>
-    {% endif %}
+  </form>
+
+  <!-- ===================================================== -->
+  <!-- Active Filters (Chips Standard) -->
+  <!-- ===================================================== -->
+  {% if active_filters %}
+    <div class="flex flex-wrap gap-2">
+      {% for f in active_filters %}
+        <span class="badge badge-outline gap-1 text-xs">
+          <span class="text-base-content/60">{{ f.label }}:</span>
+          <span class="font-medium">{{ f.value }}</span>
+        </span>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  <!-- ===================================================== -->
+  <!-- Table (List Standard) -->
+  <!-- ===================================================== -->
+  <div class="card bg-base-100 border border-base-200 shadow-sm overflow-x-auto">
+
+    <table class="table w-full text-sm">
+      <thead class="bg-base-200/60">
+        <tr>
+          <th class="font-semibold">
+            Name
+          </th>
+          <th class="font-semibold w-28">
+            Sequence
+          </th>
+          <th class="font-semibold w-28">
+            Status
+          </th>
+          <th class="font-semibold w-40 text-right">
+            Actions
+          </th>
+        </tr>
+      </thead>
+
+      <tbody class="[&>tr]:border-base-200">
+        {% for obj in object_list %}
+          <tr class="hover">
+
+            <td class="font-medium">
+              {{ obj.name }}
+            </td>
+
+            <td>
+              {{ obj.sequence }}
+            </td>
+
+            <td>
+              {% if obj.active %}
+                <span class="badge badge-success badge-sm">
+                  Active
+                </span>
+              {% else %}
+                <span class="badge badge-ghost badge-sm">
+                  Inactive
+                </span>
+              {% endif %}
+            </td>
+
+            <td class="text-right">
+              <div class="flex justify-end gap-1">
+                <a href="{% url 'skills:resumelinetype_update' obj.id %}"
+                   class="btn btn-ghost btn-xs">
+                  Edit
+                </a>
+                <a href="{% url 'skills:resumelinetype_delete' obj.id %}"
+                   class="btn btn-ghost btn-xs text-error">
+                  Delete
+                </a>
+              </div>
+            </td>
+
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="4" class="py-16">
+              <div class="flex flex-col items-center text-center gap-2 text-base-content/70">
+                <p class="font-medium">
+                  No resume line types found
+                </p>
+                <p class="text-sm text-base-content/60 max-w-md">
+                  Resume line types help structure employee resumes and profiles.
+                </p>
+                <a href="{% url 'skills:resumelinetype_create' %}"
+                   class="btn btn-primary btn-sm mt-3">
+                  Create Resume Line Type
+                </a>
+              </div>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+
+    </table>
+
+  </div>
+
+  <!-- ===================================================== -->
+  <!-- Pagination -->
+  <!-- ===================================================== -->
+  {% include "partials/paginator.html" %}
 
 </div>
 {% endblock %}

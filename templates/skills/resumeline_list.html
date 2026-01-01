@@ -1,162 +1,185 @@
 {% extends "base.html" %}
 
-{% block title %}
-Resume Lines
-{% endblock %}
+{% block title %}Resume Lines{% endblock %}
 
 {% block content %}
-<div class="w-full px-6 py-6 space-y-6">
+<div class="w-full px-6 py-8 space-y-8">
 
-    <!-- ===================================================== -->
-    <!-- Header -->
-    <!-- ===================================================== -->
-    <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-
-        <div>
-            <h1 class="text-3xl font-bold">Resume Lines</h1>
-            <p class="text-sm opacity-70 mt-1">
-                Manage employee resume entries such as education, experience, and certifications
-            </p>
-        </div>
-
-        <div class="flex gap-2">
-            <a href="{% url 'skills:resumeline_create' %}"
-               class="btn btn-primary">
-                + New Resume Line
-            </a>
-        </div>
-
+  <!-- ===================================================== -->
+  <!-- Page Header (List Standard) -->
+  <!-- ===================================================== -->
+  <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+    <div class="space-y-1">
+      <h1 class="text-3xl font-semibold tracking-tight">
+        Resume Lines
+      </h1>
+      <p class="text-sm text-base-content/60">
+        Manage employee resume entries such as education, experience, and certifications.
+      </p>
     </div>
 
-    <!-- ===================================================== -->
-    <!-- Filters (UI ready – logic can be added later) -->
-    <!-- ===================================================== -->
-    <form method="get"
-          class="card bg-base-100 shadow p-6 grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-
-        <div>
-            <label class="label text-sm">Employee</label>
-            <input type="text"
-                   name="employee"
-                   placeholder="Employee name…"
-                   class="input input-bordered w-full">
-        </div>
-
-        <div>
-            <label class="label text-sm">Line Type</label>
-            <input type="text"
-                   name="type"
-                   placeholder="Resume line type…"
-                   class="input input-bordered w-full">
-        </div>
-
-        <div>
-            <label class="label text-sm">Title / Name</label>
-            <input type="text"
-                   name="name"
-                   placeholder="Resume title…"
-                   class="input input-bordered w-full">
-        </div>
-
-        <div class="flex gap-2">
-            <button type="submit" class="btn btn-primary flex-1">
-                Search
-            </button>
-            <a href="{% url 'skills:resumeline_list' %}"
-               class="btn btn-ghost">
-                Reset
-            </a>
-        </div>
-
-    </form>
-
-    <!-- ===================================================== -->
-    <!-- Table -->
-    <!-- ===================================================== -->
-    <div class="card bg-base-100 shadow overflow-x-auto">
-
-        <table class="table w-full">
-            <thead>
-                <tr>
-                    <th>Employee</th>
-                    <th>Resume Line Type</th>
-                    <th>Title / Name</th>
-                    <th class="text-right">Actions</th>
-                </tr>
-            </thead>
-
-            <tbody>
-                {% for obj in object_list %}
-                <tr class="hover:bg-base-200 transition">
-
-                    <td class="font-medium">
-                        {{ obj.employee }}
-                    </td>
-
-                    <td>
-                        {{ obj.line_type }}
-                    </td>
-
-                    <td>
-                        {{ obj.name }}
-                    </td>
-
-                    <td class="text-right">
-                        <div class="flex justify-end gap-2">
-                            <a href="{% url 'skills:resumeline_update' obj.id %}"
-                               class="btn btn-xs btn-outline">
-                                Edit
-                            </a>
-                            <a href="{% url 'skills:resumeline_delete' obj.id %}"
-                               class="btn btn-xs btn-outline btn-error">
-                                Delete
-                            </a>
-                        </div>
-                    </td>
-
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="4" class="text-center py-16">
-                        <p class="text-lg font-medium opacity-70">
-                            No resume lines found
-                        </p>
-                        <p class="text-sm opacity-50 mt-1">
-                            Start by adding resume details for employees
-                        </p>
-                        <a href="{% url 'skills:resumeline_create' %}"
-                           class="btn btn-primary btn-sm mt-4">
-                            + Add Resume Line
-                        </a>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-
-        </table>
-
+    <div>
+      <a href="{% url 'skills:resumeline_create' %}"
+         class="btn btn-primary btn-sm gap-2 shadow-sm">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4"
+             fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round"
+                stroke-width="2" d="M12 4v16m8-8H4"/>
+        </svg>
+        New Resume Line
+      </a>
     </div>
+  </div>
 
-    <!-- ===================================================== -->
-    <!-- Pagination -->
-    <!-- ===================================================== -->
-    {% if is_paginated %}
-    <div class="flex justify-center">
-        <div class="join">
-            {% if page_obj.has_previous %}
-                <a href="?page={{ page_obj.previous_page_number }}"
-                   class="join-item btn btn-sm">Prev</a>
-            {% endif %}
-            <span class="join-item btn btn-sm btn-disabled">
-                Page {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}
+  <!-- ===================================================== -->
+  <!-- Filters (List Standard) -->
+  <!-- ===================================================== -->
+  <form method="get"
+        class="card bg-base-100 border border-base-200 shadow-sm">
+    <div class="card-body p-5 space-y-4">
+
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+
+        <!-- Employee -->
+        <div>
+          <label class="label pb-1">
+            <span class="label-text text-xs text-base-content/60">
+              Employee
             </span>
-            {% if page_obj.has_next %}
-                <a href="?page={{ page_obj.next_page_number }}"
-                   class="join-item btn btn-sm">Next</a>
-            {% endif %}
+          </label>
+          <input type="text"
+                 name="employee"
+                 value="{{ params.employee }}"
+                 placeholder="Employee name"
+                 class="input input-bordered w-full" />
         </div>
+
+        <!-- Resume Line Type -->
+        <div>
+          <label class="label pb-1">
+            <span class="label-text text-xs text-base-content/60">
+              Resume Line Type
+            </span>
+          </label>
+          <input type="text"
+                 name="type"
+                 value="{{ params.type }}"
+                 placeholder="Resume line type"
+                 class="input input-bordered w-full" />
+        </div>
+
+        <!-- Title / Name -->
+        <div>
+          <label class="label pb-1">
+            <span class="label-text text-xs text-base-content/60">
+              Title / Name
+            </span>
+          </label>
+          <input type="text"
+                 name="name"
+                 value="{{ params.name }}"
+                 placeholder="Resume title"
+                 class="input input-bordered w-full" />
+        </div>
+
+      </div>
+
+      <!-- Actions -->
+      <div class="flex justify-end gap-2 pt-2">
+        <button type="submit"
+                class="btn btn-primary btn-sm">
+          Apply Filters
+        </button>
+        <a href="{% url 'skills:resumeline_list' %}"
+           class="btn btn-ghost btn-sm text-base-content/60">
+          Reset
+        </a>
+      </div>
+
     </div>
-    {% endif %}
+  </form>
+
+  <!-- ===================================================== -->
+  <!-- Table (List Standard) -->
+  <!-- ===================================================== -->
+  <div class="card bg-base-100 border border-base-200 shadow-sm overflow-x-auto">
+
+    <table class="table w-full text-sm">
+      <thead class="bg-base-200/60">
+        <tr>
+          <th class="font-semibold">
+            Employee
+          </th>
+          <th class="font-semibold">
+            Resume Line Type
+          </th>
+          <th class="font-semibold">
+            Title / Name
+          </th>
+          <th class="font-semibold w-40 text-right">
+            Actions
+          </th>
+        </tr>
+      </thead>
+
+      <tbody class="[&>tr]:border-base-200">
+        {% for obj in object_list %}
+          <tr class="hover">
+
+            <td class="font-medium">
+              {{ obj.employee }}
+            </td>
+
+            <td>
+              {{ obj.line_type }}
+            </td>
+
+            <td>
+              {{ obj.name }}
+            </td>
+
+            <td class="text-right">
+              <div class="flex justify-end gap-1">
+                <a href="{% url 'skills:resumeline_update' obj.id %}"
+                   class="btn btn-ghost btn-xs">
+                  Edit
+                </a>
+                <a href="{% url 'skills:resumeline_delete' obj.id %}"
+                   class="btn btn-ghost btn-xs text-error">
+                  Delete
+                </a>
+              </div>
+            </td>
+
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="4" class="py-16">
+              <div class="flex flex-col items-center text-center gap-2 text-base-content/70">
+                <p class="font-medium">
+                  No resume lines found
+                </p>
+                <p class="text-sm text-base-content/60 max-w-md">
+                  Start by adding resume details such as education, experience, or certifications.
+                </p>
+                <a href="{% url 'skills:resumeline_create' %}"
+                   class="btn btn-primary btn-sm mt-3">
+                  Add Resume Line
+                </a>
+              </div>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+
+    </table>
+
+  </div>
+
+  <!-- ===================================================== -->
+  <!-- Pagination -->
+  <!-- ===================================================== -->
+  {% include "partials/paginator.html" %}
 
 </div>
 {% endblock %}

@@ -1,179 +1,276 @@
 {% extends "base.html" %}
 
-{% block title %}
-Employee Skills
-{% endblock %}
+{% block title %}Employee Skills{% endblock %}
 
 {% block content %}
-<div class="w-full px-6 py-6 space-y-6">
+<div class="w-full px-6 py-8 space-y-8">
 
-    <!-- ===================================================== -->
-    <!-- Header -->
-    <!-- ===================================================== -->
-    <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-
-        <div>
-            <h1 class="text-3xl font-bold">Employee Skills</h1>
-            <p class="text-sm opacity-70 mt-1">
-                Manage and track employee skill levels
-            </p>
-        </div>
-
-        <div class="flex gap-2">
-            <a href="{% url 'skills:employeeskill_create' %}"
-               class="btn btn-primary btn-sm">
-                + New Employee Skill
-            </a>
-        </div>
+  <!-- ===================================================== -->
+  <!-- Page Header (List Standard) -->
+  <!-- ===================================================== -->
+  <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+    <div class="space-y-1">
+      <h1 class="text-3xl font-semibold tracking-tight">
+        Employee Skills
+      </h1>
+      <p class="text-sm text-base-content/60">
+        Assign, track, and manage employee skill proficiency levels.
+      </p>
     </div>
 
-    <!-- ===================================================== -->
-    <!-- Filters -->
-    <!-- ===================================================== -->
-    <form method="get"
-          class="card bg-base-100 shadow p-6 grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
+    <div>
+      <a href="{% url 'skills:employeeskill_create' %}"
+         class="btn btn-primary btn-sm gap-2 shadow-sm">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4"
+             fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round"
+                stroke-width="2" d="M12 4v16m8-8H4"/>
+        </svg>
+        Assign Skill
+      </a>
+    </div>
+  </div>
 
-        <div>
-            <label class="label text-sm">Employee</label>
-            <input type="text"
-                   name="employee"
-                   value="{{ request.GET.employee }}"
-                   placeholder="Employee name…"
-                   class="input input-bordered w-full">
-        </div>
+<!-- ===================================================== -->
+<!-- Filters (Single Row + Actions Below – Standard) -->
+<!-- ===================================================== -->
+<form method="get"
+      class="card bg-base-100 border border-base-200 shadow-sm">
+  <div class="card-body p-5 space-y-4">
 
-        <div>
-            <label class="label text-sm">Skill Type</label>
-            <input type="text"
-                   name="skill_type"
-                   value="{{ request.GET.skill_type }}"
-                   placeholder="Skill type…"
-                   class="input input-bordered w-full">
-        </div>
+    <!-- Filters Row -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-end">
 
-        <div>
-            <label class="label text-sm">Skill</label>
-            <input type="text"
-                   name="skill"
-                   value="{{ request.GET.skill }}"
-                   placeholder="Skill name…"
-                   class="input input-bordered w-full">
-        </div>
+      <!-- Search -->
+      <div class="lg:col-span-4">
+        <label class="label pb-1">
+          <span class="label-text text-xs text-base-content/60">
+            Search
+          </span>
+        </label>
+        <input type="text"
+               name="q"
+               value="{{ current_params.q }}"
+               placeholder="Employee, skill, or notes"
+               class="input input-bordered w-full" />
+      </div>
 
-        <div>
-            <label class="label text-sm">Level</label>
-            <input type="text"
-                   name="level"
-                   value="{{ request.GET.level }}"
-                   placeholder="Level…"
-                   class="input input-bordered w-full">
-        </div>
+      <!-- Skill Type -->
+      <div class="lg:col-span-2">
+        <label class="label pb-1">
+          <span class="label-text text-xs text-base-content/60">
+            Skill Type
+          </span>
+        </label>
+        <select name="skill_type"
+                class="select select-bordered w-full">
+          <option value="">All</option>
+          {% for t in skilltypes %}
+            <option value="{{ t.id }}"
+              {% if current_params.skill_type == t.id|stringformat:"s" %}selected{% endif %}>
+              {{ t.name }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
 
-        <div class="flex gap-2">
-            <button type="submit" class="btn btn-primary flex-1">
-                Apply
-            </button>
-            <a href="{% url 'skills:employeeskill_list' %}" class="btn btn-ghost">
-                Reset
-            </a>
-        </div>
+      <!-- Skill -->
+      <div class="lg:col-span-2">
+        <label class="label pb-1">
+          <span class="label-text text-xs text-base-content/60">
+            Skill
+          </span>
+        </label>
+        <select name="skill"
+                class="select select-bordered w-full">
+          <option value="">All</option>
+          {% for s in skills %}
+            <option value="{{ s.id }}"
+              {% if current_params.skill == s.id|stringformat:"s" %}selected{% endif %}>
+              {{ s.name }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
 
-    </form>
+      <!-- Level -->
+      <div class="lg:col-span-2">
+        <label class="label pb-1">
+          <span class="label-text text-xs text-base-content/60">
+            Level
+          </span>
+        </label>
+        <select name="skill_level"
+                class="select select-bordered w-full">
+          <option value="">All</option>
+          {% for lvl in skilllevels %}
+            <option value="{{ lvl.id }}"
+              {% if current_params.skill_level == lvl.id|stringformat:"s" %}selected{% endif %}>
+              {{ lvl.name }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
 
-    <!-- ===================================================== -->
-    <!-- Table -->
-    <!-- ===================================================== -->
-    <div class="card bg-base-100 shadow overflow-x-auto">
-        <table class="table w-full">
-            <thead>
-                <tr>
-                    <th>Employee</th>
-                    <th>Skill Type</th>
-                    <th>Skill</th>
-                    <th>Level</th>
-                    <th class="text-right">Actions</th>
-                </tr>
-            </thead>
-            <tbody>
+      <!-- Status -->
+      <div class="lg:col-span-2">
+        <label class="label pb-1">
+          <span class="label-text text-xs text-base-content/60">
+            Status
+          </span>
+        </label>
+        <select name="active"
+                class="select select-bordered w-full">
+          <option value="">All</option>
+          <option value="1" {% if current_params.active == "1" %}selected{% endif %}>
+            Active
+          </option>
+          <option value="0" {% if current_params.active == "0" %}selected{% endif %}>
+            Inactive
+          </option>
+        </select>
+      </div>
 
-                {% for obj in object_list %}
-                <tr class="hover:bg-base-200 transition">
-
-                    <td class="font-medium">
-                        {{ obj.employee }}
-                    </td>
-
-                    <td>
-                        {{ obj.skill_type }}
-                    </td>
-
-                    <td>
-                        {{ obj.skill }}
-                    </td>
-
-                    <td>
-                        <span class="badge badge-outline">
-                            {{ obj.skill_level }}
-                        </span>
-                    </td>
-
-                    <td class="text-right">
-                        <div class="flex justify-end gap-2">
-                            <a href="{% url 'skills:employeeskill_update' obj.id %}"
-                               class="btn btn-xs btn-outline">
-                                Edit
-                            </a>
-                            <a href="{% url 'skills:employeeskill_delete' obj.id %}"
-                               class="btn btn-xs btn-error">
-                                Delete
-                            </a>
-                        </div>
-                    </td>
-
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="5" class="text-center py-16">
-                        <p class="text-lg font-medium opacity-70">
-                            No employee skills found
-                        </p>
-                        <p class="text-sm opacity-50 mt-1">
-                            Start by assigning skills to employees
-                        </p>
-                        <a href="{% url 'skills:employeeskill_create' %}"
-                           class="btn btn-primary btn-sm mt-4">
-                            + Add Employee Skill
-                        </a>
-                    </td>
-                </tr>
-                {% endfor %}
-
-            </tbody>
-        </table>
     </div>
 
-    <!-- ===================================================== -->
-    <!-- Pagination -->
-    <!-- ===================================================== -->
-    {% if is_paginated %}
-    <div class="flex justify-center">
-        <div class="join">
-            {% if page_obj.has_previous %}
-                <a href="?page={{ page_obj.previous_page_number }}"
-                   class="join-item btn btn-sm">Prev</a>
-            {% endif %}
-
-            <span class="join-item btn btn-sm btn-disabled">
-                Page {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}
-            </span>
-
-            {% if page_obj.has_next %}
-                <a href="?page={{ page_obj.next_page_number }}"
-                   class="join-item btn btn-sm">Next</a>
-            {% endif %}
-        </div>
+    <!-- Actions Row (LEFT aligned – consistent) -->
+    <div class="flex justify-end gap-2 pt-2">
+      <button type="submit"
+              class="btn btn-primary btn-sm">
+        Apply Filters
+      </button>
+      <a href="{% url 'skills:employeeskill_list' %}"
+         class="btn btn-ghost btn-sm text-base-content/60">
+        Reset
+      </a>
     </div>
-    {% endif %}
+
+  </div>
+</form>
+
+
+  <!-- ===================================================== -->
+  <!-- Active Filters (Chips Standard) -->
+  <!-- ===================================================== -->
+  {% if active_filters %}
+    <div class="flex flex-wrap gap-2">
+      {% for f in active_filters %}
+        <span class="badge badge-outline gap-1 text-xs">
+          <span class="text-base-content/60">{{ f.label }}:</span>
+          <span class="font-medium">{{ f.value }}</span>
+        </span>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  <!-- ===================================================== -->
+  <!-- Table (List Standard) -->
+  <!-- ===================================================== -->
+  <div class="card bg-base-100 border border-base-200 shadow-sm overflow-x-auto">
+
+    <table class="table w-full text-sm">
+      <thead class="bg-base-200/60">
+        <tr>
+          <th class="font-semibold">
+            Employee
+          </th>
+          <th class="font-semibold">
+            Skill Type
+          </th>
+          <th class="font-semibold">
+            Skill
+          </th>
+          <th class="font-semibold">
+            Level
+          </th>
+          <th class="font-semibold w-28">
+            Status
+          </th>
+          <th class="font-semibold w-40 text-right">
+            Actions
+          </th>
+        </tr>
+      </thead>
+
+      <tbody class="[&>tr]:border-base-200">
+        {% for obj in object_list %}
+          <tr class="hover">
+
+            <td class="font-medium">
+              {{ obj.employee }}
+              <div class="text-xs text-base-content/60">
+                {{ obj.company }}
+              </div>
+            </td>
+
+            <td>
+              {{ obj.skill_type }}
+            </td>
+
+            <td>
+              {{ obj.skill }}
+            </td>
+
+            <td>
+              <span class="badge badge-outline badge-sm">
+                {{ obj.skill_level }}
+              </span>
+            </td>
+
+            <td>
+              {% if obj.active %}
+                <span class="badge badge-success badge-sm">
+                  Active
+                </span>
+              {% else %}
+                <span class="badge badge-ghost badge-sm">
+                  Inactive
+                </span>
+              {% endif %}
+            </td>
+
+            <td class="text-right">
+              <div class="flex justify-end gap-1">
+                <a href="{% url 'skills:employeeskill_update' obj.id %}"
+                   class="btn btn-ghost btn-xs">
+                  Edit
+                </a>
+                <a href="{% url 'skills:employeeskill_delete' obj.id %}"
+                   class="btn btn-ghost btn-xs text-error">
+                  Delete
+                </a>
+              </div>
+            </td>
+
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="6" class="py-16">
+              <div class="flex flex-col items-center text-center gap-2 text-base-content/70">
+                <p class="font-medium">
+                  No employee skills found
+                </p>
+                <p class="text-sm text-base-content/60 max-w-md">
+                  Assign skills to employees to track proficiency and development.
+                </p>
+                <a href="{% url 'skills:employeeskill_create' %}"
+                   class="btn btn-primary btn-sm mt-3">
+                  Assign Skill
+                </a>
+              </div>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+
+    </table>
+
+  </div>
+
+  <!-- ===================================================== -->
+  <!-- Pagination -->
+  <!-- ===================================================== -->
+  {% include "partials/paginator.html" %}
 
 </div>
 {% endblock %}

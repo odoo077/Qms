@@ -26,8 +26,6 @@ Skill = apps.get_model("skills", "Skill")
 EmployeeSkill = apps.get_model("skills", "EmployeeSkill")
 ResumeLineType = apps.get_model("skills", "ResumeLineType")
 ResumeLine = apps.get_model("skills", "ResumeLine")
-Employee = apps.get_model("hr", "Employee")
-
 
 # ============================================================
 # Data Contracts (مدخلات/مخرجات واضحة)
@@ -75,6 +73,15 @@ def _normalize_period(dt_from: Optional[date], dt_to: Optional[date]) -> Tuple[O
     return dt_from, dt_to
 
 
+def _normalize_resume_period(
+    dt_from: Optional[date],
+    dt_to: Optional[date],
+) -> Tuple[Optional[date], Optional[date]]:
+    if dt_from and dt_to and dt_to < dt_from:
+        raise ValidationError({"date_end": "Date to must be after or equal to Date from."})
+    return dt_from, dt_to
+
+
 def _ensure_type_coherence(skill_type_id: int, skill_id: int, skill_level_id: int) -> None:
     """
     التحقق من اتساق النوع:
@@ -87,7 +94,8 @@ def _ensure_type_coherence(skill_type_id: int, skill_id: int, skill_level_id: in
         lvl = SkillLevel.objects.only("skill_type_id").get(pk=skill_level_id)
     except ObjectDoesNotExist:
         # سيظهر خطأ أوضح لاحقًا عند clean() إذا لم توجد السجلات؛ لا نُثقِل هنا.
-        return
+        raise ValidationError("Invalid skill or skill level.")
+
     if s.skill_type_id != skill_type_id:
         raise ValidationError({"skill": "Skill must belong to the selected skill type."})
     if lvl.skill_type_id != skill_type_id:
@@ -242,9 +250,7 @@ def add_resume_line(data: ResumeLineInput) -> ResumeLine:
     - يمر عبر full_clean() لاحترام قيود التاريخ وملء company من employee.
     - signals تمنح صلاحيات العرض/التعديل للـ created_by + عرض للموظف.user.
     """
-    # تاريخ منطقي
-    if data.date_start and data.date_end and data.date_end < data.date_start:
-        raise ValidationError({"date_end": "Date to must be after or equal to Date from."})
+    date_start, date_end = _normalize_resume_period(data.date_start, data.date_end)
 
     obj = ResumeLine(
         employee_id=data.employee_id,

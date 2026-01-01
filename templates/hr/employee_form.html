@@ -4,38 +4,34 @@
 {% if form.instance.pk %}
 Edit Employee · {{ form.instance.name }}
 {% else %}
-New Employee
+Create New Employee
 {% endif %}
 {% endblock %}
 
 {% block content %}
-<div class="max-w-5xl mx-auto px-6 py-6 space-y-6">
+<div class="max-w-6xl mx-auto px-6 py-6 space-y-8">
 
     <!-- ===================================================== -->
     <!-- Header -->
     <!-- ===================================================== -->
-    <div class="flex items-center justify-between">
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+
         <div>
-            <h1 class="text-3xl font-bold">
+            <h1 class="text-3xl font-bold tracking-tight">
                 {% if form.instance.pk %}
                     Edit Employee
                 {% else %}
                     Create New Employee
                 {% endif %}
             </h1>
-            <p class="text-sm opacity-70 mt-1">
+            <p class="text-sm opacity-70 mt-1 max-w-2xl">
                 {% if form.instance.pk %}
-                    Update employee information
+                    Update core employment information. Personal and additional details are managed from the employee profile.
                 {% else %}
-                    Fill in the employee details
+                    Create a new employee with the minimum required information. Additional details can be completed later.
                 {% endif %}
             </p>
         </div>
-
-        <a href="{% url 'hr:employee_list' %}"
-           class="btn btn-ghost btn-sm">
-            Cancel
-        </a>
     </div>
 
     <!-- ===================================================== -->
@@ -45,113 +41,87 @@ New Employee
         {% csrf_token %}
 
         <!-- ================================================= -->
-        <!-- Status -->
+        <!-- Basic Information (Always open) -->
         <!-- ================================================= -->
-        <div class="card bg-base-100 shadow p-6">
-            <div class="flex items-center justify-between">
-                <h2 class="font-semibold text-lg">Status</h2>
-                {{ form.active }}
-            </div>
-            {% if form.active.errors %}
-                <p class="text-error text-sm mt-2">{{ form.active.errors }}</p>
-            {% endif %}
-        </div>
-
-        <!-- ================================================= -->
-        <!-- Basic Information -->
-        <!-- ================================================= -->
-        <div class="card bg-base-100 shadow p-6 space-y-4">
-            <h2 class="font-semibold text-lg">Basic Information</h2>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <label class="label">Company</label>
-                    {{ form.company }}
-                    {{ form.company.errors }}
+        <details open class="card bg-base-100 shadow-sm border border-base-200">
+            <summary class="cursor-pointer select-none">
+                <div class="card-body pb-0">
+                    <h2 class="font-semibold text-lg">Basic Information</h2>
+                    <p class="text-sm opacity-60">
+                        Core employment data required for system operations.
+                    </p>
                 </div>
+            </summary>
 
-                <div>
-                    <label class="label">Employee Name</label>
-                    {{ form.name }}
-                    {{ form.name.errors }}
-                </div>
+            <div class="card-body pt-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
 
-                <div>
-                    <label class="label">User</label>
-                    {{ form.user }}
-                    {{ form.user.errors }}
-                </div>
+                    <div>
+                        <label class="label"><span class="label-text">Company</span></label>
+                        {{ form.company }}
+                        {{ form.company.errors }}
+                    </div>
 
-                <div>
-                    <label class="label">Department</label>
-                    {{ form.department }}
-                    {{ form.department.errors }}
-                </div>
+                    <div>
+                        <label class="label"><span class="label-text">Employee Name</span></label>
+                        {{ form.name }}
+                        {{ form.name.errors }}
+                    </div>
 
-                <div>
-                    <label class="label">Job Title</label>
-                    {{ form.job }}
-                    {{ form.job.errors }}
-                </div>
+                    <div>
+                        <label class="label"><span class="label-text">User</span></label>
+                        {{ form.user }}
+                        {{ form.user.errors }}
+                    </div>
 
-                <div>
-                    <label class="label">Manager</label>
-                    {{ form.manager }}
-                    {{ form.manager.errors }}
-                </div>
+                    <div>
+                        <label class="label"><span class="label-text">Department</span></label>
+                        {{ form.department }}
+                        {{ form.department.errors }}
+                    </div>
 
-                <div>
-                    <label class="label">Coach</label>
-                    {{ form.coach }}
-                    {{ form.coach.errors }}
-                </div>
+                    <div>
+                        <label class="label"><span class="label-text">Job Title</span></label>
+                        {{ form.job }}
+                        {{ form.job.errors }}
+                    </div>
 
-                <div>
-                    <label class="label">Work Location</label>
-                    {{ form.work_location }}
-                    {{ form.work_location.errors }}
+                    <div>
+                        <label class="label"><span class="label-text">Manager</span></label>
+                        {{ form.manager }}
+                        {{ form.manager.errors }}
+                    </div>
+
+                    <div>
+                        <label class="label"><span class="label-text">Coach</span></label>
+                        {{ form.coach }}
+                        {{ form.coach.errors }}
+                    </div>
+
+                    <div>
+                        <label class="label"><span class="label-text">Work Location</span></label>
+                        {{ form.work_location }}
+                        {{ form.work_location.errors }}
+                    </div>
+
                 </div>
             </div>
-        </div>
+        </details>
 
         <!-- ================================================= -->
-        <!-- Classification -->
+        <!-- Note / Guidance (UX hint) -->
         <!-- ================================================= -->
-        <div class="card bg-base-100 shadow p-6 space-y-4">
-            <h2 class="font-semibold text-lg">Classification</h2>
-
-            <div>
-                <label class="label">Categories</label>
-                {{ form.categories }}
-                {{ form.categories.errors }}
-            </div>
-        </div>
-
-        <!-- ================================================= -->
-        <!-- Identifiers -->
-        <!-- ================================================= -->
-        <div class="card bg-base-100 shadow p-6 space-y-4">
-            <h2 class="font-semibold text-lg">Identifiers</h2>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <label class="label">Barcode</label>
-                    {{ form.barcode }}
-                    {{ form.barcode.errors }}
-                </div>
-
-                <div>
-                    <label class="label">PIN</label>
-                    {{ form.pin }}
-                    {{ form.pin.errors }}
-                </div>
-            </div>
+        <div class="alert alert-info shadow-sm">
+            <span class="text-sm">
+                Personal information, education, skills, and identifiers can be managed later from the employee profile.
+            </span>
         </div>
 
         <!-- ================================================= -->
         <!-- Actions -->
         <!-- ================================================= -->
-        <div class="flex items-center justify-end gap-3">
+        <div class="flex items-center justify-end gap-3 pt-4 border-t border-base-200">
+
             <a href="{% url 'hr:employee_list' %}"
                class="btn btn-ghost">
                 Cancel
@@ -164,6 +134,7 @@ New Employee
                     Create Employee
                 {% endif %}
             </button>
+
         </div>
 
     </form>

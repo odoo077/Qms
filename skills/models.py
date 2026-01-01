@@ -7,8 +7,6 @@
 
 from __future__ import annotations
 
-from typing import Optional
-
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -178,10 +176,10 @@ class EmployeeSkill(TimeUserStampedMixin, AccessControlledMixin):
             ("rate_skill", "Can rate/evaluate employee skill"),
         ]
         constraints = [
-            # قيد التفرد الصحيح (Company + Employee + Skill)
+            # قيد التفرد الصحيح (Employee + Skill)
             UniqueConstraint(
-                fields=["company", "employee", "skill"],
-                name="employeeskill_unique_company_employee_skill",
+                fields=["employee", "skill"],
+                name="employeeskill_unique_employee_skill",
                 violation_error_message=_("This employee already has this skill."),
             ),
             CheckConstraint(
@@ -203,10 +201,6 @@ class EmployeeSkill(TimeUserStampedMixin, AccessControlledMixin):
             raise ValidationError({"skill": _("Skill must belong to the selected skill type.")})
         if self.skill_level and self.skill_type and self.skill_level.skill_type_id != self.skill_type_id:
             raise ValidationError({"skill_level": _("Level must belong to the selected skill type.")})
-
-        # (2) توحيد الشركة مع الموظف
-        if self.employee and self.company != self.employee.company:
-            self.company = self.employee.company
 
     def save(self, *args, **kwargs):
         if self.employee_id and self.employee.company_id:
@@ -268,6 +262,12 @@ class ResumeLine(TimeUserStampedMixin, AccessControlledMixin):
         verbose_name = _("Resume Line")
         verbose_name_plural = _("Resume Lines")
         ordering = ("employee__company__name", "employee__name", "line_type__sequence", "date_start")
+        constraints = [
+            UniqueConstraint(
+                fields=["employee", "line_type", "name"],
+                name="resumeline_unique_employee_type_name",
+            ),
+        ]
 
     # NOTE:
     # company is enforced from employee.company to keep multi-company integrity.

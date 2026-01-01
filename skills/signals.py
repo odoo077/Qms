@@ -21,24 +21,27 @@ from base.acl_service import apply_default_acl
 from . import models
 
 
-# ============================================================
-# EmployeeSkill
-# ============================================================
 
-@receiver(pre_save, sender=models.EmployeeSkill)
-def employeeskill_capture_old_employee(sender, instance: models.EmployeeSkill, **kwargs):
-    """
-    Capture old employee before save to allow ACL transfer.
-    """
+def _capture_old_employee(instance):
     if not instance.pk:
         instance._old_employee_id = None
         return
 
     try:
-        old = sender.objects.only("employee_id").get(pk=instance.pk)
+        old = instance.__class__.objects.only("employee_id").get(pk=instance.pk)
         instance._old_employee_id = old.employee_id
-    except sender.DoesNotExist:
+    except instance.__class__.DoesNotExist:
         instance._old_employee_id = None
+
+
+# ============================================================
+# EmployeeSkill
+# ============================================================
+
+@receiver(pre_save, sender=models.EmployeeSkill)
+def employeeskill_capture_old_employee(sender, instance, **kwargs):
+    _capture_old_employee(instance)
+
 
 
 @receiver(post_save, sender=models.EmployeeSkill)
@@ -58,19 +61,8 @@ def employeeskill_apply_acl(sender, instance: models.EmployeeSkill, created: boo
 # ============================================================
 
 @receiver(pre_save, sender=models.ResumeLine)
-def resumeline_capture_old_employee(sender, instance: models.ResumeLine, **kwargs):
-    """
-    Capture old employee before save to allow ACL transfer.
-    """
-    if not instance.pk:
-        instance._old_employee_id = None
-        return
-
-    try:
-        old = sender.objects.only("employee_id").get(pk=instance.pk)
-        instance._old_employee_id = old.employee_id
-    except sender.DoesNotExist:
-        instance._old_employee_id = None
+def resumeline_capture_old_employee(sender, instance, **kwargs):
+    _capture_old_employee(instance)
 
 
 @receiver(post_save, sender=models.ResumeLine)

@@ -57,13 +57,25 @@
     @apply text-white;
   }
 
-  /* لمسات بسيطة للثيم النيوني cyberpunk (اختياري) */
-  [data-theme="cyberpunk"] body {
+    /* ================================
+   * Fix <select> dropdown colors
+   * ================================ */
+
+  select {
     @apply bg-base-100 text-base-content;
   }
 
-  [data-theme="cyberpunk"] .auth-glow {
-    @apply shadow-[0_0_30px_rgba(244,114,182,0.6)];
+  option {
+    @apply bg-base-100 text-base-content;
+  }
+
+  /* Dark theme (business) override */
+  [data-theme="business"] select {
+    @apply bg-base-100 text-base-content;
+  }
+
+  [data-theme="business"] option {
+    @apply bg-base-100 text-base-content;
   }
 }
 

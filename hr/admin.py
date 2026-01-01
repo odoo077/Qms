@@ -19,6 +19,9 @@ from django import forms
 from django.contrib import admin
 from django.core.exceptions import ValidationError
 
+from .models import EmployeeStatus, EmployeeStatusHistory, EmployeeEducation
+
+
 # ------------------------------------------------------------
 # ContractType
 # ------------------------------------------------------------
@@ -479,6 +482,15 @@ class EmployeeAdminForm(forms.ModelForm):
 
 
 
+@admin.action(description="Archive selected employees")
+def archive_employees(modeladmin, request, queryset):
+    queryset.update(active=False)
+
+@admin.action(description="Restore selected employees")
+def restore_employees(modeladmin, request, queryset):
+    queryset.update(active=True)
+
+
 @admin.register(models.Employee)
 class EmployeeAdmin(AppAdmin):
     """
@@ -560,6 +572,13 @@ class EmployeeAdmin(AppAdmin):
         }),
     )
 
+    exclude = ("current_status",)
+
+    actions = (
+        archive_employees,
+        restore_employees,
+    )
+
     form = EmployeeAdminForm
 
     readonly_fields = ("work_contact_display",)
@@ -594,3 +613,71 @@ class EmployeeAdmin(AppAdmin):
 # تحسينات عامة لعرض القيمة الفارغة
 # ------------------------------------------------------------
 admin.site.empty_value_display = "—"
+
+
+@admin.register(EmployeeStatus)
+class EmployeeStatusAdmin(admin.ModelAdmin):
+    list_display = (
+        "name",
+        "code",
+        "is_active_flag",
+        "sequence",
+        "active",
+    )
+    list_filter = ("active", "is_active_flag")
+    search_fields = ("name", "code")
+    ordering = ("sequence", "name")
+
+
+@admin.register(EmployeeStatusHistory)
+class EmployeeStatusHistoryAdmin(admin.ModelAdmin):
+    list_display = (
+        "employee",
+        "status",
+        "reason",
+        "changed_by",
+        "changed_at",
+    )
+    list_filter = ("status", "changed_at")
+    search_fields = (
+        "employee__name",
+        "reason",
+        "note",
+    )
+    readonly_fields = (
+        "employee",
+        "status",
+        "reason",
+        "note",
+        "changed_by",
+        "changed_at",
+    )
+    ordering = ("-changed_at",)
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(EmployeeEducation)
+class EmployeeEducationAdmin(admin.ModelAdmin):
+    list_display = (
+        "employee",
+        "certificate",
+        "field_of_study",
+        "institution",
+        "start_year",
+        "end_year",
+    )
+    list_filter = ("start_year", "end_year")
+    search_fields = (
+        "employee__name",
+        "certificate",
+        "field_of_study",
+        "institution",
+    )

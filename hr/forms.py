@@ -3,7 +3,7 @@ from django import forms
 from django.core.exceptions import ValidationError
 
 from base.models import Company
-from .models import Department, Job, Employee
+from .models import Department, Job, Employee, EmployeeEducation
 
 
 # ============================================================
@@ -253,7 +253,7 @@ class JobForm(forms.ModelForm):
 
 
 # ============================================================
-# EmployeeForm (FINAL - Odoo-like)
+# EmployeeForm
 # ============================================================
 class EmployeeForm(forms.ModelForm):
     """
@@ -381,10 +381,11 @@ class EmployeeForm(forms.ModelForm):
             user_qs = user_qs.filter(company_id=selected_company_id) | user_qs.filter(companies__id=selected_company_id)
             self.fields["user"].queryset = user_qs.distinct().order_by("email")
 
+        self.fields.pop("current_status", None)
+
     class Meta:
         model = Employee
         fields = (
-            "active",
             "company",
             "name",
             "user",
@@ -428,3 +429,31 @@ class EmployeeForm(forms.ModelForm):
                 self.add_error("coach", "Coach must belong to the selected company.")
 
         return cleaned
+
+
+# ============================================================
+# EmployeeEducationForm
+# ============================================================
+class EmployeeEducationForm(forms.ModelForm):
+    """
+    Employee Education Form (Modal – Odoo-like)
+    """
+
+    class Meta:
+        model = EmployeeEducation
+        fields = (
+            "certificate",
+            "field_of_study",
+            "institution",
+            "start_year",
+            "end_year",
+            "notes",
+        )
+        widgets = {
+            "certificate": forms.TextInput(attrs={"class": "input input-bordered w-full"}),
+            "field_of_study": forms.TextInput(attrs={"class": "input input-bordered w-full"}),
+            "institution": forms.TextInput(attrs={"class": "input input-bordered w-full"}),
+            "start_year": forms.NumberInput(attrs={"class": "input input-bordered w-full"}),
+            "end_year": forms.NumberInput(attrs={"class": "input input-bordered w-full"}),
+            "notes": forms.Textarea(attrs={"class": "textarea textarea-bordered w-full", "rows": 3}),
+        }

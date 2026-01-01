@@ -11,7 +11,8 @@ Structure principles:
 
 from django.urls import path
 from . import views
-from .views import JobEmployeeUpdateView, JobDetailView
+from .views import JobEmployeeUpdateView, JobDetailView, EmployeeEducationCreateView, EducationUpdateView, \
+    EducationDeleteView, EmployeeBulkActionView
 
 app_name = "hr"
 
@@ -107,4 +108,32 @@ urlpatterns = [
         views.EmployeeBulkActionView.as_view(),
         name="employee_bulk",
     ),
+
+path(
+    "employees/<int:pk>/change-status/",
+    views.EmployeeChangeStatusView.as_view(),
+    name="employee_change_status",
+),
+
+
+# ==========================================================
+# Employees Education
+# ==========================================================
+path(
+    "employees/<int:employee_id>/education/add/",
+    EmployeeEducationCreateView.as_view(),
+    name="employee_education_add",
+),
+path(
+    "education/<int:pk>/edit/",
+    EducationUpdateView.as_view(),
+    name="education_edit",
+),
+path(
+    "education/<int:pk>/delete/",
+    EducationDeleteView.as_view(),
+    name="education_delete",
+),
+
+
 ]

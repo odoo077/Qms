@@ -1,130 +1,167 @@
 {% extends "base.html" %}
 
 {% block title %}
-{% if object %}Edit Resume Line Type{% else %}Create Resume Line Type{% endif %}
+  {% if object %}Edit Resume Line Type{% else %}Create Resume Line Type{% endif %}
 {% endblock %}
 
 {% block content %}
-<div class="w-full px-6 py-6 space-y-6">
+<div class="w-full px-6 py-8 space-y-8">
+
+  <!-- ===================================================== -->
+  <!-- Page Header (Form Standard) -->
+  <!-- ===================================================== -->
+  <div class="space-y-1">
+    <h1 class="text-3xl font-semibold tracking-tight">
+      {% if object %}
+        Edit Resume Line Type
+      {% else %}
+        Create Resume Line Type
+      {% endif %}
+    </h1>
+    <p class="text-sm text-base-content/60">
+      Configure how resume entries are categorized for employees.
+    </p>
+  </div>
+
+  <!-- ===================================================== -->
+  <!-- Form -->
+  <!-- ===================================================== -->
+  <form method="post" class="space-y-8">
+    {% csrf_token %}
+
+    <!-- Global Errors -->
+    {% if form.non_field_errors %}
+      <div class="alert alert-error text-sm">
+        {{ form.non_field_errors }}
+      </div>
+    {% endif %}
+
+    {% for hidden in form.hidden_fields %}
+      {{ hidden }}
+    {% endfor %}
 
     <!-- ===================================================== -->
-    <!-- Header -->
+    <!-- Main Card -->
     <!-- ===================================================== -->
-    <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+    <div class="card bg-base-100 border border-base-200 shadow-sm">
+      <div class="card-body p-8 space-y-10">
 
-        <div>
-            <h1 class="text-3xl font-bold">
-                {% if object %}
-                    Edit Resume Line Type
-                {% else %}
-                    Create Resume Line Type
-                {% endif %}
-            </h1>
-            <p class="text-sm opacity-70 mt-1">
-                Define categories used to organize employee resume entries
-            </p>
+        <!-- ================================================= -->
+        <!-- Basic Information -->
+        <!-- ================================================= -->
+        <div class="space-y-4">
+          <h2 class="text-xs font-semibold uppercase tracking-wider text-base-content/60">
+            Basic Information
+          </h2>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+            <!-- Name -->
+            <div>
+              <label class="label pb-1">
+                <span class="label-text font-medium">
+                  {{ form.name.label }}
+                  <span class="text-error">*</span>
+                </span>
+              </label>
+              {{ form.name }}
+              {% for error in form.name.errors %}
+                <p class="text-error text-xs mt-1">{{ error }}</p>
+              {% endfor %}
+            </div>
+
+            <!-- Sequence -->
+            <div>
+              <label class="label pb-1">
+                <span class="label-text font-medium">
+                  {{ form.sequence.label }}
+                </span>
+              </label>
+              {{ form.sequence }}
+              {% for error in form.sequence.errors %}
+                <p class="text-error text-xs mt-1">{{ error }}</p>
+              {% endfor %}
+            </div>
+
+          </div>
         </div>
 
-        <div class="flex gap-2">
-            <a href="{% url 'skills:resumelinetype_list' %}"
-               class="btn btn-ghost">
-                ← Back
-            </a>
+        <!-- ================================================= -->
+        <!-- Advanced Settings -->
+        <!-- ================================================= -->
+        <div class="space-y-4">
+          <h2 class="text-xs font-semibold uppercase tracking-wider text-base-content/60">
+            Advanced Settings
+          </h2>
 
-            {% if object %}
-                <a href="{% url 'skills:resumelinetype_delete' object.id %}"
-                   class="btn btn-error btn-outline">
-                    Delete
-                </a>
-            {% endif %}
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+            <!-- Active -->
+            <div class="flex items-end">
+              <label class="flex items-center gap-3 p-4 border border-base-200 rounded-lg
+                            hover:bg-base-200/40 transition-colors cursor-pointer">
+                {{ form.active }}
+                <span class="label-text font-medium">
+                  Active
+                </span>
+              </label>
+            </div>
+
+            <!-- Properties Definition -->
+            <div class="md:col-span-2">
+              <label class="label pb-1">
+                <span class="label-text font-medium">
+                  {{ form.properties_definition.label }}
+                </span>
+              </label>
+              {{ form.properties_definition }}
+              <p class="text-xs text-base-content/60 mt-1">
+                Optional JSON configuration used for dynamic resume fields.
+              </p>
+              {% for error in form.properties_definition.errors %}
+                <p class="text-error text-xs mt-1">{{ error }}</p>
+              {% endfor %}
+            </div>
+
+          </div>
         </div>
 
+      </div>
     </div>
 
     <!-- ===================================================== -->
-    <!-- Form Card -->
+    <!-- Actions (Form Standard) -->
     <!-- ===================================================== -->
-    <div class="card bg-base-100 shadow max-w-3xl">
+    <div class="flex justify-between items-center pt-4 border-t border-base-200">
 
-        <div class="card-body">
+      <div class="flex gap-3">
+        <a href="{% url 'skills:resumelinetype_list' %}"
+           class="btn btn-ghost">
+          Back to list
+        </a>
 
-            <form method="post" class="space-y-8">
-                {% csrf_token %}
+        {% if object %}
+          <a href="{% url 'skills:resumelinetype_delete' object.id %}"
+             class="btn btn-ghost text-error">
+            Delete
+          </a>
+        {% endif %}
+      </div>
 
-                <!-- --------------------------------------------- -->
-                <!-- Global Errors -->
-                <!-- --------------------------------------------- -->
-                {% if form.non_field_errors %}
-                    <div class="alert alert-error text-sm">
-                        {{ form.non_field_errors }}
-                    </div>
-                {% endif %}
+      <div>
+        <button type="submit"
+                class="btn btn-primary shadow-sm min-w-[160px]">
+          {% if object %}
+            Save Changes
+          {% else %}
+            Create Resume Line Type
+          {% endif %}
+        </button>
+      </div>
 
-                <!-- Hidden Fields -->
-                {% for hidden in form.hidden_fields %}
-                    {{ hidden }}
-                {% endfor %}
-
-                <!-- --------------------------------------------- -->
-                <!-- Fields -->
-                <!-- --------------------------------------------- -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-                    {% for field in form.visible_fields %}
-                    <div>
-
-                        <label class="label">
-                            <span class="label-text font-semibold">
-                                {{ field.label }}
-                                {% if field.field.required %}
-                                    <span class="text-error">*</span>
-                                {% endif %}
-                            </span>
-                        </label>
-
-                        {{ field }}
-
-                        {% if field.help_text %}
-                            <p class="text-xs opacity-70 mt-1">
-                                {{ field.help_text }}
-                            </p>
-                        {% endif %}
-
-                        {% for error in field.errors %}
-                            <p class="text-error text-xs mt-1">
-                                {{ error }}
-                            </p>
-                        {% endfor %}
-
-                    </div>
-                    {% endfor %}
-
-                </div>
-
-                <!-- --------------------------------------------- -->
-                <!-- Actions -->
-                <!-- --------------------------------------------- -->
-                <div class="flex justify-end gap-2 pt-4">
-
-                    <a href="{% url 'skills:resumelinetype_list' %}"
-                       class="btn btn-ghost">
-                        Cancel
-                    </a>
-
-                    <button type="submit" class="btn btn-primary">
-                        {% if object %}
-                            Save Changes
-                        {% else %}
-                            Create Resume Line Type
-                        {% endif %}
-                    </button>
-
-                </div>
-
-            </form>
-
-        </div>
     </div>
+
+  </form>
 
 </div>
 {% endblock %}

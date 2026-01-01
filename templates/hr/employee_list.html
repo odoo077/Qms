@@ -3,208 +3,398 @@
 {% block title %}Employees{% endblock %}
 
 {% block content %}
-<div class="w-full px-6 py-6 space-y-8">
+<div class="w-full px-6 py-6 space-y-6">
 
-    <!-- ===================================================== -->
-    <!-- Header -->
-    <!-- ===================================================== -->
-    <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-
-        <div>
-            <h1 class="text-3xl font-bold tracking-tight">Employees</h1>
-            <p class="text-sm opacity-70 mt-1">
-                {{ page_obj.paginator.count }} employees
-            </p>
-        </div>
-
-        <div class="flex flex-wrap gap-2 items-center">
-            <form method="get" class="flex gap-2">
-                <input type="text"
-                       name="q"
-                       value="{{ current_q }}"
-                       placeholder="Search employees…"
-                       class="input input-bordered w-64"/>
-                <button type="submit" class="btn btn-primary">
-                    Search
-                </button>
-            </form>
-
-            <a href="{% url 'hr:employee_create' %}"
-               class="btn btn-primary">
-                + New Employee
-            </a>
-        </div>
+  <!-- ===================================================== -->
+  <!-- Header -->
+  <!-- ===================================================== -->
+  <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+    <div>
+      <h1 class="text-3xl font-bold tracking-tight">Employees</h1>
+      <p class="text-sm opacity-70">{{ page_obj.paginator.count }} total employees</p>
     </div>
 
-    <!-- ===================================================== -->
-    <!-- Dashboard Cards (SAFE & ERROR-FREE) -->
-    <!-- ===================================================== -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div class="flex items-center gap-2">
+      <a href="{% url 'hr:employee_create' %}" class="btn btn-primary btn-sm">+ New Employee</a>
+    </div>
+  </div>
 
-        <div class="card bg-base-100 shadow p-5">
-            <div class="text-sm opacity-70">Total Employees</div>
-            <div class="text-3xl font-bold mt-1">
-                {{ page_obj.paginator.count }}
-            </div>
-        </div>
+<!-- ===================================================== -->
+<!-- Filters (Professional HR Style) -->
+<!-- ===================================================== -->
+<form method="get"
+      class="bg-base-100 p-4 rounded-xl shadow-sm border border-base-200">
 
-        <div class="card bg-base-100 shadow p-5">
-            <div class="text-sm opacity-70">Displayed</div>
-            <div class="text-3xl font-bold text-primary mt-1">
-                {{ employees|length }}
-            </div>
-        </div>
+  <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-end">
 
-        <div class="card bg-base-100 shadow p-5">
-            <div class="text-sm opacity-70">Departments</div>
-            <div class="text-3xl font-bold mt-1">
-                {{ filter_departments|length }}
-            </div>
-        </div>
-
-        <div class="card bg-base-100 shadow p-5">
-            <div class="text-sm opacity-70">Jobs</div>
-            <div class="text-3xl font-bold mt-1">
-                {{ filter_jobs|length }}
-            </div>
-        </div>
-
+    <!-- Search (Primary) -->
+    <div class="lg:col-span-3">
+      <label class="label p-0 mb-1">
+        <span class="label-text text-xs font-medium opacity-70">Search</span>
+      </label>
+      <input type="text"
+             name="q"
+             value="{{ request.GET.q }}"
+             placeholder="Name, email, job, department, manager…"
+             class="input input-bordered w-full" />
     </div>
 
-    <!-- ===================================================== -->
-    <!-- Filters -->
-    <!-- ===================================================== -->
-    <form method="get"
-          class="card bg-base-100 shadow p-6 grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
+    <!-- Company -->
+    <div class="lg:col-span-2">
+      <label class="label p-0 mb-1">
+        <span class="label-text text-xs opacity-70">Company</span>
+      </label>
+      <select name="company" class="select select-bordered w-full">
+        <option value="">All</option>
+        {% for c in companies %}
+          <option value="{{ c.id }}"
+            {% if request.GET.company == c.id|stringformat:"s" %}selected{% endif %}>
+            {{ c.name }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
 
-        <div>
-            <label class="label text-sm">Department</label>
-            <select name="department" class="select select-bordered w-full">
-                <option value="">All departments</option>
-                {% for d in filter_departments %}
-                <option value="{{ d.id }}"
-                        {% if current_department == d.id|stringformat:"s" %}selected{% endif %}>
-                    {{ d.complete_name }}
-                </option>
-                {% endfor %}
-            </select>
-        </div>
+    <!-- Department -->
+    <div class="lg:col-span-2">
+      <label class="label p-0 mb-1">
+        <span class="label-text text-xs opacity-70">Department</span>
+      </label>
+      <select name="department" class="select select-bordered w-full">
+        <option value="">All</option>
+        {% for d in departments %}
+          <option value="{{ d.id }}"
+            {% if request.GET.department == d.id|stringformat:"s" %}selected{% endif %}>
+            {{ d.complete_name }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
 
-        <div>
-            <label class="label text-sm">Job</label>
-            <select name="job" class="select select-bordered w-full">
-                <option value="">All jobs</option>
-                {% for j in filter_jobs %}
-                <option value="{{ j.id }}"
-                        {% if current_job == j.id|stringformat:"s" %}selected{% endif %}>
-                    {{ j.name }}
-                </option>
-                {% endfor %}
-            </select>
-        </div>
+    <!-- Job -->
+    <div class="lg:col-span-1">
+      <label class="label p-0 mb-1">
+        <span class="label-text text-xs opacity-70">Job</span>
+      </label>
+      <select name="job" class="select select-bordered w-full">
+        <option value="">All</option>
+        {% for j in jobs %}
+          <option value="{{ j.id }}"
+            {% if request.GET.job == j.id|stringformat:"s" %}selected{% endif %}>
+            {{ j.name }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
 
-        <div>
-            <label class="label text-sm">Status</label>
-            <select name="active" class="select select-bordered w-full">
-                <option value="">Active & Archived</option>
-                <option value="1" {% if current_active == "1" %}selected{% endif %}>Active</option>
-                <option value="0" {% if current_active == "0" %}selected{% endif %}>Archived</option>
-            </select>
-        </div>
+    <!-- Manager -->
+    <div class="lg:col-span-1">
+      <label class="label p-0 mb-1">
+        <span class="label-text text-xs opacity-70">Manager</span>
+      </label>
+      <select name="manager" class="select select-bordered w-full">
+        <option value="">All</option>
+        {% for m in managers %}
+          <option value="{{ m.id }}"
+            {% if request.GET.manager == m.id|stringformat:"s" %}selected{% endif %}>
+            {{ m.name }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
 
-        <div class="flex gap-2 md:col-span-2">
-            <button type="submit" class="btn btn-primary flex-1">
-                Apply
-            </button>
-            <a href="{% url 'hr:employee_list' %}" class="btn btn-ghost">
-                Reset
-            </a>
-        </div>
-    </form>
+    <!-- Employee Status -->
+    <div class="lg:col-span-1">
+      <label class="label p-0 mb-1">
+        <span class="label-text text-xs opacity-70">Employee Status</span>
+      </label>
+      <select name="status" class="select select-bordered w-full">
+        <option value="">All</option>
+        {% for s in statuses %}
+          <option value="{{ s.id }}"
+            {% if request.GET.status == s.id|stringformat:"s" %}selected{% endif %}>
+            {{ s.name }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <!-- Record Visibility -->
+    <div class="lg:col-span-1">
+      <label class="label p-0 mb-1">
+        <span class="label-text text-xs opacity-70">Records</span>
+      </label>
+      <select name="record" class="select select-bordered w-full">
+        <option value="">All</option>
+        <option value="active"
+          {% if request.GET.record == "active" %}selected{% endif %}>
+          Active
+        </option>
+        <option value="archived"
+          {% if request.GET.record == "archived" %}selected{% endif %}>
+          Archived
+        </option>
+      </select>
+    </div>
+
+    <!-- Actions -->
+    <div class="lg:col-span-1 flex gap-2 justify-end">
+      <button type="submit" class="btn btn-primary btn-sm">
+        Apply
+      </button>
+      <a href="{% url 'hr:employee_list' %}"
+         class="btn btn-ghost btn-sm">
+        Reset
+      </a>
+    </div>
+
+  </div>
+</form>
+
+
+  <!-- ===================================================== -->
+  <!-- Bulk Bar (hidden until selection) -->
+  <!-- ===================================================== -->
+  <form id="bulk-form" method="post" action="{% url 'hr:employee_bulk' %}">
+    {% csrf_token %}
+    <input type="hidden" name="action" id="bulk-action" value="">
+
+    <div id="bulk-bar"
+         class="hidden bg-base-100 p-3 rounded-box shadow-sm border border-base-200 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+
+      <div class="text-sm">
+        Selected: <span id="selected-count" class="font-semibold">0</span>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <button type="button" id="btn-archive" class="btn btn-warning btn-sm">
+          Archive
+        </button>
+
+        <button type="button" id="btn-restore" class="btn btn-success btn-sm" disabled>
+          Restore
+        </button>
+
+        <button type="button" id="btn-clear" class="btn btn-ghost btn-sm">
+          Clear
+        </button>
+      </div>
+    </div>
 
     <!-- ===================================================== -->
     <!-- Table -->
     <!-- ===================================================== -->
     <div class="card bg-base-100 shadow overflow-x-auto">
-        <table class="table w-full">
-            <thead>
-            <tr>
-                <th>Name</th>
-                <th>Job</th>
-                <th>Department</th>
-                <th>Manager</th>
-                <th>Status</th>
-                <th class="text-right">Actions</th>
-            </tr>
-            </thead>
-            <tbody>
-            {% for emp in employees %}
-            <tr class="hover:bg-base-200 transition">
-                <td class="font-medium">
-                    <a href="{{ emp.get_absolute_url }}"
-                       class="text-primary hover:underline">
-                        {{ emp.name }}
-                    </a>
-                </td>
+      <table class="table table-zebra w-full text-sm">
+        <thead>
+          <tr>
+            <th class="w-10">
+              <input id="check-all" type="checkbox" class="checkbox checkbox-sm" />
+            </th>
+            <th>Name</th>
 
-                <td>{{ emp.job.name|default:"—" }}</td>
+            <!-- Employee status (Suspended وغيرها) -->
+            <th>Employee Status</th>
 
-                <td>{{ emp.department.complete_name|default:"—" }}</td>
+            <!-- Record status (Active/Archived) -->
+            <th>Record</th>
 
-                <td>{{ emp.manager.name|default:"—" }}</td>
+            <th>Job</th>
+            <th>Department</th>
+            <th>Manager</th>
+            <th>Company</th>
+            <th>User</th>
+            <th class="text-right">Actions</th>
+          </tr>
+        </thead>
 
-                <td>
-                    {% if emp.active %}
-                        <span class="badge badge-success">Active</span>
-                    {% else %}
-                        <span class="badge badge-ghost">Archived</span>
-                    {% endif %}
-                </td>
+        <tbody>
+        {% for emp in employees %}
+          <tr data-active="{% if emp.active %}1{% else %}0{% endif %}">
+            <td>
+              <input type="checkbox"
+                     class="row-check checkbox checkbox-sm"
+                     name="ids"
+                     value="{{ emp.id }}" />
+            </td>
 
-                <td class="text-right">
-                    <div class="flex justify-end gap-2">
-                        <a href="{{ emp.get_absolute_url }}" class="btn btn-xs btn-outline">
-                            View
-                        </a>
-                        <a href="{{ emp.get_edit_url }}" class="btn btn-xs btn-outline">
-                            Edit
-                        </a>
-                    </div>
-                </td>
-            </tr>
-            {% empty %}
-            <tr>
-                <td colspan="6" class="text-center py-16">
-                    <p class="text-lg font-medium opacity-70">
-                        No employees found
-                    </p>
-                </td>
-            </tr>
-            {% endfor %}
-            </tbody>
-        </table>
+            <td>
+              <a href="{{ emp.get_absolute_url }}" class="font-medium link link-hover">
+                {{ emp.name }}
+              </a>
+            </td>
+
+            <!-- Employee Status badge -->
+            <td>
+              {% if emp.current_status %}
+                <span class="badge
+                  {% if emp.current_status.is_active_flag %}
+                    badge-success
+                  {% elif emp.current_status.code == 'suspended' %}
+                    badge-warning
+                  {% else %}
+                    badge-error
+                  {% endif %}
+                ">
+                  {{ emp.current_status.name }}
+                </span>
+              {% else %}
+                <span class="badge badge-ghost">—</span>
+              {% endif %}
+            </td>
+
+            <!-- Record badge -->
+            <td>
+              {% if emp.active %}
+                <span class="badge badge-success">Active</span>
+              {% else %}
+                <span class="badge badge-ghost">Archived</span>
+              {% endif %}
+            </td>
+
+            <td>{{ emp.job.name|default:"—" }}</td>
+            <td>{{ emp.department.complete_name|default:"—" }}</td>
+            <td>{{ emp.manager.name|default:"—" }}</td>
+            <td>{{ emp.company.name }}</td>
+            <td>{{ emp.user.email|default:"—" }}</td>
+
+            <td class="text-right">
+              <div class="flex justify-end gap-1">
+                <a href="{{ emp.get_absolute_url }}" class="btn btn-ghost btn-xs">View</a>
+                <a href="{{ emp.get_edit_url }}" class="btn btn-ghost btn-xs">Edit</a>
+              </div>
+            </td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="10" class="text-center opacity-70 py-6">
+              No employees found.
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
     </div>
+  </form>
 
-    <!-- ===================================================== -->
-    <!-- Pagination -->
-    <!-- ===================================================== -->
-    {% if is_paginated %}
-    <div class="flex justify-center">
-        <div class="join">
-            {% if page_obj.has_previous %}
-                <a href="?page={{ page_obj.previous_page_number }}"
-                   class="join-item btn btn-sm">Prev</a>
-            {% endif %}
-            <span class="join-item btn btn-sm btn-disabled">
-                Page {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}
-            </span>
-            {% if page_obj.has_next %}
-                <a href="?page={{ page_obj.next_page_number }}"
-                   class="join-item btn btn-sm">Next</a>
-            {% endif %}
-        </div>
-    </div>
-    {% endif %}
+  <!-- ===================================================== -->
+  <!-- Pagination -->
+  <!-- ===================================================== -->
+  {% include "partials/paginator.html" %}
 
 </div>
+
+<!-- ===================================================== -->
+<!-- Confirm Archive Modal -->
+<!-- ===================================================== -->
+<dialog id="archive-modal" class="modal">
+  <div class="modal-box">
+    <h3 class="font-bold text-lg">Confirm Archive</h3>
+    <p class="py-2 text-sm opacity-80">
+      Are you sure you want to archive the selected employees?
+    </p>
+    <div class="modal-action">
+      <button type="button" class="btn btn-ghost" id="archive-cancel">Cancel</button>
+      <button type="button" class="btn btn-warning" id="archive-confirm">Archive</button>
+    </div>
+  </div>
+  <form method="dialog" class="modal-backdrop">
+    <button>close</button>
+  </form>
+</dialog>
+
+<script>
+(function () {
+  const bulkBar = document.getElementById("bulk-bar");
+  const selectedCount = document.getElementById("selected-count");
+  const checkAll = document.getElementById("check-all");
+  const rowChecks = Array.from(document.querySelectorAll(".row-check"));
+
+  const btnArchive = document.getElementById("btn-archive");
+  const btnRestore = document.getElementById("btn-restore");
+  const btnClear = document.getElementById("btn-clear");
+
+  const bulkForm = document.getElementById("bulk-form");
+  const bulkAction = document.getElementById("bulk-action");
+
+  const modal = document.getElementById("archive-modal");
+  const archiveCancel = document.getElementById("archive-cancel");
+  const archiveConfirm = document.getElementById("archive-confirm");
+
+  function getSelectedRows() {
+    return rowChecks.filter(ch => ch.checked);
+  }
+
+  function anySelectedArchived() {
+    const selected = getSelectedRows();
+    return selected.some(ch => {
+      const tr = ch.closest("tr");
+      return tr && tr.getAttribute("data-active") === "0";
+    });
+  }
+
+  function updateUI() {
+    const selected = getSelectedRows();
+    const count = selected.length;
+
+    selectedCount.textContent = count;
+
+    if (count > 0) bulkBar.classList.remove("hidden");
+    else bulkBar.classList.add("hidden");
+
+    // Restore disabled if no archived selected
+    btnRestore.disabled = !anySelectedArchived();
+
+    // checkAll state
+    if (rowChecks.length) {
+      const allChecked = rowChecks.every(ch => ch.checked);
+      const noneChecked = rowChecks.every(ch => !ch.checked);
+      checkAll.indeterminate = !allChecked && !noneChecked;
+      checkAll.checked = allChecked;
+    }
+  }
+
+  // checkbox events
+  rowChecks.forEach(ch => ch.addEventListener("change", updateUI));
+
+  if (checkAll) {
+    checkAll.addEventListener("change", function () {
+      rowChecks.forEach(ch => ch.checked = checkAll.checked);
+      updateUI();
+    });
+  }
+
+  btnClear.addEventListener("click", function () {
+    rowChecks.forEach(ch => ch.checked = false);
+    if (checkAll) { checkAll.checked = false; checkAll.indeterminate = false; }
+    updateUI();
+  });
+
+  // Archive (confirmation modal)
+  btnArchive.addEventListener("click", function () {
+    if (getSelectedRows().length === 0) return;
+    modal.showModal();
+  });
+
+  archiveCancel.addEventListener("click", function () {
+    modal.close();
+  });
+
+  archiveConfirm.addEventListener("click", function () {
+    bulkAction.value = "archive";
+    bulkForm.submit();
+  });
+
+  // Restore (no modal)
+  btnRestore.addEventListener("click", function () {
+    if (getSelectedRows().length === 0) return;
+    if (btnRestore.disabled) return;
+    bulkAction.value = "unarchive";
+    bulkForm.submit();
+  });
+
+  // init
+  updateUI();
+})();
+</script>
 {% endblock %}

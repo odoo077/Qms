@@ -51,72 +51,323 @@
       {# يسار الـ Navbar: الشعار + شريط التطبيقات #}
       <div class="flex items-center gap-3">
         {# الشعار #}
-        <a href="{% url 'base:home' %}"
-           class="btn btn-ghost px-0 text-xl font-extrabold tracking-tight">
-          <span class="text-primary">360</span><span class="text-error"> Manager</span>
-        </a>
+<a href="{% url 'base:home' %}"
+   class="no-underline hover:no-underline focus:no-underline
+          hover:bg-transparent active:bg-transparent
+          focus:bg-transparent
+          px-2 py-1 select-none">
+
+  <span class="text-[24px] font-extrabold tracking-tight">
+    <span class="text-primary">
+      360
+    </span>
+    <span class="text-base-content font-semibold">
+      Manager
+    </span>
+  </span>
+
+</a>
+
+
+
 
         {# شريط التطبيقات (قوائم منسدلة) – يظهر من md فأعلى #}
         {% with ns=request.resolver_match.namespace|default:'' %}
         <nav class="hidden md:flex items-center gap-1 ml-1">
-          <!-- Base -->
-          <div class="dropdown dropdown-hover">
-            <label tabindex="0"
-                   class="btn btn-ghost btn-sm
-                          {% if ns == '' or ns == 'base' %}btn-active font-semibold{% endif %}">
-              Base
-            </label>
-            <ul tabindex="0" class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-56">
-              <li><a href="{% url 'base:partner_list' %}">Partners</a></li>
-              <li><a href="{% url 'base:user_list' %}">Users</a></li>
-              <li><a href="{% url 'base:company_list' %}">Companies</a></li>
-            </ul>
-          </div>
+<!-- Base -->
+<div class="dropdown dropdown-hover">
+  <label
+    tabindex="0"
+    class="btn btn-ghost btn-sm
+           {% if ns == '' or ns == 'base' %}btn-active font-semibold{% endif %}"
+  >
+    <!-- Main icon -->
+    <svg xmlns="http://www.w3.org/2000/svg"
+         class="h-4 w-4 mr-1"
+         fill="none"
+         viewBox="0 0 24 24"
+         stroke="currentColor">
+      <path stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M4 6h16M4 12h16M4 18h16" />
+    </svg>
+    Base
+  </label>
 
-          <!-- Assets -->
-          <div class="dropdown dropdown-hover">
-            <label tabindex="0"
-                   class="btn btn-ghost btn-sm
-                          {% if ns == 'assets' %}btn-active font-semibold{% endif %}">
-              Assets
-            </label>
-            <ul tabindex="0" class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-56">
-              <li><a href="{% url 'assets:asset_list' %}">Assets</a></li>
-              <li><a href="{% url 'assets:category_list' %}">Categories</a></li>
-              <li><a href="{% url 'assets:assignment_list' %}">Assignments</a></li>
-            </ul>
-          </div>
+  <ul
+    tabindex="0"
+    class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-64 text-sm"
+  >
 
-          <!-- HR -->
-          <div class="dropdown dropdown-hover">
-            <label tabindex="0"
-                   class="btn btn-ghost btn-sm
-                          {% if ns == 'hr' %}btn-active font-semibold{% endif %}">
-              HR
-            </label>
-            <ul tabindex="0" class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-56">
-              <li><a href="{% url 'hr:department_list' %}">Departments</a></li>
-              <li><a href="{% url 'hr:job_list' %}">Jobs</a></li>
-              <li><a href="{% url 'hr:employee_list' %}">Employees</a></li>
-            </ul>
-          </div>
+    <!-- ================= Core Records ================= -->
+    <li class="menu-title opacity-60">
+      <span class="flex items-center gap-2">
+        🧩 Core Records
+      </span>
+    </li>
 
-          <!-- Skills -->
-          <div class="dropdown dropdown-hover">
-            <label tabindex="0"
-                   class="btn btn-ghost btn-sm
-                          {% if ns == 'skills' %}btn-active font-semibold{% endif %}">
-              Skills
-            </label>
-            <ul tabindex="0" class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-64">
-              <li><a href="{% url 'skills:skill_list' %}">Skills</a></li>
-              <li><a href="{% url 'skills:skilltype_list' %}">Skill Types</a></li>
-              <li><a href="{% url 'skills:skilllevel_list' %}">Skill Levels</a></li>
-              <li><a href="{% url 'skills:employeeskill_list' %}">Employee Skills</a></li>
-              <li><a href="{% url 'skills:resumelinetype_list' %}">Resume Line Types</a></li>
-              <li><a href="{% url 'skills:resumeline_list' %}">Resume Lines</a></li>
-            </ul>
-          </div>
+    <li>
+      <a href="{% url 'base:company_list' %}">
+        🏢 Companies
+      </a>
+    </li>
+
+    <li>
+      <a href="{% url 'base:partner_list' %}">
+        🤝 Partners
+      </a>
+    </li>
+
+    <li class="divider my-1"></li>
+
+    <!-- ================= Access Management ================= -->
+    <li class="menu-title opacity-60">
+      <span class="flex items-center gap-2">
+        🔐 Access Management
+      </span>
+    </li>
+
+    <li>
+      <a href="{% url 'base:user_list' %}">
+        👤 Users
+      </a>
+    </li>
+
+  </ul>
+</div>
+
+
+<!-- Assets -->
+<div class="dropdown dropdown-hover">
+  <label
+    tabindex="0"
+    class="btn btn-ghost btn-sm
+           {% if ns == 'assets' %}btn-active font-semibold{% endif %}"
+  >
+    <!-- Main icon -->
+    <svg xmlns="http://www.w3.org/2000/svg"
+         class="h-4 w-4 mr-1"
+         fill="none"
+         viewBox="0 0 24 24"
+         stroke="currentColor">
+      <path stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M3 7h18M5 7v10a2 2 0 002 2h10a2 2 0 002-2V7M9 11h6" />
+    </svg>
+    Assets
+  </label>
+
+  <ul
+    tabindex="0"
+    class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-64 text-sm"
+  >
+
+    <!-- ================= Master Data ================= -->
+    <li class="menu-title opacity-60">
+      <span class="flex items-center gap-2">
+        📁 Master Data
+      </span>
+    </li>
+
+    <li>
+      <a href="{% url 'assets:category_list' %}">
+        🗂 Asset Categories
+      </a>
+    </li>
+
+    <li class="divider my-1"></li>
+
+    <!-- ================= Operations ================= -->
+    <li class="menu-title opacity-60">
+      <span class="flex items-center gap-2">
+        🔄 Operations
+      </span>
+    </li>
+
+    <li>
+      <a href="{% url 'assets:asset_list' %}">
+        💼 Assets Registry
+      </a>
+    </li>
+
+    <li>
+      <a href="{% url 'assets:assignment_list' %}">
+        👤 Asset Assignments
+      </a>
+    </li>
+
+  </ul>
+</div>
+
+
+<!-- HR -->
+<div class="dropdown dropdown-hover">
+  <label
+    tabindex="0"
+    class="btn btn-ghost btn-sm
+           {% if ns == 'hr' %}btn-active font-semibold{% endif %}"
+  >
+    <!-- Main icon -->
+    <svg xmlns="http://www.w3.org/2000/svg"
+         class="h-4 w-4 mr-1"
+         fill="none"
+         viewBox="0 0 24 24"
+         stroke="currentColor">
+      <path stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M17 20h5v-2a4 4 0 00-4-4h-1M9 20H4v-2a4 4 0 014-4h1m4-4a4 4 0 100-8 4 4 0 000 8zm6 4a3 3 0 100-6 3 3 0 000 6z" />
+    </svg>
+    HR
+  </label>
+
+  <ul
+    tabindex="0"
+    class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-64 text-sm"
+  >
+
+    <!-- ================= Master Data ================= -->
+    <li class="menu-title opacity-60">
+      <span class="flex items-center gap-2">
+        📁 Master Data
+      </span>
+    </li>
+
+    <li>
+      <a href="{% url 'hr:employee_list' %}">
+        👤 Employee Directory
+      </a>
+    </li>
+
+    <li class="divider my-1"></li>
+
+    <!-- ================= Organization ================= -->
+    <li class="menu-title opacity-60">
+      <span class="flex items-center gap-2">
+        🏢 Organization
+      </span>
+    </li>
+
+    <li>
+      <a href="{% url 'hr:department_list' %}">
+        🗂 Departments
+      </a>
+    </li>
+
+    <li>
+      <a href="{% url 'hr:job_list' %}">
+        🧾 Jobs
+      </a>
+    </li>
+
+  </ul>
+</div>
+
+
+
+<!-- Skills -->
+<div class="dropdown dropdown-hover">
+  <label
+    tabindex="0"
+    class="btn btn-ghost btn-sm
+           {% if ns == 'skills' %}btn-active font-semibold{% endif %}"
+  >
+    <!-- Main icon -->
+    <svg xmlns="http://www.w3.org/2000/svg"
+         class="h-4 w-4 mr-1"
+         fill="none"
+         viewBox="0 0 24 24"
+         stroke="currentColor">
+      <path stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.286 3.966a1 1 0 00.95.69h4.173c.969 0 1.371 1.24.588 1.81l-3.377 2.455a1 1 0 00-.364 1.118l1.287 3.966c.3.921-.755 1.688-1.54 1.118l-3.377-2.454a1 1 0 00-1.175 0l-3.377 2.454c-.784.57-1.838-.197-1.539-1.118l1.287-3.966a1 1 0 00-.364-1.118L2.98 9.393c-.783-.57-.38-1.81.588-1.81h4.173a1 1 0 00.95-.69l1.286-3.966z" />
+    </svg>
+    Skills
+  </label>
+
+  <ul
+    tabindex="0"
+    class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-64 text-sm"
+  >
+
+    <!-- ================= Configuration ================= -->
+    <li class="menu-title opacity-60">
+      <span class="flex items-center gap-2">
+        <svg xmlns="http://www.w3.org/2000/svg"
+             class="h-4 w-4"
+             fill="none"
+             viewBox="0 0 24 24"
+             stroke="currentColor">
+          <path stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.527-.878 3.27.865 2.392 2.392a1.724 1.724 0 001.065 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.878 1.527-.865 3.27-2.392 2.392a1.724 1.724 0 00-2.573 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.527.878-3.27-.865-2.392-2.392a1.724 1.724 0 00-1.065-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.878-1.527.865-3.27 2.392-2.392.996.574 2.295.048 2.573-1.065z" />
+        </svg>
+        Configuration
+      </span>
+    </li>
+
+    <li>
+      <a href="{% url 'skills:skilltype_list' %}">
+        🧩 Skill Types
+      </a>
+    </li>
+
+    <li>
+      <a href="{% url 'skills:skilllevel_list' %}">
+        📊 Skill Levels
+      </a>
+    </li>
+
+    <li>
+      <a href="{% url 'skills:resumelinetype_list' %}">
+        🗂 Resume Line Types
+      </a>
+    </li>
+
+    <li class="divider my-1"></li>
+
+    <!-- ================= Master Data ================= -->
+    <li class="menu-title opacity-60">
+      <span class="flex items-center gap-2">
+        📚 Master Data
+      </span>
+    </li>
+
+    <li>
+      <a href="{% url 'skills:skill_list' %}">
+        ✨ Skills
+      </a>
+    </li>
+
+    <li class="divider my-1"></li>
+
+    <!-- ================= Operations ================= -->
+    <li class="menu-title opacity-60">
+      <span class="flex items-center gap-2">
+        ⚙ Operations
+      </span>
+    </li>
+
+    <li>
+      <a href="{% url 'skills:employeeskill_list' %}">
+        👥 Employee Skills
+      </a>
+    </li>
+
+    <li>
+      <a href="{% url 'skills:resumeline_list' %}">
+        📄 Resume Lines
+      </a>
+    </li>
+
+  </ul>
+</div>
+
+
 
 <!--          {# Performance #}-->
 <!--          <div class="dropdown dropdown-hover">-->
@@ -182,71 +433,112 @@
 
 <!-- Payroll -->
 <div class="dropdown dropdown-hover">
-  <label tabindex="0"
-         class="btn btn-ghost btn-sm
-                {% if ns == 'payroll' %}btn-active font-semibold{% endif %}">
+  <label
+    tabindex="0"
+    class="btn btn-ghost btn-sm
+           {% if ns == 'payroll' %}btn-active font-semibold{% endif %}"
+  >
+    <!-- Main icon -->
+    <svg xmlns="http://www.w3.org/2000/svg"
+         class="h-4 w-4 mr-1"
+         fill="none"
+         viewBox="0 0 24 24"
+         stroke="currentColor">
+      <path stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M9 7h6m-6 4h6m-6 4h6M5 7h.01M5 11h.01M5 15h.01" />
+    </svg>
     Payroll
   </label>
 
-  <ul tabindex="0"
-      class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-64">
+  <ul
+    tabindex="0"
+    class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-72 text-sm"
+  >
+
+    <!-- ================= Payroll Operations ================= -->
+    <li class="menu-title opacity-60">
+      <span class="flex items-center gap-2">
+        🧾 Payroll Operations
+      </span>
+    </li>
 
     <li>
       <a href="{% url 'payroll:payslip_list' %}">
-        Payslips
-      </a>
-    </li>
-
-    <li>
-      <a href="{% url 'payroll:period_list' %}">
-        Payroll Periods
-      </a>
-    </li>
-
-    <li>
-      <a href="{% url 'payroll:employee_salary_list' %}">
-        Employee Salaries
-      </a>
-    </li>
-
-    <li>
-      <a href="{% url 'payroll:structure_list' %}">
-        Payroll Structures
-      </a>
-    </li>
-
-    <li>
-      <a href="{% url 'payroll:salary_rule_list' %}">
-        Salary Rules
-      </a>
-    </li>
-
-    <li>
-      <a href="{% url 'payroll:rule_category_list' %}">
-        Salary Rule Categories
-      </a>
-    </li>
-
-    <li>
-      <a href="{% url 'payroll:rule_parameter_list' %}">
-        Rule Parameters
-      </a>
-    </li>
-
-    <li>
-      <a href="{% url 'payroll:input_type_list' %}">
-        Input Types
+        💵 Payslips
       </a>
     </li>
 
     <li>
       <a href="{% url 'payroll:payslip_input_list' %}">
-        Payslip Inputs
+        📝 Payslip Inputs
+      </a>
+    </li>
+
+    <li>
+      <a href="{% url 'payroll:period_list' %}">
+        📅 Payroll Periods
+      </a>
+    </li>
+
+    <li class="divider my-1"></li>
+
+    <!-- ================= Employee Payroll ================= -->
+    <li class="menu-title opacity-60">
+      <span class="flex items-center gap-2">
+        👤 Employee Payroll
+      </span>
+    </li>
+
+    <li>
+      <a href="{% url 'payroll:employee_salary_list' %}">
+        💼 Employee Salaries
+      </a>
+    </li>
+
+    <li class="divider my-1"></li>
+
+    <!-- ================= Payroll Configuration ================= -->
+    <li class="menu-title opacity-60">
+      <span class="flex items-center gap-2">
+        ⚙️ Payroll Configuration
+      </span>
+    </li>
+
+    <li>
+      <a href="{% url 'payroll:structure_list' %}">
+        🏗️ Payroll Structures
+      </a>
+    </li>
+
+    <li>
+      <a href="{% url 'payroll:salary_rule_list' %}">
+        📐 Salary Rules
+      </a>
+    </li>
+
+    <li>
+      <a href="{% url 'payroll:rule_category_list' %}">
+        🗂️ Rule Categories
+      </a>
+    </li>
+
+    <li>
+      <a href="{% url 'payroll:rule_parameter_list' %}">
+        🔢 Rule Parameters
+      </a>
+    </li>
+
+    <li>
+      <a href="{% url 'payroll:input_type_list' %}">
+        ⌨️ Input Types
       </a>
     </li>
 
   </ul>
 </div>
+
 
 
         </nav>

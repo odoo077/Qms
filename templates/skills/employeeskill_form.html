@@ -1,127 +1,123 @@
 {% extends "base.html" %}
 
 {% block title %}
-Employee Skill
+  {% if object %}Edit Employee Skill{% else %}Add Employee Skill{% endif %}
 {% endblock %}
 
 {% block content %}
-<div class="w-full px-6 py-6 space-y-6 max-w-5xl mx-auto">
+<div class="max-w-5xl mx-auto px-6 py-10 space-y-8">
 
-    <!-- ===================================================== -->
-    <!-- Header -->
-    <!-- ===================================================== -->
-    <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+  <!-- ===================================================== -->
+  <!-- Page Header (Form Standard) -->
+  <!-- ===================================================== -->
+  <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
 
-        <div>
-            <h1 class="text-3xl font-bold">
-                {% if object %}
-                    Edit Employee Skill
-                {% else %}
-                    Add Employee Skill
-                {% endif %}
-            </h1>
-            <p class="text-sm opacity-70 mt-1">
-                Assign or update skill level for an employee
-            </p>
-        </div>
-
-        <div class="flex gap-2">
-            <a href="{% url 'skills:employeeskill_list' %}"
-               class="btn btn-ghost btn-sm">
-                ← Back to list
-            </a>
-
-            {% if object %}
-                <a href="{% url 'skills:employeeskill_delete' object.id %}"
-                   class="btn btn-error btn-sm">
-                    Delete
-                </a>
-            {% endif %}
-        </div>
-
+    <div class="space-y-1">
+      <h1 class="text-3xl font-semibold tracking-tight">
+        {% if object %}Edit Employee Skill{% else %}Add Employee Skill{% endif %}
+      </h1>
+      <p class="text-sm text-base-content/60">
+        Assign and manage employee skill levels and validity period.
+      </p>
     </div>
 
-    <!-- ===================================================== -->
-    <!-- Form Card -->
-    <!-- ===================================================== -->
-    <div class="card bg-base-100 shadow">
-        <div class="card-body space-y-6">
+    <div class="flex gap-2">
+      <a href="{% url 'skills:employeeskill_list' %}"
+         class="btn btn-ghost btn-sm">
+        ← Back to list
+      </a>
 
-            <form method="post" novalidate>
-                {% csrf_token %}
+      {% if object %}
+        <a href="{% url 'skills:employeeskill_delete' object.id %}"
+           class="btn btn-error btn-outline btn-sm">
+          Delete
+        </a>
+      {% endif %}
+    </div>
 
-                <!-- ============================= -->
-                <!-- Global Errors -->
-                <!-- ============================= -->
-                {% if form.non_field_errors %}
-                    <div class="alert alert-error text-sm">
-                        {{ form.non_field_errors }}
-                    </div>
-                {% endif %}
+  </div>
 
-                <!-- Hidden fields -->
-                {% for hidden in form.hidden_fields %}
-                    {{ hidden }}
-                {% endfor %}
+  <!-- ===================================================== -->
+  <!-- Form Card -->
+  <!-- ===================================================== -->
+  <div class="card bg-base-100 border border-base-200 shadow-sm">
 
-                <!-- ============================= -->
-                <!-- Main Fields -->
-                <!-- ============================= -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div class="card-body p-8 space-y-8">
 
-                    {% for field in form.visible_fields %}
-                        <div>
-                            <label class="label">
-                                <span class="label-text font-semibold">
-                                    {{ field.label }}
-                                    {% if field.field.required %}
-                                        <span class="text-error">*</span>
-                                    {% endif %}
-                                </span>
-                            </label>
+      <form method="post" novalidate class="space-y-8">
+        {% csrf_token %}
 
-                            {{ field }}
+        <!-- Global Errors -->
+        {% if form.non_field_errors %}
+          <div class="alert alert-error text-sm">
+            {{ form.non_field_errors }}
+          </div>
+        {% endif %}
 
-                            {% if field.help_text %}
-                                <p class="text-xs opacity-70 mt-1">
-                                    {{ field.help_text }}
-                                </p>
-                            {% endif %}
+        {% for hidden in form.hidden_fields %}
+          {{ hidden }}
+        {% endfor %}
 
-                            {% for error in field.errors %}
-                                <p class="text-error text-xs mt-1">
-                                    {{ error }}
-                                </p>
-                            {% endfor %}
-                        </div>
-                    {% endfor %}
+        <!-- ================================================= -->
+        <!-- Fields -->
+        <!-- ================================================= -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
 
-                </div>
+          {% for field in form.visible_fields %}
+            <div class="form-control w-full
+                        {% if field.field.widget.input_type == 'textarea' %}
+                          md:col-span-2
+                        {% endif %}">
 
-                <!-- ============================= -->
-                <!-- Actions -->
-                <!-- ============================= -->
-                <div class="flex justify-end gap-2 pt-6 border-t">
+              <label class="label pb-1">
+                <span class="label-text font-medium">
+                  {{ field.label }}
+                  {% if field.field.required %}
+                    <span class="text-error">*</span>
+                  {% endif %}
+                </span>
+              </label>
 
-                    <a href="{% url 'skills:employeeskill_list' %}"
-                       class="btn btn-ghost">
-                        Cancel
-                    </a>
+              {{ field }}
 
-                    <button type="submit" class="btn btn-primary">
-                        {% if object %}
-                            Save Changes
-                        {% else %}
-                            Create Employee Skill
-                        {% endif %}
-                    </button>
+              {% if field.help_text %}
+                <p class="text-xs text-base-content/60 mt-1">
+                  {{ field.help_text }}
+                </p>
+              {% endif %}
 
-                </div>
+              {% for error in field.errors %}
+                <p class="text-xs text-error mt-1">
+                  {{ error }}
+                </p>
+              {% endfor %}
 
-            </form>
+            </div>
+          {% endfor %}
 
         </div>
+
+        <!-- ================================================= -->
+        <!-- Actions (Form Standard) -->
+        <!-- ================================================= -->
+        <div class="flex justify-end gap-3 pt-6 border-t border-base-200">
+
+          <a href="{% url 'skills:employeeskill_list' %}"
+             class="btn btn-ghost">
+            Cancel
+          </a>
+
+          <button type="submit"
+                  class="btn btn-primary">
+            {% if object %}Save Changes{% else %}Create Employee Skill{% endif %}
+          </button>
+
+        </div>
+
+      </form>
+
     </div>
+  </div>
 
 </div>
 {% endblock %}

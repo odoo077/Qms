@@ -339,3 +339,108 @@ def _employee_unflag_partner_on_delete(sender, instance, **kwargs):
     Partner = _get_model("base", "Partner")
     if not Emp.objects.filter(work_contact_id=instance.work_contact_id).exists():
         Partner.objects.filter(pk=instance.work_contact_id, employee=True).update(employee=False)
+
+
+# ============================================================
+# Employee Status bootstrap (post_migrate)
+# ============================================================
+
+@receiver(post_migrate, dispatch_uid="hr.bootstrap_employee_statuses.v1")
+def bootstrap_employee_statuses(sender, **kwargs):
+    """
+    Create default Employee Statuses (idempotent).
+
+    This runs after migrations and ensures that the system
+    always has the minimal required statuses.
+    """
+    try:
+        EmployeeStatus = apps.get_model("hr", "EmployeeStatus")
+    except LookupError:
+        return
+
+    defaults = [
+        {
+            "name": "Active",
+            "code": "active",
+            "sequence": 1,
+            "is_active_flag": True,
+        },
+        {
+            "name": "Suspended",
+            "code": "suspended",
+            "sequence": 20,
+            "is_active_flag": False,
+        },
+        {
+            "name": "Terminated",
+            "code": "terminated",
+            "sequence": 30,
+            "is_active_flag": False,
+        },
+    ]
+
+    for vals in defaults:
+        EmployeeStatus.objects.get_or_create(
+            code=vals["code"],
+            defaults=vals,
+        )
+
+
+# ============================================================
+# Backfill Employee.current_status for legacy records
+# ============================================================
+
+@receiver(post_migrate, dispatch_uid="hr.backfill_employee_current_status.v1")
+def backfill_employee_current_status(sender, **kwargs):
+    """
+    Ensure all existing employees have a current_status.
+    Safe to run multiple times.
+    """
+    Employee = apps.get_model("hr", "Employee")
+    EmployeeStatus = apps.get_model("hr", "EmployeeStatus")
+
+    active_status = (
+        EmployeeStatus.objects
+        .filter(code="active", active=True)
+        .first()
+    )
+
+    if not active_status:
+        return
+
+    qs = Employee.objects.filter(current_status__isnull=True)
+
+    for emp in qs.iterator():
+        emp.current_status = active_status
+        emp.active = True
+        emp.save(update_fields=["current_status", "active"])
+
+
+# ============================================================
+# Employee current_status bootstrap & sync
+# ============================================================
+
+@receiver(pre_save, sender=_get_model("hr", "Employee"),
+          dispatch_uid="hr.employee.ensure_current_status.v1")
+def ensure_employee_current_status(sender, instance, **kwargs):
+    """
+    Ensure:
+    - current_status is always set
+    - employee.active follows status.is_active_flag
+    """
+    # إذا كانت الحالة محددة، اضبط active وفقًا لها
+    if instance.current_status_id:
+        instance.active = bool(instance.current_status.is_active_flag)
+        return
+
+    # إن لم تُحدَّد الحالة (إنشاء/بيانات قديمة): استخدم Active
+    EmployeeStatus = _get_model("hr", "EmployeeStatus")
+    active_status = (
+        EmployeeStatus.objects
+        .filter(code="active", active=True)
+        .order_by("sequence")
+        .first()
+    )
+    if active_status:
+        instance.current_status = active_status
+        instance.active = True

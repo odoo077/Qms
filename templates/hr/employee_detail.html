@@ -12,10 +12,21 @@
     <!-- ===================================================== -->
     <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-            <h1 class="text-3xl font-bold">
+            <h1 class="text-3xl font-bold flex items-center gap-2">
                 {{ employee.name }}
-                {% if not employee.active %}
-                    <span class="badge badge-ghost ml-2">Archived</span>
+
+                {% if employee.current_status %}
+                    <span class="badge
+                        {% if employee.current_status.is_active_flag %}
+                            badge-success
+                        {% elif employee.current_status.code == 'suspended' %}
+                            badge-warning
+                        {% else %}
+                            badge-error
+                        {% endif %}
+                    ">
+                        {{ employee.current_status.name }}
+                    </span>
                 {% endif %}
             </h1>
 
@@ -28,41 +39,123 @@
         </div>
 
         {% if can_edit %}
-            <a href="{{ employee.get_edit_url }}" class="btn btn-primary btn-sm">
-                Edit
-            </a>
+            <div class="flex gap-2">
+                <a href="{{ employee.get_edit_url }}" class="btn btn-primary btn-sm">
+                    Edit
+                </a>
+
+                <button type="button"
+                        class="btn btn-outline btn-sm btn-warning"
+                        onclick="document.getElementById('change-status-modal').showModal()">
+                    Change Status
+                </button>
+            </div>
         {% endif %}
     </div>
+
 
     <!-- ===================================================== -->
     <!-- Tabs (DaisyUI – Radio Tabs, NO JS) -->
     <!-- ===================================================== -->
     <div class="tabs tabs-bordered">
 
-        <!-- ================= Overview ================= -->
-        <input type="radio" name="emp_tabs" class="tab" aria-label="Overview" checked />
-        <div class="tab-content bg-base-100 p-6 rounded-box mt-4">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div class="card bg-base-100 shadow p-6">
-                    <h3 class="font-semibold text-lg mb-4">General</h3>
-                    <ul class="space-y-2 text-sm">
-                        <li><span class="opacity-70">Company:</span> {{ employee.company.name }}</li>
-                        <li><span class="opacity-70">Department:</span> {{ employee.department.complete_name|default:"—" }}</li>
-                        <li><span class="opacity-70">Job:</span> {{ employee.job.name|default:"—" }}</li>
-                        <li><span class="opacity-70">Manager:</span> {{ employee.manager.name|default:"No manager" }}</li>
-                    </ul>
-                </div>
+<!-- ================= Overview ================= -->
+<input type="radio" name="emp_tabs" class="tab" aria-label="Overview" checked />
 
-                <div class="card bg-base-100 shadow p-6">
-                    <h3 class="font-semibold text-lg mb-4">Account</h3>
-                    <ul class="space-y-2 text-sm">
-                        <li><span class="opacity-70">User:</span> {{ employee.user.email|default:"—" }}</li>
-                        <li><span class="opacity-70">Barcode:</span> {{ employee.barcode|default:"—" }}</li>
-                        <li><span class="opacity-70">PIN:</span> {{ employee.pin|default:"—" }}</li>
-                    </ul>
-                </div>
-            </div>
+<div class="tab-content bg-base-100 p-6 rounded-box mt-4">
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+        <!-- ================= General ================= -->
+        <div class="card bg-base-100 shadow p-6">
+            <h3 class="font-semibold text-lg mb-4">
+                General
+            </h3>
+
+            <ul class="space-y-2 text-sm">
+                <li class="flex justify-between gap-2">
+                    <span class="opacity-70">Company</span>
+                    <span class="font-medium">{{ employee.company.name }}</span>
+                </li>
+
+                <li class="flex justify-between gap-2">
+                    <span class="opacity-70">Department</span>
+                    <span class="text-right">
+                        {{ employee.department.complete_name|default:"—" }}
+                    </span>
+                </li>
+
+                <li class="flex justify-between gap-2">
+                    <span class="opacity-70">Job Title</span>
+                    <span class="font-medium">
+                        {{ employee.job.name|default:"—" }}
+                    </span>
+                </li>
+
+                <li class="flex justify-between gap-2">
+                    <span class="opacity-70">Manager</span>
+                    <span class="font-medium">
+                        {{ employee.manager.name|default:"—" }}
+                    </span>
+                </li>
+            </ul>
         </div>
+
+        <!-- ================= Account ================= -->
+        <div class="card bg-base-100 shadow p-6">
+            <h3 class="font-semibold text-lg mb-4">
+                Account
+            </h3>
+
+            <ul class="space-y-2 text-sm">
+                <li class="flex justify-between gap-2">
+                    <span class="opacity-70">User</span>
+                    <span class="font-medium">
+                        {{ employee.user.email|default:"—" }}
+                    </span>
+                </li>
+
+                <li class="flex justify-between gap-2">
+                    <span class="opacity-70">Barcode</span>
+                    <span class="font-mono">
+                        {{ employee.barcode|default:"—" }}
+                    </span>
+                </li>
+
+                <li class="flex justify-between gap-2">
+                    <span class="opacity-70">PIN</span>
+                    <span class="font-mono">
+                        {{ employee.pin|default:"—" }}
+                    </span>
+                </li>
+            </ul>
+        </div>
+
+        <!-- ================= Classification ================= -->
+        <div class="card bg-base-100 shadow p-6">
+            <h3 class="font-semibold text-lg mb-4">
+                Classification
+            </h3>
+
+            {% if employee.categories.exists %}
+                <div class="flex flex-wrap gap-2">
+                    {% for cat in employee.categories.all %}
+                        <span class="badge badge-outline">
+                            {{ cat.name }}
+                        </span>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="text-sm opacity-60">
+                    No classifications assigned.
+                </p>
+            {% endif %}
+        </div>
+
+    </div>
+
+</div>
+
 
         <!-- ================= Skills ================= -->
         <input type="radio" name="emp_tabs" class="tab" aria-label="Skills" />
@@ -139,7 +232,342 @@
             </div>
         </div>
 
+        <!-- ================= Status History ================= -->
+        <input type="radio" name="emp_tabs" class="tab" aria-label="Status History" />
+        <div class="tab-content bg-base-100 p-6 rounded-box mt-4">
+
+            {% if status_history %}
+                <div class="overflow-x-auto">
+                    <table class="table table-zebra w-full text-sm">
+                        <thead>
+                            <tr>
+                                <th>Status</th>
+                                <th>Reason</th>
+                                <th>Note</th>
+                                <th>Changed By</th>
+                                <th>Changed At</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for h in status_history %}
+                                <tr>
+                                    <td>
+                                        <span class="badge
+                                            {% if h.status.is_active_flag %}
+                                                badge-success
+                                            {% elif h.status.code == 'suspended' %}
+                                                badge-warning
+                                            {% else %}
+                                                badge-error
+                                            {% endif %}
+                                        ">
+                                            {{ h.status.name }}
+                                        </span>
+                                    </td>
+                                    <td>{{ h.reason }}</td>
+                                    <td class="max-w-md truncate" title="{{ h.note }}">
+                                        {{ h.note|default:"—" }}
+                                    </td>
+                                    <td>
+                                        {{ h.changed_by|default:"—" }}
+                                    </td>
+                                    <td class="whitespace-nowrap">
+                                        {{ h.changed_at|date:"Y-m-d H:i" }}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="alert alert-info">
+                    No status history available.
+                </div>
+            {% endif %}
+
+        </div>
+
+<!-- ================= Personal Info ================= -->
+<input type="radio" name="emp_tabs" class="tab" aria-label="Personal Info" />
+
+<div class="tab-content bg-base-100 p-6 rounded-box mt-4">
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+        <!-- ================= Personal Details ================= -->
+        <div class="card bg-base-100 shadow p-6">
+            <h3 class="font-semibold text-lg mb-4">Personal Details</h3>
+            <ul class="space-y-2 text-sm">
+                <li><span class="opacity-70">Private Phone:</span> {{ employee.private_phone|default:"—" }}</li>
+                <li><span class="opacity-70">Private Email:</span> {{ employee.private_email|default:"—" }}</li>
+                <li><span class="opacity-70">Birthday:</span> {{ employee.birthday|date:"Y-m-d"|default:"—" }}</li>
+                <li><span class="opacity-70">Place of Birth:</span> {{ employee.place_of_birth|default:"—" }}</li>
+                <li><span class="opacity-70">Gender:</span> {{ employee.get_gender_display|default:"—" }}</li>
+                <li><span class="opacity-70">Marital Status:</span> {{ employee.get_marital_status_display|default:"—" }}</li>
+                <li><span class="opacity-70">Children:</span> {{ employee.children }}</li>
+            </ul>
+        </div>
+
+        <!-- ================= Identification ================= -->
+        <div class="card bg-base-100 shadow p-6">
+            <h3 class="font-semibold text-lg mb-4">Identification</h3>
+            <ul class="space-y-2 text-sm">
+                <li><span class="opacity-70">National ID:</span> {{ employee.identification_id|default:"—" }}</li>
+                <li><span class="opacity-70">Passport ID:</span> {{ employee.passport_id|default:"—" }}</li>
+                <li><span class="opacity-70">Bank Account:</span> {{ employee.bank_account|default:"—" }}</li>
+                <li><span class="opacity-70">Car:</span> {{ employee.car|default:"—" }}</li>
+            </ul>
+        </div>
+
+        <!-- ================= Emergency Contact ================= -->
+        <div class="card bg-base-100 shadow p-6 md:col-span-2">
+            <h3 class="font-semibold text-lg mb-4">Emergency Contact</h3>
+            <ul class="space-y-2 text-sm">
+                <li><span class="opacity-70">Contact Name:</span> {{ employee.emergency_contact|default:"—" }}</li>
+                <li><span class="opacity-70">Phone:</span> {{ employee.emergency_phone|default:"—" }}</li>
+            </ul>
+        </div>
+
     </div>
 
 </div>
+
+
+<!-- ================= Education ================= -->
+<input type="radio" name="emp_tabs" class="tab" aria-label="Education" />
+
+<div class="tab-content bg-base-100 p-6 rounded-box mt-4">
+
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-semibold">Education</h3>
+
+        <button type="button"
+                class="btn btn-primary btn-sm"
+                onclick="document.getElementById('add-education-modal').showModal()">
+            + Add Education
+        </button>
+    </div>
+
+    {% if education_records %}
+        <div class="overflow-x-auto">
+            <table class="table table-zebra w-full text-sm">
+                <thead>
+                    <tr>
+                        <th>Certificate</th>
+                        <th>Field of Study</th>
+                        <th>Institution</th>
+                        <th>Years</th>
+                        <th>Notes</th>
+                        <th class="text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ed in education_records %}
+                    <tr>
+                        <td>{{ ed.certificate|default:"—" }}</td>
+                        <td>{{ ed.field_of_study|default:"—" }}</td>
+                        <td>{{ ed.institution|default:"—" }}</td>
+                        <td>
+                            {{ ed.start_year }}
+                            {% if ed.end_year %} – {{ ed.end_year }}{% endif %}
+                        </td>
+                        <td>{{ ed.notes|default:"—" }}</td>
+
+                        <td class="text-right">
+                            <div class="flex justify-end gap-1">
+
+                                <!-- Edit -->
+                                <button type="button"
+                                        class="btn btn-ghost btn-xs"
+                                        onclick="
+                                            document.getElementById('edit-education-form').action =
+                                            '{% url 'hr:education_edit' ed.id %}';
+
+                                            document.getElementById('edit_certificate').value = '{{ ed.certificate|escapejs }}';
+                                            document.getElementById('edit_field').value = '{{ ed.field_of_study|escapejs }}';
+                                            document.getElementById('edit_institution').value = '{{ ed.institution|escapejs }}';
+                                            document.getElementById('edit_start_year').value = '{{ ed.start_year }}';
+                                            document.getElementById('edit_end_year').value = '{{ ed.end_year|default_if_none:'' }}';
+                                            document.getElementById('edit_notes').value = '{{ ed.notes|escapejs }}';
+
+                                            document.getElementById('edit-education-modal').showModal();
+                                        ">
+                                    Edit
+                                </button>
+
+                                <!-- Delete -->
+                                <a href="{% url 'hr:education_delete' ed.id %}"
+                                   class="btn btn-ghost btn-xs text-error">
+                                    Delete
+                                </a>
+
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="alert alert-info">
+            No education records added yet.
+        </div>
+    {% endif %}
+
+</div>
+
+
+
+    </div>
+
+</div>
+
+
+{% if can_edit %}
+<!-- ===================================================== -->
+<!-- Change Status Modal (DaisyUI v4 - dialog based) -->
+<!-- ===================================================== -->
+
+<dialog id="change-status-modal" class="modal">
+    <div class="modal-box">
+
+        <form method="post"
+              action="{% url 'hr:employee_change_status' employee.id %}"
+              class="space-y-4">
+            {% csrf_token %}
+
+            <h3 class="font-bold text-lg mb-4">
+                Change Employee Status
+            </h3>
+
+            <!-- Status -->
+            <div>
+                <label class="label">
+                    <span class="label-text font-medium">New Status</span>
+                </label>
+                <select name="status"
+                        class="select select-bordered w-full"
+                        required>
+                    <option value="">Select status</option>
+                    {% for st in employee_statuses %}
+                        <option value="{{ st.id }}"
+                            {% if st.id == employee.current_status_id %}
+                                disabled
+                            {% endif %}
+                        >
+                            {{ st.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Reason -->
+            <div>
+                <label class="label">
+                    <span class="label-text font-medium">Reason</span>
+                </label>
+                <input type="text"
+                       name="reason"
+                       class="input input-bordered w-full"
+                       required />
+            </div>
+
+            <!-- Note -->
+            <div>
+                <label class="label">
+                    <span class="label-text font-medium">Note (optional)</span>
+                </label>
+                <textarea name="note"
+                          class="textarea textarea-bordered w-full"
+                          rows="3"></textarea>
+            </div>
+
+            <!-- Actions -->
+            <div class="modal-action">
+                <button type="button"
+                        class="btn btn-ghost"
+                        onclick="document.getElementById('change-status-modal').close()">
+                    Cancel
+                </button>
+
+                <button type="submit" class="btn btn-warning">
+                    Change Status
+                </button>
+            </div>
+        </form>
+
+    </div>
+</dialog>
+{% endif %}
+
+<!-- ===================================================== -->
+<!-- Add Education Modal -->
+<!-- ===================================================== -->
+<dialog id="add-education-modal" class="modal">
+    <div class="modal-box">
+        <form method="post"
+              action="{% url 'hr:employee_education_add' employee.id %}"
+              class="space-y-4">
+            {% csrf_token %}
+
+            <h3 class="font-bold text-lg">Add Education</h3>
+
+            <input name="certificate" class="input input-bordered w-full" placeholder="Certificate">
+            <input name="field_of_study" class="input input-bordered w-full" placeholder="Field of Study">
+            <input name="institution" class="input input-bordered w-full" placeholder="Institution">
+
+            <div class="grid grid-cols-2 gap-4">
+                <input name="start_year" class="input input-bordered w-full" placeholder="Start Year">
+                <input name="end_year" class="input input-bordered w-full" placeholder="End Year">
+            </div>
+
+            <textarea name="notes" class="textarea textarea-bordered w-full" rows="3"
+                      placeholder="Notes"></textarea>
+
+            <div class="modal-action">
+                <button type="button" class="btn btn-ghost"
+                        onclick="document.getElementById('add-education-modal').close()">
+                    Cancel
+                </button>
+                <button type="submit" class="btn btn-primary">Save</button>
+            </div>
+        </form>
+    </div>
+</dialog>
+<!-- ===================================================== -->
+<!-- Edit Education Modal -->
+<!-- ===================================================== -->
+<dialog id="edit-education-modal" class="modal">
+    <div class="modal-box">
+        <form method="post" id="edit-education-form" class="space-y-4">
+            {% csrf_token %}
+
+            <h3 class="font-bold text-lg">Edit Education</h3>
+
+            <input id="edit_certificate" name="certificate" class="input input-bordered w-full">
+            <input id="edit_field" name="field_of_study" class="input input-bordered w-full">
+            <input id="edit_institution" name="institution" class="input input-bordered w-full">
+
+            <div class="grid grid-cols-2 gap-4">
+                <input id="edit_start_year" name="start_year" class="input input-bordered w-full">
+                <input id="edit_end_year" name="end_year" class="input input-bordered w-full">
+            </div>
+
+            <textarea id="edit_notes" name="notes"
+                      class="textarea textarea-bordered w-full"
+                      rows="3"></textarea>
+
+            <div class="modal-action">
+                <button type="button" class="btn btn-ghost"
+                        onclick="document.getElementById('edit-education-modal').close()">
+                    Cancel
+                </button>
+                <button type="submit" class="btn btn-primary">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</dialog>
+
+
 {% endblock %}
