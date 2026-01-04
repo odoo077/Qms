@@ -198,6 +198,151 @@
 
         </div>
 
+
+<!-- ================= Assets ================= -->
+<input type="radio" name="emp_tabs" class="tab" aria-label="Assets" />
+
+<div class="tab-content bg-base-100 p-6 rounded-box mt-4 space-y-8">
+
+    <!-- ================= Current Assets ================= -->
+    <div>
+        <h3 class="text-lg font-semibold mb-4">
+            Current Assets
+        </h3>
+
+      {% if can_assign_asset %}
+          <div class="mb-4">
+              <a href="{% url 'assets:asset_list' %}?assign_to={{ employee.id }}"
+                 class="btn btn-sm btn-primary">
+                  + Assign Asset
+              </a>
+          </div>
+      {% endif %}
+
+        {% if current_asset_assignments %}
+            <div class="overflow-x-auto">
+                <table class="table table-zebra w-full text-sm">
+                    <thead>
+                        <tr>
+                            <th>Asset</th>
+                            <th>Assigned From</th>
+                            <th>Holding Duration</th>
+                            <th>Status</th>
+                          <th class="text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for asg in current_asset_assignments %}
+                        <tr class="bg-base-200">
+                            <td class="font-medium">
+                                <a href="{% url 'assets:asset_detail' asg.asset.id %}"
+                                   class="link link-primary">
+                                    {{ asg.asset.code }} — {{ asg.asset.name }}
+                                </a>
+                            </td>
+
+                            <td>
+                                {{ asg.date_from|date:"Y-m-d" }}
+                            </td>
+
+                            <td>
+                                {{ asg.date_from|timesince }} ago
+                            </td>
+
+                            <td>
+                                <span class="badge badge-success badge-sm">
+                                    Active
+                                </span>
+                            </td>
+                          <td class="text-right">
+                              <a href="{% url 'assets:asset_unassign' asg.asset.id %}"
+                                 class="btn btn-xs btn-warning">
+                                  Unassign
+                              </a>
+                          </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p class="text-sm opacity-60">
+                No active asset assignments.
+            </p>
+        {% endif %}
+    </div>
+
+    <!-- ================= Asset Assignment History ================= -->
+    <div>
+        <h3 class="text-lg font-semibold mb-4">
+            Asset Assignment History
+        </h3>
+
+        {% if asset_assignments %}
+            <div class="overflow-x-auto">
+                <table class="table table-zebra w-full text-sm">
+                    <thead>
+                        <tr>
+                            <th>Asset</th>
+                            <th>From</th>
+                            <th>To</th>
+                            <th>Duration</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for asg in asset_assignments %}
+                        <tr>
+                            <td class="font-medium">
+                                <a href="{% url 'assets:asset_detail' asg.asset.id %}"
+                                   class="link link-hover">
+                                    {{ asg.asset.code }} — {{ asg.asset.name }}
+                                </a>
+                            </td>
+
+                            <td>
+                                {{ asg.date_from|date:"Y-m-d"|default:"—" }}
+                            </td>
+
+                            <td>
+                                {{ asg.date_to|date:"Y-m-d"|default:"—" }}
+                            </td>
+
+                            <td>
+                                {% if asg.date_to %}
+                                    {{ asg.date_from|timesince:asg.date_to }}
+                                {% else %}
+                                    —
+                                {% endif %}
+                            </td>
+
+                            <td>
+                                {% if asg.date_to %}
+                                    <span class="badge badge-ghost badge-sm">
+                                        Closed
+                                    </span>
+                                {% else %}
+                                    <span class="badge badge-success badge-sm">
+                                        Active
+                                    </span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p class="text-sm opacity-60">
+                No asset assignment history available.
+            </p>
+        {% endif %}
+    </div>
+
+</div>
+
+
+
         <!-- ================= Organization ================= -->
         <input type="radio" name="emp_tabs" class="tab" aria-label="Organization" />
         <div class="tab-content bg-base-100 p-6 rounded-box mt-4">

@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
 """
-خدمات (Domain Services) للأصول
-- دوال إسناد/إلغاء إسناد الأصول بشكل موحّد وآمن
-- منح/إدارة صلاحيات Guardian على مستوى الكائن (يوزرات معيّنة) عبر نقاط إدخال جاهزة
+Domain Services للأصول (Odoo-like strict behavior)
+
+- assign_asset / unassign_asset: هي نقطة الحقيقة الوحيدة للإسناد.
+- close_open_assignments_for_asset: إغلاق العهدة المفتوحة عند حالات لا تسمح بالإسناد.
+- صلاحيات ACL (كما هي).
 """
 
 from __future__ import annotations
@@ -12,85 +14,136 @@ from datetime import date
 from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.core.exceptions import ValidationError
+from django.utils import timezone
 
 from base.acl_service import grant_access, revoke_access
-
 from . import models as m
 
 User = get_user_model()
 
-# ------------------------------------------------------------
-# صلاحيات الكائن (Guardian) – أسماء الصلاحيات القياسية من Django:
-#   view_asset, change_asset, delete_asset | view_assetcategory ... إلخ
-# يمكنك توسيع منطق المنح هنا إذا رغبت.
-# ------------------------------------------------------------
 
+# ------------------------------------------------------------
+# ACL helpers (كما هي)
+# ------------------------------------------------------------
 def grant_default_object_perms(asset: m.Asset, users: Iterable[User]) -> None:
-    """
-    منح الصلاحيات الافتراضية لمجموعة مستخدمين على أصل معيّن عبر نظام الـACL.
-    """
     for u in users:
         grant_access(asset, user=u, view=True, change=True, delete=True)
 
 
 def revoke_all_object_perms(asset: m.Asset, users: Iterable[User]) -> None:
-    """
-    سحب جميع صلاحيات الكائن (يحذف ACE) للمستخدمين المحددين.
-    """
     for u in users:
-        revoke_access(asset, user=u)  # حذف السطر بالكامل للمستخدم
-
+        revoke_access(asset, user=u)
 
 
 # ------------------------------------------------------------
-# منطق الإسناد
+# Status policy
 # ------------------------------------------------------------
+NON_ASSIGNABLE_STATUSES = {
+    m.Asset.Status.MAINTENANCE,
+    m.Asset.Status.RETIRED,
+}
 
+
+# ------------------------------------------------------------
+# Assignment helpers
+# ------------------------------------------------------------
 @transaction.atomic
-def assign_asset(asset: m.Asset, employee_id: int, *, date_from: Optional[date] = None, note: str = "") -> m.AssetAssignment:
+def close_open_assignments_for_asset(asset: m.Asset, *, close_date: Optional[date] = None, reason: str = "") -> int:
     """
-    إسناد أصل لموظف:
-    - إنشاء سجل إسناد جديد
-    - تحديث حامل الأصل والحالة
-    - لا يتعارض مع إسنادات سابقة (يغلق القديمة إذا لزم)
+    يغلق أي AssetAssignment مفتوح للأصل:
+    - Open = date_to is null
+    Returns: عدد السجلات التي تم إغلاقها.
     """
-    if asset.status == m.Asset.Status.RETIRED:
-        raise ValidationError("Cannot assign a retired asset.")
+    close_date = close_date or timezone.localdate()
 
-    # أغلق أي اسناد سابق مفتوح لنفس الأصل
-    latest_open = asset.assignments.filter(date_to__isnull=True, active=True).order_by("-id").first()
-    if latest_open:
-        latest_open.date_to = date_from or date.today()
-        latest_open.save(update_fields=["date_to"])
+    qs = (
+        m.AssetAssignment.objects
+        .select_for_update()
+        .filter(asset=asset, date_to__isnull=True)
+    )
+
+    count = 0
+    for asg in qs:
+        asg.date_to = close_date
+        if reason:
+            base_note = (asg.note or "").strip()
+            asg.note = (base_note + ("\n" if base_note else "") + f"Auto-closed: {reason}")[:255]
+        asg.save(update_fields=["date_to", "note"])
+        count += 1
+
+    return count
+
+
+# ------------------------------------------------------------
+# Core commands (source of truth)
+# ------------------------------------------------------------
+@transaction.atomic
+def assign_asset(
+    asset: m.Asset,
+    employee_id: int,
+    *,
+    date_from: Optional[date] = None,
+    note: str = "",
+) -> m.AssetAssignment:
+    """
+    Assign asset to employee (STRICT):
+    - Only if asset.active=True AND asset.status=AVAILABLE
+    - Must have NO open assignment
+    - Creates AssetAssignment then updates Asset(holder/status)
+    """
+    if not asset.active:
+        raise ValidationError("Cannot assign an inactive asset.")
+
+    if asset.status != m.Asset.Status.AVAILABLE:
+        raise ValidationError(
+            f"Cannot assign asset while status is '{asset.status}'. "
+            "Asset must be in 'Available' status."
+        )
+
+    if m.AssetAssignment.objects.filter(asset=asset, date_to__isnull=True).exists():
+        raise ValidationError("Asset already has an open assignment.")
 
     asg = m.AssetAssignment.objects.create(
         asset=asset,
         employee_id=employee_id,
         company=asset.company,
-        date_from=date_from or date.today(),
-        note=note,
-        active=True,
+        date_from=date_from or timezone.localdate(),
+        note=(note or "")[:255],
     )
 
     asset.holder_id = employee_id
     asset.status = m.Asset.Status.ASSIGNED
     asset.save(update_fields=["holder_id", "status", "updated_at"])
+
     return asg
 
 
 @transaction.atomic
-def unassign_asset(asset: m.Asset, *, date_to: Optional[date] = None, note: str = "") -> None:
+def unassign_asset(
+    asset: m.Asset,
+    *,
+    date_to: Optional[date] = None,
+    note: str = "",
+) -> None:
     """
-    إلغاء إسناد أصل:
-    - إغلاق آخر إسناد مفتوح
-    - إرجاع الأصل إلى الحالة Available
+    Unassign asset (STRICT):
+    - closes the single open assignment (if any)
+    - sets Asset.holder=None and status=AVAILABLE
     """
-    latest_open = asset.assignments.filter(date_to__isnull=True, active=True).order_by("-id").first()
+    latest_open = (
+        m.AssetAssignment.objects
+        .select_for_update()
+        .filter(asset=asset, date_to__isnull=True)
+        .order_by("-id")
+        .first()
+    )
     if not latest_open:
         return
-    latest_open.date_to = date_to or date.today()
+
+    latest_open.date_to = date_to or timezone.localdate()
     if note:
-        latest_open.note = (latest_open.note + " | " + note).strip(" |")
+        base_note = (latest_open.note or "").strip()
+        latest_open.note = (base_note + (" | " if base_note else "") + note)[:255]
     latest_open.save(update_fields=["date_to", "note"])
 
     asset.holder = None

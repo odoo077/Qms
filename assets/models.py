@@ -208,70 +208,132 @@ class Asset(AccessControlledMixin, models.Model):
 
 class AssetAssignment(AccessControlledMixin, models.Model):
     """
-    سجل الإسناد (تاريخ تسليم الأصول لموظفين)
-    - يعكس سجل تغيّر المالك كما في Odoo (ir.attachment / asset.log)
+    سجل إسناد الأصول للموظفين (تاريخي)
+    - يعتمد على date_to لتحديد الإسناد المفتوح / المغلق
+    - مطابق لمنطق Odoo (no dual state)
     """
 
+    asset = models.ForeignKey(
+        Asset,
+        on_delete=models.CASCADE,
+        related_name="assignments",
+        verbose_name=_("Asset"),
+    )
 
-    asset = models.ForeignKey(Asset, on_delete=models.CASCADE, related_name="assignments", verbose_name=_("Asset"))
     employee = models.ForeignKey(
-        EMPLOYEE_MODEL, on_delete=models.CASCADE,
-        related_name="asset_assignments", verbose_name=_("Employee")
+        EMPLOYEE_MODEL,
+        on_delete=models.CASCADE,
+        related_name="asset_assignments",
+        verbose_name=_("Employee"),
     )
+
     company = models.ForeignKey(
-        COMPANY_MODEL, on_delete=models.CASCADE,
-        related_name="asset_assignments", verbose_name=_("Company")
+        COMPANY_MODEL,
+        on_delete=models.CASCADE,
+        related_name="asset_assignments",
+        verbose_name=_("Company"),
     )
+
     date_from = models.DateField(_("From"), null=True, blank=True)
     date_to = models.DateField(_("To"), null=True, blank=True)
-    note = models.CharField(_("Note"), max_length=255, blank=True, default="")
-    active = models.BooleanField(_("Active"), default=True)
 
+    note = models.CharField(_("Note"), max_length=255, blank=True, default="")
+
+    # ------------------------------------------------------------
+    # Validation
+    # ------------------------------------------------------------
     def clean(self):
         from django.core.exceptions import ValidationError
-        # تأكد أنه لا توجد عهدة مفتوحة أخرى لهذا الأصل
-        open_exists = type(self).objects.filter(asset=self.asset, date_to__isnull=True, active=True)
+        super().clean()
+
+        errors = {}
+
+        asset = self.asset
+        if not asset:
+            raise ValidationError({"asset": "Asset is required."})
+
+        # --------------------------------------------------
+        # (1) منع وجود أكثر من إسناد مفتوح لنفس الأصل
+        # --------------------------------------------------
+        open_qs = type(self).objects.filter(
+            asset=asset,
+            date_to__isnull=True,
+        )
         if self.pk:
-            open_exists = open_exists.exclude(pk=self.pk)
-        if open_exists.exists() and (self.date_to is None):
-            raise ValidationError({"asset": "There is already an open assignment for this asset."})
+            open_qs = open_qs.exclude(pk=self.pk)
 
-        # تحقق ودّي للتواريخ
+        if open_qs.exists() and self.date_to is None:
+            errors["asset"] = "There is already an open assignment for this asset."
+
+        # --------------------------------------------------
+        # (2) تحقق منطقي للتواريخ
+        # --------------------------------------------------
         if self.date_from and self.date_to and self.date_to < self.date_from:
-            raise ValidationError({"date_to": "End date must be greater than or equal to start date."})
+            errors["date_to"] = "End date must be greater than or equal to start date."
 
-        # 3) company consistency: employee.company = asset.company
+        # --------------------------------------------------
+        # (3) اتساق الشركة (employee ↔ asset)
+        # --------------------------------------------------
         emp_company_id = getattr(self.employee, "company_id", None) if self.employee_id else None
-        ast_company_id = getattr(self.asset, "company_id", None) if self.asset_id else None
+        ast_company_id = getattr(asset, "company_id", None)
+
         if emp_company_id and ast_company_id and emp_company_id != ast_company_id:
-            raise ValidationError({"employee": "Employee must belong to the same company as the asset."})
+            errors["employee"] = "Employee must belong to the same company as the asset."
 
+        # --------------------------------------------------
+        # (4) الأصل يجب أن يكون فعّالًا
+        # --------------------------------------------------
+        if not asset.active:
+            errors["asset"] = "Cannot assign an inactive asset."
 
+        # --------------------------------------------------
+        # (5) الإسناد المفتوح مسموح فقط عندما الأصل Available
+        # --------------------------------------------------
+        if self.date_to is None and asset.status != asset.Status.AVAILABLE:
+            errors["asset"] = (
+                f"Cannot assign asset while status is '{asset.status}'. "
+                "Asset must be in 'Available' status."
+            )
+
+        if errors:
+            raise ValidationError(errors)
+
+    # ------------------------------------------------------------
+    # Managers
+    # ------------------------------------------------------------
     objects = CompanyScopeManager()
     acl_objects = ACLQuerySet.as_manager()
 
+    # ------------------------------------------------------------
+    # Meta
+    # ------------------------------------------------------------
     class Meta:
         db_table = "assets_assignment"
-        indexes = [
-            models.Index(fields=["company", "active"], name="as_asg_c_act_idx"),
-            models.Index(fields=["asset", "employee"], name="as_asg_ast_emp_idx"),
-        ]
-        constraints = [
-            # ✅ تاريخ الانتهاء إن وُجد يجب أن يكون ≥ تاريخ البدء (لا يوجد join هنا)
-            models.CheckConstraint(
-                name="as_asg_dates_chk",
-                check=models.Q(date_to__isnull=True) |
-                      models.Q(date_from__isnull=True) |
-                      models.Q(date_to__gte=models.F("date_from")),
-            ),
-            # ✅ يسمح بإسنادات متعددة عبر الزمن، لكن يمنع أكثر من إسناد مفتوح لنفس الأصل
-            models.UniqueConstraint(
-                fields=["asset"],
-                name="as_asg_one_open_per_asset",
-                condition=models.Q(date_to__isnull=True),
-            ),
-        ]
         ordering = ("-id",)
 
+        indexes = [
+            models.Index(fields=["company"], name="as_asg_company_idx"),
+            models.Index(fields=["asset", "employee"], name="as_asg_ast_emp_idx"),
+        ]
+
+        constraints = [
+            # تاريخ الانتهاء إن وُجد يجب أن يكون ≥ تاريخ البدء
+            models.CheckConstraint(
+                name="as_asg_dates_chk",
+                check=(
+                    models.Q(date_to__isnull=True)
+                    | models.Q(date_from__isnull=True)
+                    | models.Q(date_to__gte=models.F("date_from"))
+                ),
+            ),
+
+            # يمنع أكثر من إسناد مفتوح لنفس الأصل
+            models.UniqueConstraint(
+                fields=["asset"],
+                condition=models.Q(date_to__isnull=True),
+                name="as_asg_one_open_per_asset",
+            ),
+        ]
+
     def __str__(self):
-        return f"{self.asset} -> {self.employee}"
+        return f"{self.asset} → {self.employee}"

@@ -1,6 +1,9 @@
 # assets/forms.py
 from __future__ import annotations
 
+from datetime import date
+from typing import Optional
+
 from django import forms
 from django.apps import apps
 
@@ -14,41 +17,29 @@ from . import models as m
 #  Base Scoped Form (Odoo-style filtering)
 # ============================================================
 
-class _ScopedModelForm(forms.ModelForm):
+class ScopedModelForm(forms.ModelForm):
     """
     Base reusable form that:
-      - Receives request for company & ACL scoping.
-      - Filters foreign-key fields by active/allowed companies.
-      - Automatically sets default company on creation.
+      - Receives request for company context scoping.
+      - Filters FK fields by company.
+      - Sets default company on creation when possible.
     """
 
     def __init__(self, *args, **kwargs):
         self.request = kwargs.pop("request", None)
         super().__init__(*args, **kwargs)
 
-        # -------- 1) Filter "company" field by what the user can see --------
         company_field = self.fields.get("company")
         if company_field:
             allowed_companies = Company.objects.with_acl("view")
             company_field.queryset = allowed_companies
 
-            # -------- 2) Set default company for new records --------
             cur_id = get_current_company(self.request)
             if cur_id and allowed_companies.filter(pk=cur_id).exists():
                 if not getattr(self.instance, "pk", None):
                     company_field.initial = cur_id
 
-    # ------------------------------------
-    # Helper: detect company_id for filtering
-    # ------------------------------------
     def _current_company_id_for_filtering(self):
-        """
-        Resolve company_id from:
-          1) posted data (company field)
-          2) initial
-          3) instance.company_id
-          4) request current company context
-        """
         company_id = None
 
         if "company" in self.fields:
@@ -63,14 +54,7 @@ class _ScopedModelForm(forms.ModelForm):
 
         return company_id
 
-    # ------------------------------------
-    # Helper: Filter related FKs by company
-    # ------------------------------------
     def _filter_by_company(self, field_name: str, qs, *, active_only: bool = False):
-        """
-        Filter FK field queryset by resolved company_id.
-        If company_id is not resolvable, fallback to companies visible by ACL(view).
-        """
         if field_name not in self.fields:
             return
 
@@ -86,9 +70,6 @@ class _ScopedModelForm(forms.ModelForm):
             self.fields[field_name].queryset = qs.filter(company_id__in=allowed_ids)
 
     def _exclude_self(self, field_name: str):
-        """
-        If field points to same model (parent relation), exclude self to prevent self-parent selection.
-        """
         if field_name not in self.fields:
             return
         if getattr(self.instance, "pk", None):
@@ -99,7 +80,7 @@ class _ScopedModelForm(forms.ModelForm):
 #  Category Form
 # ============================================================
 
-class AssetCategoryForm(_ScopedModelForm):
+class AssetCategoryForm(ScopedModelForm):
     class Meta:
         model = m.AssetCategory
         fields = ["name", "company", "parent", "active"]
@@ -107,11 +88,9 @@ class AssetCategoryForm(_ScopedModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        # Parent category must belong to same company
         self._filter_by_company("parent", m.AssetCategory.objects.all(), active_only=False)
         self._exclude_self("parent")
 
-        # OPTIONAL: when editing, prevent company change (Odoo-like)
         if self.instance.pk and "company" in self.fields:
             self.fields["company"].disabled = True
 
@@ -120,7 +99,7 @@ class AssetCategoryForm(_ScopedModelForm):
 #  Asset Form
 # ============================================================
 
-class AssetForm(_ScopedModelForm):
+class AssetForm(ScopedModelForm):
     class Meta:
         model = m.Asset
         fields = [
@@ -130,7 +109,6 @@ class AssetForm(_ScopedModelForm):
             "company",
             "category",
             "department",
-            "holder",
             "status",
             "purchase_date",
             "purchase_value",
@@ -138,56 +116,76 @@ class AssetForm(_ScopedModelForm):
             "parent",
             "active",
         ]
+        # holder ليس حقل UI عام لأنه يُدار عبر Workflow (Assign/Unassign)
+        # وسيظهر read-only في التفاصيل فقط لاحقًا
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        # Category filtered by company (prefer active categories only)
         self._filter_by_company("category", m.AssetCategory.objects.all(), active_only=True)
 
-        # HR-related fields (department / holder) — resolved lazily (avoid import-order issues)
         Department = apps.get_model("hr", "Department")
-        Employee = apps.get_model("hr", "Employee")
-
         self._filter_by_company("department", Department.objects.all(), active_only=True)
-        self._filter_by_company("holder", Employee.objects.all(), active_only=True)
 
-        # Parent asset (same company, active only)
         self._filter_by_company("parent", m.Asset.objects.all(), active_only=True)
         self._exclude_self("parent")
 
-        # OPTIONAL: when editing, prevent company change (like Odoo)
         if self.instance.pk and "company" in self.fields:
             self.fields["company"].disabled = True
 
 
 # ============================================================
-#  Assignment Form
+#  Workflow Forms (Assign / Unassign)
 # ============================================================
 
-class AssetAssignmentForm(_ScopedModelForm):
-    class Meta:
-        model = m.AssetAssignment
-        fields = [
-            "asset",
-            "employee",
-            "company",
-            "date_from",
-            "date_to",
-            "note",
-            "active",
-        ]
+class AssetAssignForm(forms.Form):
+    """
+    Workflow: Assign Asset to Employee (calls services.assign_asset)
+    """
+    employee = forms.ModelChoiceField(queryset=apps.get_model("hr", "Employee").objects.none())
+    date_from = forms.DateField(required=False, initial=date.today)
+    note = forms.CharField(required=False, max_length=255)
 
     def __init__(self, *args, **kwargs):
+        self.request = kwargs.pop("request", None)
+        self.asset: m.Asset = kwargs.pop("asset")
+
+        # ✅ NEW (إضافة)
+        self.assign_to_employee_id = kwargs.pop("assign_to_employee_id", None)
+
         super().__init__(*args, **kwargs)
 
-        # Assets filtered by company (active only)
-        self._filter_by_company("asset", m.Asset.objects.all(), active_only=True)
-
-        # Employee filtered by company (active only) — resolved lazily
         Employee = apps.get_model("hr", "Employee")
-        self._filter_by_company("employee", Employee.objects.all(), active_only=True)
 
-        # OPTIONAL: when editing, prevent company change (Odoo-like behavior)
-        if self.instance.pk and "company" in self.fields:
-            self.fields["company"].disabled = True
+        qs = Employee.objects.all()
+        if hasattr(Employee, "active"):
+            qs = qs.filter(active=True)
+        if getattr(Employee, "company_id", None) is not None:
+            qs = qs.filter(company_id=self.asset.company_id)
+
+        self.fields["employee"].queryset = qs
+
+        # ==================================================
+        # ✅ NEW: Auto-select employee when coming from Employee page
+        # ==================================================
+        if self.assign_to_employee_id:
+            try:
+                employee = qs.get(pk=self.assign_to_employee_id)
+                self.fields["employee"].initial = employee
+                self.fields["employee"].disabled = True
+            except Employee.DoesNotExist:
+                pass
+
+
+class AssetUnassignForm(forms.Form):
+    """
+    Workflow: Unassign Asset (calls services.unassign_asset)
+    """
+    date_to = forms.DateField(required=False, initial=date.today)
+    note = forms.CharField(required=False, max_length=255)
+
+    def __init__(self, *args, **kwargs):
+        self.request = kwargs.pop("request", None)
+        self.asset: m.Asset = kwargs.pop("asset")
+        super().__init__(*args, **kwargs)
+

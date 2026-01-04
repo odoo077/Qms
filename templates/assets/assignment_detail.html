@@ -1,6 +1,8 @@
 {% extends "base.html" %}
 
-{% block title %}Assignment Details{% endblock %}
+{% block title %}
+Asset Assignment · Details
+{% endblock %}
 
 {% block content %}
 <div class="w-full px-6 py-6 space-y-6">
@@ -9,64 +11,110 @@
     <!-- Header -->
     <!-- ===================================================== -->
     <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+
         <div>
             <h1 class="text-3xl font-bold">
-                Assignment Details
+                Asset Assignment
             </h1>
             <p class="text-sm opacity-70 mt-1">
-                Full information about this assignment
+                Assignment record (read-only)
             </p>
         </div>
 
         <div class="flex gap-2">
-            <a href="{% url 'assets:assignment_list' %}" class="btn btn-ghost">
-                Back
+            <a href="{% url 'assets:assignment_list' %}"
+               class="btn btn-ghost btn-sm">
+                ← Back to Assignments
             </a>
-            <a href="{% url 'assets:assignment_edit' object.id %}"
-               class="btn btn-outline">
-                Edit
+
+            <a href="{% url 'assets:asset_detail' object.asset.id %}"
+               class="btn btn-outline btn-sm">
+                Go to Asset
             </a>
+
             <a href="{% url 'assets:assignment_delete' object.id %}"
-               class="btn btn-error">
+               class="btn btn-error btn-sm">
                 Delete
             </a>
         </div>
+
     </div>
 
     <!-- ===================================================== -->
-    <!-- Details -->
+    <!-- Details Card -->
     <!-- ===================================================== -->
     <div class="card bg-base-100 shadow max-w-4xl">
-        <div class="card-body">
+        <div class="card-body space-y-6">
 
-            <dl class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 text-sm">
+            <!-- Status badge -->
+            <div>
+                {% if object.date_to %}
+                    <span class="badge badge-ghost">
+                        Closed Assignment
+                    </span>
+                {% else %}
+                    <span class="badge badge-success">
+                        Open (Current)
+                    </span>
+                {% endif %}
+            </div>
 
+            <!-- Details grid -->
+            <dl class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 text-sm">
+
+                <!-- Asset -->
                 <div class="opacity-70">Asset</div>
-                <div class="font-medium">{{ object.asset }}</div>
+                <div class="font-medium">
+                    {{ object.asset.code }} — {{ object.asset.name }}
+                </div>
 
+                <!-- Employee -->
                 <div class="opacity-70">Employee</div>
-                <div>{{ object.employee }}</div>
-
-                <div class="opacity-70">Company</div>
-                <div>{{ object.company|default:"—" }}</div>
-
-                <div class="opacity-70">Date From</div>
-                <div>{{ object.date_from|date:"Y-m-d" }}</div>
-
-                <div class="opacity-70">Date To</div>
-                <div>{{ object.date_to|date:"Y-m-d"|default:"—" }}</div>
-
-                <div class="opacity-70">Status</div>
                 <div>
-                    {% if object.active %}
-                        <span class="badge badge-success">Active</span>
+                    {{ object.employee }}
+                </div>
+
+                <!-- Company -->
+                <div class="opacity-70">Company</div>
+                <div>
+                    {{ object.company|default:"—" }}
+                </div>
+
+                <!-- Date From -->
+                <div class="opacity-70">Assigned From</div>
+                <div>
+                    {{ object.date_from|date:"Y-m-d"|default:"—" }}
+                </div>
+
+                <!-- Date To -->
+                <div class="opacity-70">Assigned To</div>
+                <div>
+                    {% if object.date_to %}
+                        {{ object.date_to|date:"Y-m-d" }}
                     {% else %}
-                        <span class="badge badge-ghost">Closed</span>
+                        —
                     {% endif %}
                 </div>
 
+                <!-- Duration -->
+                <div class="opacity-70">Duration</div>
+                <div>
+                    {% if object.date_from %}
+                        {% if object.date_to %}
+                            {{ object.date_to|timesince:object.date_from }}
+                        {% else %}
+                            {{ object.date_from|timesince }} (ongoing)
+                        {% endif %}
+                    {% else %}
+                        —
+                    {% endif %}
+                </div>
+
+                <!-- Note -->
                 <div class="opacity-70">Note</div>
-                <div class="break-all">{{ object.note|default:"—" }}</div>
+                <div class="break-all">
+                    {{ object.note|default:"—" }}
+                </div>
 
             </dl>
 

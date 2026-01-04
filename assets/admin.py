@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+# assets/admin.py
 """
 صفحات الإدارة لتطبيق الأصول (assets)
 - تعتمد على base.admin_mixins.AppAdmin الذي:
@@ -95,18 +95,50 @@ class AssetAdmin(AppAdmin):
 
 @admin.register(m.AssetAssignment)
 class AssetAssignmentAdmin(AppAdmin):
-    inlines = [ObjectACLInline]
-
     """
     إدارة سجلات إسناد الأصول (assets.assignment)
-    - تعرض كل السجلات دون تقييد صلاحيات الكائن.
+    - يعرض السجل التاريخي الكامل
     """
-    list_display = ("asset", "employee", "company", "date_from", "date_to", "active")
-    list_filter = ("company", "active")
-    search_fields = ("asset__code", "asset__name", "employee__name")
-    list_select_related = ("asset", "employee", "company")
-    ordering = ("-id",)
-    autocomplete_fields = ("asset", "employee", "company")
-    actions = (action_activate, action_deactivate)
 
-    readonly_fields = ("company",)
+    inlines = [ObjectACLInline]
+
+    list_display = (
+        "asset",
+        "employee",
+        "company",
+        "date_from",
+        "date_to",
+    )
+
+    list_filter = (
+        "company",
+    )
+
+    search_fields = (
+        "asset__code",
+        "asset__name",
+        "employee__name",
+    )
+
+    list_select_related = (
+        "asset",
+        "employee",
+        "company",
+    )
+
+    ordering = ("-id",)
+
+    autocomplete_fields = (
+        "asset",
+        "employee",
+        "company",
+    )
+
+    readonly_fields = (
+        "company",
+    )
+
+    # ❌ تم حذف actions لأن:
+    # - active لم يعد موجودًا
+    # - التفعيل/التعطيل لا معنى له في سجل تاريخي
+

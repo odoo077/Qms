@@ -1,6 +1,8 @@
 {% extends "base.html" %}
 
-{% block title %}Category Details{% endblock %}
+{% block title %}
+Asset Category · {{ object.name }}
+{% endblock %}
 
 {% block content %}
 <div class="w-full px-6 py-6 space-y-6">
@@ -9,6 +11,7 @@
     <!-- Header -->
     <!-- ===================================================== -->
     <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+
         <div>
             <h1 class="text-3xl font-bold">
                 {{ object.name }}
@@ -18,20 +21,50 @@
             </p>
         </div>
 
-        <div class="flex gap-2">
+        <div class="flex gap-2 flex-wrap">
             <a href="{% url 'assets:category_list' %}"
-               class="btn btn-ghost">
-                Back
+               class="btn btn-ghost btn-sm">
+                ← Back
             </a>
+
             <a href="{% url 'assets:category_edit' object.id %}"
-               class="btn btn-outline">
+               class="btn btn-outline btn-sm">
                 Edit
             </a>
+
             <a href="{% url 'assets:category_delete' object.id %}"
-               class="btn btn-error">
+               class="btn btn-error btn-sm">
                 Delete
             </a>
         </div>
+
+    </div>
+
+    <!-- ===================================================== -->
+    <!-- Status / Meta -->
+    <!-- ===================================================== -->
+    <div class="flex items-center gap-3">
+
+        {% if object.active %}
+            <span class="badge badge-success badge-lg">
+                Active
+            </span>
+        {% else %}
+            <span class="badge badge-ghost badge-lg">
+                Archived
+            </span>
+        {% endif %}
+
+        {% if object.parent %}
+            <span class="badge badge-outline">
+                Child Category
+            </span>
+        {% else %}
+            <span class="badge badge-outline">
+                Root Category
+            </span>
+        {% endif %}
+
     </div>
 
     <!-- ===================================================== -->
@@ -40,28 +73,58 @@
     <div class="card bg-base-100 shadow max-w-4xl">
         <div class="card-body">
 
-            <dl class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 text-sm">
+            <h2 class="card-title text-lg mb-4">
+                Category Information
+            </h2>
 
+            <dl class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 text-sm">
+
+                <!-- Name -->
                 <div class="opacity-70">Name</div>
-                <div class="font-medium">{{ object.name|default:"—" }}</div>
-
-                <div class="opacity-70">Company</div>
-                <div>{{ object.company|default:"—" }}</div>
-
-                <div class="opacity-70">Parent Category</div>
-                <div>{{ object.parent|default:"—" }}</div>
-
-                <div class="opacity-70">Parent Path</div>
-                <div class="break-all">
-                    {{ object.parent_path|default:"—" }}
+                <div class="font-medium">
+                    {{ object.name|default:"—" }}
                 </div>
 
+                <!-- Company -->
+                <div class="opacity-70">Company</div>
+                <div>
+                    {{ object.company|default:"—" }}
+                </div>
+
+                <!-- Parent -->
+                <div class="opacity-70">Parent Category</div>
+                <div>
+                    {% if object.parent %}
+                        <a href="{% url 'assets:category_detail' object.parent.id %}"
+                           class="link link-primary">
+                            {{ object.parent }}
+                        </a>
+                    {% else %}
+                        —
+                    {% endif %}
+                </div>
+
+                <!-- Parent Path -->
+                <div class="opacity-70">Hierarchy Path</div>
+                <div class="break-all text-xs opacity-80">
+                    {% if object.parent_path %}
+                        {{ object.parent_path }}
+                    {% else %}
+                        —
+                    {% endif %}
+                </div>
+
+                <!-- Status -->
                 <div class="opacity-70">Status</div>
                 <div>
                     {% if object.active %}
-                        <span class="badge badge-success">Active</span>
+                        <span class="badge badge-success badge-sm">
+                            Active
+                        </span>
                     {% else %}
-                        <span class="badge badge-ghost">Archived</span>
+                        <span class="badge badge-ghost badge-sm">
+                            Archived
+                        </span>
                     {% endif %}
                 </div>
 

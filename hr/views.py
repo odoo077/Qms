@@ -19,7 +19,7 @@ from .models import Department, Job, Employee, get_root_departments, build_depar
 from .forms import DepartmentForm, JobForm, EmployeeForm, EmployeeEducationForm
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.core.exceptions import PermissionDenied
-from django.db.models import Count, Q, F, Value
+from django.db.models import Count, Q, F, Value, Prefetch
 from django.db.models.functions import Coalesce, Greatest
 from django.http import HttpResponse
 from django.template.loader import render_to_string
@@ -29,6 +29,7 @@ from django.views.generic.edit import UpdateView
 from base.company_context import get_allowed_company_ids
 from base.views import BaseScopedListView, BaseScopedDetailView, BaseScopedCreateView, BaseScopedUpdateView
 from skills.models import EmployeeSkill
+from assets.models import AssetAssignment
 from .services import change_employee_status
 from django.views.generic import View, DeleteView
 
@@ -576,8 +577,8 @@ class EmployeeDetailView(LoginRequiredMixin, BaseScopedDetailView):
     Employee detail view (Odoo-like)
 
     - Company scoped
-    - No ACL enforcement for now (as requested)
-    - Includes Employee Skills tab
+    - No ACL enforcement (as requested)
+    - Includes Skills + Assets
     """
 
     model = Employee
@@ -585,7 +586,7 @@ class EmployeeDetailView(LoginRequiredMixin, BaseScopedDetailView):
     context_object_name = "employee"
 
     # --------------------------------------------------
-    # Scope enforcement (Company only)
+    # Company Scope Enforcement
     # --------------------------------------------------
     def _enforce_object_scope_or_404(self, obj):
         allowed_company_ids = get_allowed_company_ids(self.request)
@@ -594,7 +595,7 @@ class EmployeeDetailView(LoginRequiredMixin, BaseScopedDetailView):
         return obj
 
     # --------------------------------------------------
-    # Optimized queryset
+    # Optimized Queryset
     # --------------------------------------------------
     def get_queryset(self):
         return (
@@ -611,20 +612,28 @@ class EmployeeDetailView(LoginRequiredMixin, BaseScopedDetailView):
             .prefetch_related(
                 "categories",
                 "managed_employees",
+                Prefetch(
+                    "asset_assignments",
+                    queryset=(
+                        AssetAssignment.objects
+                        .select_related("asset", "company")
+                        .order_by("-date_from", "-id")
+                    ),
+                ),
             )
         )
 
     # --------------------------------------------------
-    # Context
+    # Context Data
     # --------------------------------------------------
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         employee = self.object
 
-        # -------- UI flags (no permissions for now)
+        # -------- UI Flags
         ctx["can_edit"] = True
 
-        # -------- Management chain
+        # -------- Management Chain
         chain = []
         node = employee.manager
         while node:
@@ -635,7 +644,9 @@ class EmployeeDetailView(LoginRequiredMixin, BaseScopedDetailView):
         # -------- Subordinates
         ctx["subordinates"] = employee.managed_employees.filter(active=True)
 
-        # -------- Employee Skills (IMPORTANT PART)
+        # ==================================================
+        # Employee Skills
+        # ==================================================
         ctx["employee_skills"] = (
             EmployeeSkill.objects
             .filter(employee=employee)
@@ -648,8 +659,24 @@ class EmployeeDetailView(LoginRequiredMixin, BaseScopedDetailView):
         )
 
         # ==================================================
-        # Employee Statuses (for Change Status modal)
-        # ADDITION ONLY — no side effects
+        # Asset Assignments (THIS IS THE IMPORTANT PART)
+        # ==================================================
+        asset_assignments = (
+            employee.asset_assignments
+            .select_related("asset", "company")
+            .order_by("-date_from", "-id")
+        )
+
+        ctx["asset_assignments"] = asset_assignments
+        ctx["current_asset_assignments"] = asset_assignments.filter(date_to__isnull=True)
+        ctx["employee_assets_open"] = ctx["current_asset_assignments"]
+        ctx["employee_assets_history"] = asset_assignments
+
+        # Can assign new asset only if no open assignment exists
+        ctx["can_assign_asset"] = not ctx["current_asset_assignments"].exists()
+
+        # ==================================================
+        # Employee Statuses (Change Status Modal)
         # ==================================================
         ctx["employee_statuses"] = (
             EmployeeStatus.objects
@@ -657,7 +684,7 @@ class EmployeeDetailView(LoginRequiredMixin, BaseScopedDetailView):
             .order_by("sequence")
         )
 
-        # -------- Employee Status History (Audit Trail)
+        # -------- Status History
         ctx["status_history"] = (
             EmployeeStatusHistory.objects
             .filter(employee=employee)
@@ -668,7 +695,7 @@ class EmployeeDetailView(LoginRequiredMixin, BaseScopedDetailView):
             .order_by("-changed_at")
         )
 
-        # -------- Education (read-only)
+        # -------- Education
         ctx["education_records"] = (
             EmployeeEducation.objects
             .filter(employee=employee)
@@ -676,6 +703,7 @@ class EmployeeDetailView(LoginRequiredMixin, BaseScopedDetailView):
         )
 
         return ctx
+
 
 
 class EmployeeCreateView(LoginRequiredMixin, BaseScopedCreateView):

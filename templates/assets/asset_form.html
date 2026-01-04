@@ -1,95 +1,197 @@
 {% extends "base.html" %}
 
 {% block title %}
-{% if object %}Edit Asset{% else %}Create Asset{% endif %}
+  {% if object %}Edit Asset{% else %}Create Asset{% endif %}
 {% endblock %}
 
 {% block content %}
-<div class="w-full px-6 py-6 space-y-6">
+<div class="w-full px-6 py-6 space-y-10 max-w-7xl mx-auto">
+
+  <!-- ===================================================== -->
+  <!-- Header -->
+  <!-- ===================================================== -->
+  <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+    <div>
+      <h1 class="text-3xl font-bold">
+        {% if object %}Edit Asset{% else %}Create New Asset{% endif %}
+      </h1>
+      <p class="text-sm opacity-70 mt-1">
+        Asset identity, classification, lifecycle, and financial information
+      </p>
+    </div>
+
+    <a href="{% url 'assets:asset_list' %}"
+       class="btn btn-ghost btn-sm">
+      ← Back to Assets
+    </a>
+  </div>
+
+  <!-- ===================================================== -->
+  <!-- Form -->
+  <!-- ===================================================== -->
+  <form method="post" enctype="multipart/form-data" class="space-y-8">
+    {% csrf_token %}
+
+    {% if form.non_field_errors %}
+      <div class="alert alert-error text-sm">
+        {{ form.non_field_errors }}
+      </div>
+    {% endif %}
+
+    {% for hidden in form.hidden_fields %}
+      {{ hidden }}
+    {% endfor %}
 
     <!-- ===================================================== -->
-    <!-- Header -->
+    <!-- 1. Asset Identity -->
     <!-- ===================================================== -->
-    <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div>
-            <h1 class="text-3xl font-bold">
-                {% if object %}Edit Asset{% else %}Create New Asset{% endif %}
-            </h1>
-            <p class="text-sm opacity-70 mt-1">
-                Asset information and classification
-            </p>
+    <div class="card bg-base-100 shadow">
+      <div class="card-body space-y-6">
+        <h2 class="card-title text-lg">Asset Identity</h2>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+
+          <div>
+            <label class="label"><span class="label-text font-medium">{{ form.name.label }}</span></label>
+            {{ form.name }}
+            {% for e in form.name.errors %}<p class="text-error text-xs mt-1">{{ e }}</p>{% endfor %}
+          </div>
+
+          <div>
+            <label class="label"><span class="label-text font-medium">{{ form.code.label }}</span></label>
+            {{ form.code }}
+            {% for e in form.code.errors %}<p class="text-error text-xs mt-1">{{ e }}</p>{% endfor %}
+          </div>
+
+          <div>
+            <label class="label"><span class="label-text font-medium">{{ form.serial.label }}</span></label>
+            {{ form.serial }}
+            {% for e in form.serial.errors %}<p class="text-error text-xs mt-1">{{ e }}</p>{% endfor %}
+          </div>
+
         </div>
 
-        <div>
-            <a href="{% url 'assets:asset_list' %}"
-               class="btn btn-ghost">
-                Back to Assets
-            </a>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label class="label"><span class="label-text font-medium">{{ form.company.label }}</span></label>
+            {{ form.company }}
+            {% for e in form.company.errors %}<p class="text-error text-xs mt-1">{{ e }}</p>{% endfor %}
+          </div>
         </div>
+      </div>
     </div>
 
     <!-- ===================================================== -->
-    <!-- Form -->
+    <!-- 2. Classification -->
     <!-- ===================================================== -->
-    <div class="card bg-base-100 shadow max-w-6xl">
-        <div class="card-body">
+    <div class="card bg-base-100 shadow">
+      <div class="card-body space-y-6">
+        <h2 class="card-title text-lg">Classification</h2>
 
-            <form method="post" enctype="multipart/form-data" class="space-y-6">
-                {% csrf_token %}
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
 
-                {% if form.non_field_errors %}
-                    <div class="alert alert-error text-sm">
-                        {{ form.non_field_errors }}
-                    </div>
-                {% endif %}
+          <div>
+            <label class="label"><span class="label-text font-medium">{{ form.category.label }}</span></label>
+            {{ form.category }}
+            {% for e in form.category.errors %}<p class="text-error text-xs mt-1">{{ e }}</p>{% endfor %}
+          </div>
 
-                {% for hidden in form.hidden_fields %}
-                    {{ hidden }}
-                {% endfor %}
+          <div>
+            <label class="label"><span class="label-text font-medium">{{ form.department.label }}</span></label>
+            {{ form.department }}
+            {% for e in form.department.errors %}<p class="text-error text-xs mt-1">{{ e }}</p>{% endfor %}
+          </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {% for field in form.visible_fields %}
-                        <div>
-                            <label class="label">
-                                <span class="label-text font-semibold">
-                                    {{ field.label }}
-                                    {% if field.field.required %}
-                                        <span class="text-error">*</span>
-                                    {% endif %}
-                                </span>
-                            </label>
-
-                            {{ field }}
-
-                            {% if field.help_text %}
-                                <p class="text-xs opacity-70 mt-1">
-                                    {{ field.help_text }}
-                                </p>
-                            {% endif %}
-
-                            {% for error in field.errors %}
-                                <p class="text-error text-xs mt-1">
-                                    {{ error }}
-                                </p>
-                            {% endfor %}
-                        </div>
-                    {% endfor %}
-                </div>
-
-                <div class="flex justify-end gap-2 pt-6">
-                    <a href="{% url 'assets:asset_list' %}"
-                       class="btn btn-ghost">
-                        Cancel
-                    </a>
-                    <button type="submit" class="btn btn-primary">
-                        {% if object %}Save Changes{% else %}Create Asset{% endif %}
-                    </button>
-                </div>
-
-            </form>
+          <div>
+            <label class="label"><span class="label-text font-medium">{{ form.parent.label }}</span></label>
+            {{ form.parent }}
+            {% for e in form.parent.errors %}<p class="text-error text-xs mt-1">{{ e }}</p>{% endfor %}
+          </div>
 
         </div>
+      </div>
     </div>
+
+    <!-- ===================================================== -->
+    <!-- 3. Lifecycle & Assignment -->
+    <!-- ===================================================== -->
+    <div class="card bg-base-100 shadow">
+      <div class="card-body space-y-6">
+        <h2 class="card-title text-lg">Lifecycle & Assignment</h2>
+
+        <div class="alert alert-info text-sm">
+          Status and assignment are validated by the system workflow.
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+
+          <div>
+            <label class="label"><span class="label-text font-medium">{{ form.status.label }}</span></label>
+            {{ form.status }}
+            {% for e in form.status.errors %}<p class="text-error text-xs mt-1">{{ e }}</p>{% endfor %}
+          </div>
+
+          <div>
+            <label class="label"><span class="label-text font-medium">{{ form.holder.label }}</span></label>
+            {{ form.holder }}
+            {% for e in form.holder.errors %}<p class="text-error text-xs mt-1">{{ e }}</p>{% endfor %}
+          </div>
+
+          <div class="flex items-center gap-3 pt-8">
+            {{ form.active }}
+            <span class="text-sm">{{ form.active.label }}</span>
+            {% for e in form.active.errors %}<p class="text-error text-xs mt-1">{{ e }}</p>{% endfor %}
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================================================== -->
+    <!-- 4. Financial / Purchase -->
+    <!-- ===================================================== -->
+    <div class="card bg-base-100 shadow">
+      <div class="card-body space-y-6">
+        <h2 class="card-title text-lg">Purchase Information</h2>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+          <div>
+            <label class="label"><span class="label-text font-medium">{{ form.purchase_date.label }}</span></label>
+            {{ form.purchase_date }}
+            {% for e in form.purchase_date.errors %}<p class="text-error text-xs mt-1">{{ e }}</p>{% endfor %}
+          </div>
+
+          <div>
+            <label class="label"><span class="label-text font-medium">{{ form.purchase_value.label }}</span></label>
+            {{ form.purchase_value }}
+            {% for e in form.purchase_value.errors %}<p class="text-error text-xs mt-1">{{ e }}</p>{% endfor %}
+          </div>
+
+        </div>
+
+        <div>
+          <label class="label"><span class="label-text font-medium">{{ form.note.label }}</span></label>
+          {{ form.note }}
+          {% for e in form.note.errors %}<p class="text-error text-xs mt-1">{{ e }}</p>{% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================================================== -->
+    <!-- Actions -->
+    <!-- ===================================================== -->
+    <div class="flex justify-end gap-3 pt-4">
+      <a href="{% url 'assets:asset_list' %}"
+         class="btn btn-ghost">
+        Cancel
+      </a>
+      <button type="submit" class="btn btn-primary">
+        {% if object %}Save Changes{% else %}Create Asset{% endif %}
+      </button>
+    </div>
+
+  </form>
 
 </div>
 {% endblock %}

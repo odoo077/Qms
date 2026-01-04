@@ -1,105 +1,211 @@
 {% extends "base.html" %}
 
-{% block title %}Assignments{% endblock %}
+{% block title %}Asset Assignments{% endblock %}
 
 {% block content %}
-<div class="w-full px-6 py-6 space-y-6">
+<div class="w-full px-6 py-8 space-y-8">
 
     <!-- ===================================================== -->
     <!-- Header -->
     <!-- ===================================================== -->
-    <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div>
-            <h1 class="text-3xl font-bold">Assignments</h1>
-            <p class="text-sm opacity-70 mt-1">
-                Asset assignments to employees
+    <div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+
+        <div class="space-y-1">
+            <h1 class="text-3xl font-bold tracking-tight">
+                Asset Assignments
+            </h1>
+            <p class="text-sm opacity-70">
+                Active and historical asset assignment records
             </p>
         </div>
 
         <div>
-            <a href="{% url 'assets:assignment_create' %}"
-               class="btn btn-primary">
-                + New Assignment
+            <a href="{% url 'assets:asset_list' %}"
+               class="btn btn-primary btn-sm">
+                Assign from Assets
             </a>
         </div>
+
     </div>
+
+    <!-- ===================================================== -->
+    <!-- Filters -->
+    <!-- ===================================================== -->
+    <form method="get"
+          class="card bg-base-100 shadow p-6 grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+
+        <!-- Search -->
+        <div>
+            <label class="label text-sm font-medium">
+                Search
+            </label>
+            <input type="text"
+                   name="q"
+                   value="{{ request.GET.q|default:'' }}"
+                   placeholder="Asset code, asset name, or employee"
+                   class="input input-bordered w-full">
+        </div>
+
+        <!-- State -->
+        <div>
+            <label class="label text-sm font-medium">
+                Assignment State
+            </label>
+            <select name="state" class="select select-bordered w-full">
+                <option value="">All</option>
+                <option value="open" {% if request.GET.state == "open" %}selected{% endif %}>
+                    Open (Active)
+                </option>
+                <option value="closed" {% if request.GET.state == "closed" %}selected{% endif %}>
+                    Closed
+                </option>
+            </select>
+        </div>
+
+        <!-- Actions -->
+        <div class="md:col-span-2 flex gap-2">
+            <button type="submit"
+                    class="btn btn-primary btn-sm">
+                Apply Filters
+            </button>
+
+            <a href="{% url 'assets:assignment_list' %}"
+               class="btn btn-ghost btn-sm">
+                Reset
+            </a>
+        </div>
+
+    </form>
 
     <!-- ===================================================== -->
     <!-- Table -->
     <!-- ===================================================== -->
     <div class="card bg-base-100 shadow overflow-x-auto">
+
         <table class="table w-full text-sm">
-            <thead>
+
+            <thead class="bg-base-200">
                 <tr>
                     <th>Asset</th>
                     <th>Employee</th>
                     <th>From</th>
                     <th>To</th>
+                    <th>Duration</th>
                     <th>Status</th>
                     <th class="text-right">Actions</th>
                 </tr>
             </thead>
+
             <tbody>
+
                 {% for obj in object_list %}
-                <tr class="hover:bg-base-200 transition">
+                <tr
+                    class="
+                        {% cycle 'bg-base-100' 'bg-base-200/40' %}
+                        hover:bg-base-300/30
+                        {% if obj.date_to is None %}!bg-success/10{% endif %}
+                    "
+                >
+
+                    <!-- Asset -->
                     <td>
                         <a href="{% url 'assets:asset_detail' obj.asset.id %}"
-                           class="text-primary hover:underline font-medium">
-                            {{ obj.asset.name }}
+                           class="font-medium link link-primary">
+                            {{ obj.asset.code }}
                         </a>
+                        <div class="text-xs opacity-60">
+                            {{ obj.asset.name }}
+                        </div>
                     </td>
 
-                    <td>{{ obj.employee.name }}</td>
-
-                    <td>{{ obj.date_from|date:"Y-m-d" }}</td>
-
-                    <td>{{ obj.date_to|date:"Y-m-d"|default:"—" }}</td>
-
+                    <!-- Employee -->
                     <td>
-                        {% if obj.active %}
-                            <span class="badge badge-success">Active</span>
+                        {{ obj.employee }}
+                    </td>
+
+                    <!-- From -->
+                    <td class="whitespace-nowrap">
+                        {{ obj.date_from|date:"Y-m-d"|default:"—" }}
+                    </td>
+
+                    <!-- To -->
+                    <td class="whitespace-nowrap">
+                        {% if obj.date_to %}
+                            {{ obj.date_to|date:"Y-m-d" }}
                         {% else %}
-                            <span class="badge badge-ghost">Closed</span>
+                            —
                         {% endif %}
                     </td>
 
-                    <td class="text-right">
-                        <div class="flex justify-end gap-2">
-                            <a href="{% url 'assets:assignment_detail' obj.id %}"
-                               class="btn btn-xs btn-outline">
-                                View
-                            </a>
-                            <a href="{% url 'assets:assignment_edit' obj.id %}"
-                               class="btn btn-xs btn-outline">
-                                Edit
-                            </a>
-                            <a href="{% url 'assets:assignment_delete' obj.id %}"
-                               class="btn btn-xs btn-error">
-                                Delete
-                            </a>
-                        </div>
+                    <!-- Duration -->
+                    <td class="whitespace-nowrap">
+                        {% if obj.date_to %}
+                            {{ obj.date_from|timesince:obj.date_to }}
+                        {% else %}
+                            {{ obj.date_from|timesince }}
+                        {% endif %}
                     </td>
+
+                    <!-- Status -->
+                    <td>
+                        {% if obj.date_to %}
+                            <span class="badge badge-ghost badge-sm">
+                                Closed
+                            </span>
+                        {% else %}
+                            <span class="badge badge-success badge-sm">
+                                Open
+                            </span>
+                        {% endif %}
+                    </td>
+
+<!-- Actions -->
+<td class="text-right">
+  <div class="inline-flex gap-2">
+
+    <a href="{% url 'assets:assignment_detail' obj.id %}"
+       class="btn btn-xs btn-outline">
+      View
+    </a>
+
+    <a href="{% url 'assets:assignment_delete' obj.id %}"
+       class="btn btn-xs btn-outline btn-error">
+      Delete
+    </a>
+
+  </div>
+</td>
+
+
                 </tr>
+
                 {% empty %}
                 <tr>
-                    <td colspan="6" class="text-center py-16">
+                    <td colspan="7" class="text-center py-16">
                         <p class="text-lg font-medium opacity-70">
                             No assignments found
                         </p>
                         <p class="text-sm opacity-50 mt-1">
-                            Start by creating a new assignment
+                            Assign assets to employees to start tracking usage
                         </p>
-                        <a href="{% url 'assets:assignment_create' %}"
+                        <a href="{% url 'assets:asset_list' %}"
                            class="btn btn-primary btn-sm mt-4">
-                            + Add Assignment
+                            Go to Assets
                         </a>
                     </td>
                 </tr>
+
                 {% endfor %}
+
             </tbody>
+
         </table>
+
     </div>
 
+    <!-- ===================================================== -->
+    <!-- Pagination -->
+    <!-- ===================================================== -->
     {% include "partials/paginator.html" %}
 
 </div>
