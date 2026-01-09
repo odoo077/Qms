@@ -12,7 +12,7 @@ Structure principles:
 from django.urls import path
 from . import views
 from .views import JobEmployeeUpdateView, JobDetailView, EmployeeEducationCreateView, EducationUpdateView, \
-    EducationDeleteView, EmployeeBulkActionView
+    EducationDeleteView, EmployeeBulkActionView, CareerPolicyDeleteView
 
 app_name = "hr"
 
@@ -70,6 +70,57 @@ urlpatterns = [
         JobEmployeeUpdateView.as_view(),
         name="employee_change_job",
     ),
+
+# ==========================================================
+# Career Policies
+# ==========================================================
+path(
+    "career-policies/",
+    views.CareerPolicyListView.as_view(),
+    name="career_policy_list",
+),
+path(
+    "career-policies/new/",
+    views.CareerPolicyCreateView.as_view(),
+    name="career_policy_create",
+),
+path(
+    "career-policies/<int:pk>/edit/",
+    views.CareerPolicyUpdateView.as_view(),
+    name="career_policy_edit",
+),
+path(
+    "career-policies/<int:pk>/delete/",
+    views.CareerPolicyDeleteView.as_view(),
+    name="career_policy_delete",
+),
+
+
+
+# ==========================================================
+# Career Path
+# ==========================================================
+path(
+    "career-paths/",
+    views.JobCareerPathListView.as_view(),
+    name="jobcareerpath_list",
+),
+path(
+    "career-paths/new/",
+    views.JobCareerPathCreateView.as_view(),
+    name="jobcareerpath_create",
+),
+path(
+    "career-paths/<int:pk>/edit/",
+    views.JobCareerPathUpdateView.as_view(),
+    name="jobcareerpath_update",
+),
+path(
+    "career-paths/<int:pk>/delete/",
+    views.JobCareerPathDeleteView.as_view(),
+    name="jobcareerpath_delete",
+),
+
 
     # ==========================================================
     # Ajax (HTMX)

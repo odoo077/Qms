@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}{% if object %}Edit Job Skill{% else %}New Job Skill{% endif %}{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-6 py-8 space-y-6">
+
+  <div class="flex items-center justify-between">
+    <h1 class="text-2xl font-bold">
+      {% if object %}Edit Job Required Skill{% else %}New Job Required Skill{% endif %}
+    </h1>
+    <a href="{% url 'skills:jobskill_list' %}" class="btn btn-ghost btn-sm">← Back</a>
+  </div>
+
+  <form method="post" class="card bg-base-100 shadow p-6 space-y-4">
+    {% csrf_token %}
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div>
+        <label class="label"><span class="label-text">Job</span></label>
+        {{ form.job }}
+      </div>
+
+      <div>
+        <label class="label"><span class="label-text">Skill</span></label>
+        {{ form.skill }}
+      </div>
+
+      <div>
+        <label class="label"><span class="label-text">Minimum Level</span></label>
+        {{ form.min_level }}
+      </div>
+    </div>
+
+    <div class="flex items-center gap-3">
+      {{ form.active }} <span class="text-sm">Active</span>
+    </div>
+
+    <div class="flex justify-end gap-2">
+      <a href="{% url 'skills:jobskill_list' %}" class="btn btn-ghost">Cancel</a>
+      <button class="btn btn-primary">{% if object %}Save{% else %}Create{% endif %}</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

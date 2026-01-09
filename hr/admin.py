@@ -19,7 +19,8 @@ from django import forms
 from django.contrib import admin
 from django.core.exceptions import ValidationError
 
-from .models import EmployeeStatus, EmployeeStatusHistory, EmployeeEducation
+from .models import EmployeeStatus, EmployeeStatusHistory, EmployeeEducation, JobCareerPath, CareerPolicy, \
+    CareerPolicyAuditLog, EmployeeReadinessSnapshot
 
 
 # ------------------------------------------------------------
@@ -430,7 +431,215 @@ class JobAdmin(AppAdmin):
     def expected_employees_display(self, obj):
         return self.no_of_employee_display(obj) + (obj.no_of_recruitment or 0)
 
+@admin.register(JobCareerPath)
+class JobCareerPathAdmin(admin.ModelAdmin):
+    list_display = (
+        "from_job",
+        "to_job",
+        "sequence",
+        "active",
+    )
 
+    list_filter = ("active",)
+    search_fields = (
+        "from_job__name",
+        "to_job__name",
+    )
+    autocomplete_fields = (
+        "from_job",
+        "to_job",
+    )
+
+    ordering = ("from_job__name", "sequence", "to_job__name")
+
+    # ✅ Best Practice: Audit fields are read-only
+    readonly_fields = (
+        "created_at",
+        "updated_at",
+        "created_by",
+        "updated_by",
+    )
+
+
+
+# ============================================================
+# Career Policy Audit Log (Read-only Inline)
+# ============================================================
+
+class CareerPolicyAuditLogInline(admin.TabularInline):
+    model = CareerPolicyAuditLog
+    extra = 0
+    can_delete = False
+    max_num = 0
+
+    readonly_fields = (
+        "created_at",
+        "changed_by",
+        "reason",
+        "changed_fields",
+        "before",
+        "after",
+    )
+
+    fields = readonly_fields
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+
+# ============================================================
+# Career Policy Admin
+# ============================================================
+
+@admin.register(CareerPolicy)
+class CareerPolicyAdmin(admin.ModelAdmin):
+    list_display = (
+        "name",
+        "company",
+        "min_ready_score",
+        "min_near_ready_score",
+        "ok_weight",
+        "gap_weight",
+        "missing_weight",
+        "active",
+    )
+
+    list_filter = ("company", "active")
+
+    search_fields = ("name",)
+    ordering = ("name", "company__name")
+
+    readonly_fields = (
+        "created_at",
+        "created_by",
+        "updated_at",
+        "updated_by",
+    )
+
+    fieldsets = (
+        (None, {
+            "fields": (
+                "name",
+                "company",
+                "active",
+            )
+        }),
+        ("Readiness Thresholds", {
+            "fields": (
+                "min_ready_score",
+                "min_near_ready_score",
+            )
+        }),
+        ("Scoring Weights", {
+            "fields": (
+                "ok_weight",
+                "gap_weight",
+                "missing_weight",
+            )
+        }),
+        ("Audit", {
+            "fields": (
+                "created_at",
+                "created_by",
+                "updated_at",
+                "updated_by",
+            )
+        }),
+    )
+
+    inlines = (CareerPolicyAuditLogInline,)
+
+    # --------------------------------------------------
+    # Save Hook → Create Audit Log Automatically
+    # --------------------------------------------------
+    def save_model(self, request, obj, form, change):
+        before = {}
+
+        if change and obj.pk:
+            old = CareerPolicy.objects.filter(pk=obj.pk).first()
+            if old:
+                before = {
+                    "name": old.name,
+                    "active": old.active,
+                    "min_ready_score": old.min_ready_score,
+                    "min_near_ready_score": old.min_near_ready_score,
+                    "ok_weight": float(old.ok_weight),
+                    "gap_weight": float(old.gap_weight),
+                    "missing_weight": float(old.missing_weight),
+                }
+
+        super().save_model(request, obj, form, change)
+
+        if change and before:
+            after = {
+                "name": obj.name,
+                "active": obj.active,
+                "min_ready_score": obj.min_ready_score,
+                "min_near_ready_score": obj.min_near_ready_score,
+                "ok_weight": float(obj.ok_weight),
+                "gap_weight": float(obj.gap_weight),
+                "missing_weight": float(obj.missing_weight),
+            }
+
+            changed_fields = [
+                key for key in after.keys()
+                if before.get(key) != after.get(key)
+            ]
+
+            if changed_fields:
+                CareerPolicyAuditLog.objects.create(
+                    policy=obj,
+                    changed_by=request.user if request.user.is_authenticated else None,
+                    reason="",  # اختياري حالياً
+                    before=before,
+                    after=after,
+                    changed_fields=changed_fields,
+                )
+
+@admin.register(EmployeeReadinessSnapshot)
+class EmployeeReadinessSnapshotAdmin(admin.ModelAdmin):
+    list_display = (
+        "snapshot_date",
+        "employee",
+        "company",
+        "job",
+        "score",
+        "status",
+        "fit_score",
+    )
+    list_filter = ("company", "status", "snapshot_date")
+    search_fields = ("employee__name", "company__name", "job__name")
+    date_hierarchy = "snapshot_date"
+    ordering = ("-snapshot_date", "-score", "employee__name")
+
+    readonly_fields = (
+        "created_at",
+        "updated_at",
+        "employee",
+        "company",
+        "job",
+        "snapshot_date",
+        "score",
+        "status",
+        "fit_score",
+        "blocking_reason",
+        "blocking_factors",
+        "policy_id",
+    )
+
+    fieldsets = (
+        (None, {"fields": ("snapshot_date", "employee", "company", "job")}),
+        ("Scores", {"fields": ("score", "status", "fit_score")}),
+        ("Blocking", {"fields": ("blocking_reason", "blocking_factors")}),
+        ("Policy Trace", {"fields": ("policy_id",)}),
+        ("Audit", {"fields": ("created_at", "updated_at")}),
+    )
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 # ------------------------------------------------------------
 # EmployeeCategory

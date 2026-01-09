@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}{% if object %}Edit Company Skill{% else %}New Company Skill{% endif %}{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-6 py-8 space-y-6">
+
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-bold">
+        {% if object %}Edit Company Skill{% else %}New Company Skill{% endif %}
+      </h1>
+      <p class="text-sm opacity-70">Enable/disable skills per company</p>
+    </div>
+
+    <a href="{% url 'skills:companyskill_list' %}" class="btn btn-ghost btn-sm">
+      ← Back
+    </a>
+  </div>
+
+  <form method="post" class="card bg-base-100 shadow border border-base-200 p-6 space-y-4">
+    {% csrf_token %}
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div>
+        <label class="label"><span class="label-text">Company</span></label>
+        {{ form.company }}
+        {% if form.company.errors %}<p class="text-error text-xs mt-1">{{ form.company.errors|striptags }}</p>{% endif %}
+      </div>
+
+      <div>
+        <label class="label"><span class="label-text">Skill</span></label>
+        {{ form.skill }}
+        {% if form.skill.errors %}<p class="text-error text-xs mt-1">{{ form.skill.errors|striptags }}</p>{% endif %}
+      </div>
+    </div>
+
+    <div class="flex items-center gap-3">
+      {{ form.active }}
+      <span class="text-sm">Active</span>
+      {% if form.active.errors %}<p class="text-error text-xs">{{ form.active.errors|striptags }}</p>{% endif %}
+    </div>
+
+    <div class="flex justify-end gap-2 pt-2">
+      <a href="{% url 'skills:companyskill_list' %}" class="btn btn-ghost">Cancel</a>
+      <button type="submit" class="btn btn-primary">
+        {% if object %}Save{% else %}Create{% endif %}
+      </button>
+    </div>
+  </form>
+
+</div>
+{% endblock %}

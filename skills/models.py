@@ -15,7 +15,6 @@ from django.utils.translation import gettext_lazy as _
 
 from base.acl import AccessControlledMixin, ACLManager
 from base.models import Company, CompanyScopeManager
-from hr.models import Employee
 
 User = get_user_model()
 
@@ -139,12 +138,105 @@ class Skill(TimeUserStampedMixin):
 
 
 # ============================================================
+# Company Skill (Skill enabled per company)
+# ============================================================
+
+class CompanySkill(TimeUserStampedMixin):
+    """
+    يحدد المهارات المفعّلة لكل شركة (Odoo-like multi-company enablement).
+    - Skill نفسها تبقى Global
+    - التفعيل/التعطيل يتم على مستوى الشركة عبر هذا الجدول
+    """
+    company = models.ForeignKey(
+        Company, on_delete=models.CASCADE, related_name="company_skills", db_index=True
+    )
+    skill = models.ForeignKey(
+        Skill, on_delete=models.CASCADE, related_name="company_skills", db_index=True
+    )
+    active = models.BooleanField(_("Active"), default=True)
+
+    class Meta:
+        verbose_name = _("Company Skill")
+        verbose_name_plural = _("Company Skills")
+        constraints = [
+            UniqueConstraint(
+                fields=["company", "skill"],
+                name="companyskill_unique_company_skill",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["company", "active"], name="cs_company_active"),
+            models.Index(fields=["skill", "active"], name="cs_skill_active"),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.company} · {self.skill}"
+
+
+# ============================================================
+# Job Required Skill (Skill Matrix)
+# ============================================================
+
+class JobSkill(TimeUserStampedMixin):
+    """
+    المهارات المطلوبة لوظيفة معينة (Skill Matrix).
+    - مرتبطة بالوظيفة
+    - المهارة نفسها Global
+    - المستوى يحدد الحد الأدنى المطلوب
+    كل سجل JobSkill = مهارة واحدة مطلوبة
+    """
+    job = models.ForeignKey(
+        "hr.Job",
+        on_delete=models.CASCADE,
+        related_name="required_skills",
+        db_index=True,
+    )
+    skill = models.ForeignKey(
+        Skill,
+        on_delete=models.PROTECT,
+        related_name="job_requirements",
+        db_index=True,
+    )
+    min_level = models.ForeignKey(
+        SkillLevel,
+        on_delete=models.PROTECT,
+        related_name="job_requirements",
+    )
+    active = models.BooleanField(_("Active"), default=True)
+
+    class Meta:
+        verbose_name = _("Job Required Skill")
+        verbose_name_plural = _("Job Required Skills")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["job", "skill"],
+                name="jobskill_unique_job_skill",
+            ),
+        ]
+        ordering = ("job__name", "skill__name")
+
+    def clean(self):
+        super().clean()
+
+        if self.skill and self.min_level:
+            if self.skill.skill_type_id != self.min_level.skill_type_id:
+                raise ValidationError({
+                    "min_level": "Minimum level must belong to the same skill type as the selected skill."
+                })
+
+    def __str__(self) -> str:
+        return f"{self.job} → {self.skill} (≥ {self.min_level})"
+
+# ============================================================
 # Employee Skill
 # ============================================================
 
 class EmployeeSkill(TimeUserStampedMixin, AccessControlledMixin):
     employee = models.ForeignKey(
-        Employee, on_delete=models.CASCADE, related_name="skills", db_index=True
+        "hr.Employee",
+        on_delete=models.CASCADE,
+        related_name="skills",
+        db_index=True,
     )
     company = models.ForeignKey(
         Company, on_delete=models.PROTECT, null=True, blank=True, db_index=True
@@ -191,16 +283,51 @@ class EmployeeSkill(TimeUserStampedMixin, AccessControlledMixin):
         ]
 
     # NOTE:
-    # company is ALWAYS derived from employee.company.
-    # Any provided company value will be overridden for data integrity.
     def clean(self) -> None:
         super().clean()
 
-        # (1) تطابق النوع
-        if self.skill and self.skill_type and self.skill.skill_type_id != self.skill_type_id:
-            raise ValidationError({"skill": _("Skill must belong to the selected skill type.")})
-        if self.skill_level and self.skill_type and self.skill_level.skill_type_id != self.skill_type_id:
-            raise ValidationError({"skill_level": _("Level must belong to the selected skill type.")})
+        # ==================================================
+        # (1) Skill ↔ SkillType consistency (SAFE)
+        # ==================================================
+        if self.skill_id and self.skill_type_id:
+            skill_type_id = (
+                Skill.objects
+                .filter(id=self.skill_id)
+                .values_list("skill_type_id", flat=True)
+                .first()
+            )
+            if skill_type_id and skill_type_id != self.skill_type_id:
+                raise ValidationError({
+                    "skill": _("Skill must belong to the selected skill type.")
+                })
+
+        if self.skill_level_id and self.skill_type_id:
+            level_type_id = (
+                SkillLevel.objects
+                .filter(id=self.skill_level_id)
+                .values_list("skill_type_id", flat=True)
+                .first()
+            )
+            if level_type_id and level_type_id != self.skill_type_id:
+                raise ValidationError({
+                    "skill_level": _("Level must belong to the selected skill type.")
+                })
+
+        # ==================================================
+        # (2) CompanySkill enablement check
+        # ==================================================
+        if self.employee_id and self.skill_id:
+            company_id = self.employee.company_id
+            is_enabled = CompanySkill.objects.filter(
+                company_id=company_id,
+                skill_id=self.skill_id,
+                active=True,
+            ).exists()
+
+            if not is_enabled:
+                raise ValidationError({
+                    "skill": _("This skill is not enabled for the employee company.")
+                })
 
     def save(self, *args, **kwargs):
         if self.employee_id and self.employee.company_id:
@@ -236,7 +363,10 @@ class ResumeLineType(TimeUserStampedMixin):
 
 class ResumeLine(TimeUserStampedMixin, AccessControlledMixin):
     employee = models.ForeignKey(
-        Employee, on_delete=models.CASCADE, related_name="resume_lines", db_index=True
+        "hr.Employee",
+        on_delete=models.CASCADE,
+        related_name="resume_lines",
+        db_index=True,
     )
     company = models.ForeignKey(
         Company, on_delete=models.PROTECT, null=True, blank=True, db_index=True

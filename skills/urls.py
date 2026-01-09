@@ -60,4 +60,54 @@ urlpatterns = [
     path("resumelines/new/", views.ResumeLineCreateView.as_view(), name="resumeline_create"),
     path("resumelines/<int:pk>/edit/", views.ResumeLineUpdateView.as_view(), name="resumeline_update"),
     path("resumelines/<int:pk>/delete/", views.ResumeLineDeleteView.as_view(), name="resumeline_delete"),
+
+# ==========================================================
+# CompanySkill
+# ==========================================================
+path(
+    "company-skills/",
+    views.CompanySkillListView.as_view(),
+    name="companyskill_list",
+),
+path(
+    "company-skills/new/",
+    views.CompanySkillCreateView.as_view(),
+    name="companyskill_create",
+),
+path(
+    "company-skills/<int:pk>/edit/",
+    views.CompanySkillUpdateView.as_view(),
+    name="companyskill_edit",
+),
+path(
+    "company-skills/<int:pk>/delete/",
+    views.CompanySkillDeleteView.as_view(),
+    name="companyskill_delete",
+),
+
+# ==========================================================
+# JobSkill (Skill Matrix)
+# ==========================================================
+path(
+    "job-skills/",
+    views.JobSkillListView.as_view(),
+    name="jobskill_list",
+),
+path(
+    "job-skills/new/",
+    views.JobSkillCreateView.as_view(),
+    name="jobskill_create",
+),
+path(
+    "job-skills/<int:pk>/edit/",
+    views.JobSkillUpdateView.as_view(),
+    name="jobskill_edit",
+),
+path(
+    "job-skills/<int:pk>/delete/",
+    views.JobSkillDeleteView.as_view(),
+    name="jobskill_delete",
+),
+
+
 ]

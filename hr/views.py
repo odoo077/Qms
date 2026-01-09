@@ -14,9 +14,11 @@ from django.views.decorators.http import require_POST
 from django.contrib import messages
 from base.company_context import get_company_id, set_company
 from base.models import Company
+from skills.services import compute_employee_job_gap, compute_employee_job_fit_score, \
+    compute_employee_career_eligibility, compute_career_blocking_factors, compute_training_recommendations
 from .models import Department, Job, Employee, get_root_departments, build_department_tree, EmployeeStatusHistory, \
-    EmployeeEducation, EmployeeStatus
-from .forms import DepartmentForm, JobForm, EmployeeForm, EmployeeEducationForm
+    EmployeeEducation, EmployeeStatus, CareerPolicy
+from .forms import DepartmentForm, JobForm, EmployeeForm, EmployeeEducationForm, CareerPolicyForm
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.core.exceptions import PermissionDenied
 from django.db.models import Count, Q, F, Value, Prefetch
@@ -28,10 +30,16 @@ from django.views.generic import TemplateView
 from django.views.generic.edit import UpdateView
 from base.company_context import get_allowed_company_ids
 from base.views import BaseScopedListView, BaseScopedDetailView, BaseScopedCreateView, BaseScopedUpdateView
-from skills.models import EmployeeSkill
+from skills.models import EmployeeSkill, JobSkill
 from assets.models import AssetAssignment
 from .services import change_employee_status
 from django.views.generic import View, DeleteView
+from django.urls import reverse
+from django.urls import reverse_lazy
+from django.views.generic import ListView, CreateView, UpdateView, DeleteView
+from hr.models import JobCareerPath
+from hr.forms import JobCareerPathForm
+
 
 # ==========================================================
 # Departments
@@ -430,6 +438,102 @@ class JobEmployeeUpdateView(
         return UpdateView.form_valid(self, form)
 
 
+# ==========================================================
+# Career Policy (UI Management)
+# ==========================================================
+
+class CareerPolicyListView(LoginRequiredMixin, BaseScopedListView):
+    model = CareerPolicy
+    template_name = "hr/careerpolicy_list.html"
+    paginate_by = 50
+    context_object_name = "policies"
+
+    def get_queryset(self):
+        qs = super().get_queryset().select_related("company")
+        return qs.order_by("company__name", "-active", "-id")
+
+
+class CareerPolicyCreateView(LoginRequiredMixin, BaseScopedCreateView):
+    model = CareerPolicy
+    form_class = CareerPolicyForm
+    template_name = "hr/careerpolicy_form.html"
+    success_url = reverse_lazy("hr:careerpolicy_list")
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["allowed_company_ids"] = get_allowed_company_ids(self.request)
+        return kwargs
+
+
+class CareerPolicyUpdateView(LoginRequiredMixin, BaseScopedUpdateView):
+    model = CareerPolicy
+    form_class = CareerPolicyForm
+    template_name = "hr/careerpolicy_form.html"
+    success_url = reverse_lazy("hr:careerpolicy_list")
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs["allowed_company_ids"] = get_allowed_company_ids(self.request)
+        return kwargs
+
+class CareerPolicyDeleteView(LoginRequiredMixin, DeleteView):
+    model = CareerPolicy
+    template_name = "partials/confirm_delete.html"
+
+    def get_success_url(self):
+        return reverse("hr:careerpolicy_list")
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["object_label"] = "Career Policy"
+        ctx["confirm_label"] = "Delete Policy"
+        ctx["back_url"] = reverse("hr:careerpolicy_list")
+        return ctx
+
+    def dispatch(self, request, *args, **kwargs):
+        obj = self.get_object()
+        allowed = get_allowed_company_ids(request)
+        if allowed and obj.company_id not in allowed:
+            raise PermissionDenied("Outside company scope.")
+        return super().dispatch(request, *args, **kwargs)
+
+
+# ==========================================================
+# Career Path
+# ==========================================================
+
+class JobCareerPathListView(ListView):
+    model = JobCareerPath
+    template_name = "hr/jobcareerpath_list.html"
+    paginate_by = 50
+
+    def get_queryset(self):
+        return (
+            JobCareerPath.objects
+            .select_related("from_job", "to_job")
+            .order_by("from_job__name", "sequence")
+        )
+
+
+class JobCareerPathCreateView(CreateView):
+    model = JobCareerPath
+    form_class = JobCareerPathForm
+    template_name = "hr/jobcareerpath_form.html"
+    success_url = reverse_lazy("hr:jobcareerpath_list")
+
+
+class JobCareerPathUpdateView(UpdateView):
+    model = JobCareerPath
+    form_class = JobCareerPathForm
+    template_name = "hr/jobcareerpath_form.html"
+    success_url = reverse_lazy("hr:jobcareerpath_list")
+
+
+class JobCareerPathDeleteView(DeleteView):
+    model = JobCareerPath
+    template_name = "partials/confirm_delete.html"
+    success_url = reverse_lazy("hr:jobcareerpath_list")
+
 
 # ==========================================================
 # HTMX / Ajax
@@ -558,7 +662,18 @@ class EmployeeListView(LoginRequiredMixin, BaseScopedListView):
             qs = qs.filter(active=False)
         # else → show all (default behavior unchanged)
 
-        return qs.order_by("name")
+        employees = list(qs.order_by("name"))
+
+        for emp in employees:
+            if emp.job_id:
+                fit = compute_employee_job_fit_score(emp)
+                emp.readiness_score = fit.score
+                emp.readiness_label = fit.label
+            else:
+                emp.readiness_score = None
+                emp.readiness_label = "N/A"
+
+        return employees
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -576,9 +691,11 @@ class EmployeeDetailView(LoginRequiredMixin, BaseScopedDetailView):
     """
     Employee detail view (Odoo-like)
 
-    - Company scoped
-    - No ACL enforcement (as requested)
-    - Includes Skills + Assets
+    Logic Summary:
+    - job_fit            : Current job readiness
+    - career_path        : Promotion path
+    - row.eligible       : Promotion eligibility (strict)
+    - next_role          : Next logical role (even if not eligible)
     """
 
     model = Employee
@@ -630,10 +747,138 @@ class EmployeeDetailView(LoginRequiredMixin, BaseScopedDetailView):
         ctx = super().get_context_data(**kwargs)
         employee = self.object
 
-        # -------- UI Flags
+        # ==================================================
+        # Current Role – Readiness
+        # ==================================================
+        skill_gap = compute_employee_job_gap(employee)
+        job_fit = compute_employee_job_fit_score(employee)
+
+        ctx["skill_gap"] = skill_gap
+        ctx["job_fit"] = job_fit
+
+        # ==================================================
+        # Career Path (raw)
+        # ==================================================
+        career_path = compute_employee_career_eligibility(employee) or []
+        ctx["career_path"] = career_path
+
+        # ==================================================
+        # Employee Skill Progress Map
+        # ==================================================
+        employee_skill_progress = {
+            es.skill_id: es.skill_level.level_progress
+            for es in (
+                EmployeeSkill.objects
+                .filter(employee=employee, active=True)
+                .select_related("skill_level")
+            )
+            if es.skill_level_id
+        }
+
+        # ==================================================
+        # FIX: Correct Eligibility (Promotion Only)
+        # ==================================================
+        for row in career_path:
+            job = row.get("job")
+            if not job:
+                row["eligible"] = False
+                continue
+
+            required_skills = (
+                JobSkill.objects
+                .filter(job=job, active=True)
+                .select_related("min_level")
+            )
+
+            missing = 0
+            gap = 0
+
+            for req in required_skills:
+                emp_progress = employee_skill_progress.get(req.skill_id)
+
+                if emp_progress is None:
+                    missing += 1
+                elif emp_progress < req.min_level.level_progress:
+                    gap += 1
+
+            row["eligible"] = (missing == 0 and gap == 0)
+            row["missing_count"] = missing
+            row["gap_count"] = gap
+
+        # ==================================================
+        # Next Role (First Logical Step – NOT Eligible Based)
+        # ==================================================
+        next_role = None
+        if career_path:
+            for row in career_path:
+                if row.get("job"):
+                    next_role = row["job"]
+                    break
+
+        ctx["next_role"] = next_role
+        ctx["next_eligible_job"] = next_role  # UI compatibility
+
+        # ==================================================
+        # Next Role – Skill Readiness
+        # ==================================================
+        next_role_missing_skills = []
+        next_role_gap_skills = []
+        next_role_met_skills = []
+
+        if next_role:
+            required_skills = (
+                JobSkill.objects
+                .filter(job=next_role, active=True)
+                .select_related(
+                    "skill",
+                    "min_level",
+                    "min_level__skill_type",
+                )
+                .order_by("skill__skill_type__sequence", "skill__name")
+            )
+
+            employee_skills = {
+                es.skill_id: es
+                for es in (
+                    EmployeeSkill.objects
+                    .filter(employee=employee, active=True)
+                    .select_related("skill", "skill_level")
+                )
+            }
+
+            for req in required_skills:
+                emp_skill = employee_skills.get(req.skill_id)
+
+                if not emp_skill:
+                    next_role_missing_skills.append(req)
+                    continue
+
+                if emp_skill.skill_level.level_progress < req.min_level.level_progress:
+                    next_role_gap_skills.append({
+                        "skill": req.skill,
+                        "required": req.min_level,
+                        "current": emp_skill.skill_level,
+                    })
+                else:
+                    next_role_met_skills.append(req)
+
+        ctx["next_role_missing_skills"] = next_role_missing_skills
+        ctx["next_role_gap_skills"] = next_role_gap_skills
+        ctx["next_role_met_skills"] = next_role_met_skills
+
+        # ==================================================
+        # Training & Blockers
+        # ==================================================
+        training_recommendations = compute_training_recommendations(employee)
+        ctx["training_recommendations"] = training_recommendations
+        ctx["training_recommendations_top"] = training_recommendations[:3]
+        ctx["career_blockers"] = compute_career_blocking_factors(employee)
+
+        # ==================================================
+        # UI & Relations
+        # ==================================================
         ctx["can_edit"] = True
 
-        # -------- Management Chain
         chain = []
         node = employee.manager
         while node:
@@ -641,7 +886,6 @@ class EmployeeDetailView(LoginRequiredMixin, BaseScopedDetailView):
             node = node.manager
         ctx["manager_chain"] = chain
 
-        # -------- Subordinates
         ctx["subordinates"] = employee.managed_employees.filter(active=True)
 
         # ==================================================
@@ -650,16 +894,12 @@ class EmployeeDetailView(LoginRequiredMixin, BaseScopedDetailView):
         ctx["employee_skills"] = (
             EmployeeSkill.objects
             .filter(employee=employee)
-            .select_related(
-                "skill_type",
-                "skill",
-                "skill_level",
-            )
+            .select_related("skill_type", "skill", "skill_level")
             .order_by("skill_type__name", "skill__name")
         )
 
         # ==================================================
-        # Asset Assignments (THIS IS THE IMPORTANT PART)
+        # Assets
         # ==================================================
         asset_assignments = (
             employee.asset_assignments
@@ -671,31 +911,20 @@ class EmployeeDetailView(LoginRequiredMixin, BaseScopedDetailView):
         ctx["current_asset_assignments"] = asset_assignments.filter(date_to__isnull=True)
         ctx["employee_assets_open"] = ctx["current_asset_assignments"]
         ctx["employee_assets_history"] = asset_assignments
-
-        # Can assign new asset only if no open assignment exists
         ctx["can_assign_asset"] = not ctx["current_asset_assignments"].exists()
 
         # ==================================================
-        # Employee Statuses (Change Status Modal)
+        # Statuses & Education
         # ==================================================
-        ctx["employee_statuses"] = (
-            EmployeeStatus.objects
-            .filter(active=True)
-            .order_by("sequence")
-        )
+        ctx["employee_statuses"] = EmployeeStatus.objects.filter(active=True).order_by("sequence")
 
-        # -------- Status History
         ctx["status_history"] = (
             EmployeeStatusHistory.objects
             .filter(employee=employee)
-            .select_related(
-                "status",
-                "changed_by",
-            )
+            .select_related("status", "changed_by")
             .order_by("-changed_at")
         )
 
-        # -------- Education
         ctx["education_records"] = (
             EmployeeEducation.objects
             .filter(employee=employee)
@@ -812,7 +1041,7 @@ class EmployeeChangeStatusView(View):
         return redirect(employee.get_absolute_url())
 
 # ==========================================================
-# Employee Education Form
+# Employee Education
 # ==========================================================
 
 @method_decorator(require_POST, name="dispatch")

@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Employee Education{% endblock %}
+
+{% block page_actions %}
+<a href="{% url 'hr:employeeeducation_create' %}"
+   class="btn btn-primary btn-sm">
+  + Add Education
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="px-4 py-6">
+
+  <div class="card bg-base-100 shadow border border-base-200">
+    <table class="table table-zebra w-full text-sm">
+
+      <thead>
+        <tr>
+          <th>Employee</th>
+          <th>Degree</th>
+          <th>Institution</th>
+          <th>Years</th>
+          <th class="text-right">Actions</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {% for edu in object_list %}
+        <tr>
+          <td>{{ edu.employee.name }}</td>
+          <td>{{ edu.degree }}</td>
+          <td>{{ edu.institution }}</td>
+          <td>
+            {{ edu.start_year }}
+            {% if edu.end_year %}– {{ edu.end_year }}{% else %}– Present{% endif %}
+          </td>
+          <td class="text-right space-x-1">
+            <a href="{% url 'hr:employeeeducation_update' edu.id %}"
+               class="btn btn-ghost btn-xs">
+              Edit
+            </a>
+            <a href="{% url 'hr:employeeeducation_delete' edu.id %}"
+               class="btn btn-ghost btn-xs text-error">
+              Delete
+            </a>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="5" class="text-center opacity-60 py-6">
+            No education records found.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+
+    </table>
+  </div>
+
+</div>
+{% endblock %}

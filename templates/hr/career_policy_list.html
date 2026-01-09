@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block title %}Career Policies{% endblock %}
+
+{% block page_actions %}
+<a href="{% url 'hr:career_policy_create' %}"
+   class="btn btn-primary btn-sm">
+  + New Policy
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="w-full px-4 py-6">
+
+  <div class="card bg-base-100 shadow border border-base-200">
+    <div class="card-body p-0">
+
+      <table class="table table-zebra w-full text-sm">
+        <thead>
+          <tr>
+            <th>Company</th>
+            <th>Name</th>
+            <th>Ready</th>
+            <th>Near Ready</th>
+            <th>Status</th>
+            <th class="text-right">Actions</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {% for p in policies %}
+          <tr>
+            <td>{{ p.company.name }}</td>
+            <td class="font-medium">{{ p.name }}</td>
+            <td>{{ p.min_ready_score }}%</td>
+            <td>{{ p.min_near_ready_score }}%</td>
+
+            <td>
+              {% if p.active %}
+                <span class="badge badge-success">Active</span>
+              {% else %}
+                <span class="badge badge-ghost">Inactive</span>
+              {% endif %}
+            </td>
+
+            <td class="text-right space-x-1">
+              <a href="{% url 'hr:career_policy_edit' p.id %}"
+                 class="btn btn-ghost btn-xs">
+                Edit
+              </a>
+
+              <a href="{% url 'hr:career_policy_delete' p.id %}"
+                 class="btn btn-ghost btn-xs text-error">
+                Delete
+              </a>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="6"
+                class="text-center opacity-60 py-6">
+              No career policies defined.
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+
+      </table>
+
+    </div>
+  </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Career Policy{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto px-6 py-6 space-y-6">
+
+  <h1 class="text-2xl font-bold">
+    {% if object %}Edit Career Policy{% else %}New Career Policy{% endif %}
+  </h1>
+
+  <form method="post" class="space-y-4">
+    {% csrf_token %}
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {{ form.name.label_tag }} {{ form.name }}
+      {{ form.company.label_tag }} {{ form.company }}
+      {{ form.min_ready_score.label_tag }} {{ form.min_ready_score }}
+      {{ form.min_near_ready_score.label_tag }} {{ form.min_near_ready_score }}
+      {{ form.ok_weight.label_tag }} {{ form.ok_weight }}
+      {{ form.gap_weight.label_tag }} {{ form.gap_weight }}
+      {{ form.missing_weight.label_tag }} {{ form.missing_weight }}
+    </div>
+
+    <div class="flex items-center gap-2">
+      {{ form.active }} <label>Active policy for this company</label>
+    </div>
+
+    <div class="flex gap-2">
+      <button type="submit" class="btn btn-primary btn-sm">Save</button>
+      <a href="{% url 'hr:career_policy_list' %}"
+         class="btn btn-ghost btn-sm">Cancel</a>
+    </div>
+  </form>
+
+</div>
+{% endblock %}

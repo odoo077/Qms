@@ -14,7 +14,7 @@ from django.core.exceptions import ValidationError
 from django.db.models import Q
 from django.utils.translation import gettext_lazy as _
 from django.urls import reverse
-
+from django.utils import timezone
 # مكسنات وبُنى أساسية من تطبيق base
 from base.models import (
     CompanyOwnedMixin,  # يضمن company + فحوص التوافق
@@ -23,9 +23,9 @@ from base.models import (
     UserStampedMixin, CompanyScopeManager,  # created_by / updated_by
 )
 
+
 # ACL (صلاحيات كائنية) — نطبّقها على Employee تحديدًا
 from base.acl import AccessControlledMixin, ACLManager, ACLQuerySet
-
 
 # ------------------------------------------------------------
 # ContractType — نوع عقد العمل (بسيط ومباشر)
@@ -539,9 +539,206 @@ class Job(CompanyOwnedMixin, ActivableMixin, TimeStampedMixin, UserStampedMixin,
     def employee_count(self):
         return self.employees.filter(active=True).count()
 
+    def get_absolute_url(self):
+        return reverse("hr:job_detail", args=[self.pk])
+
     def __str__(self):
         return self.name
 
+
+# ============================================================
+# Job Career Path
+# ============================================================
+
+class JobCareerPath(TimeStampedMixin, UserStampedMixin, models.Model):
+    """
+    Career Path between jobs (Odoo / Enterprise style)
+
+    - from_job -> to_job
+    - sequence controls priority/order
+    """
+
+    from_job = models.ForeignKey(
+        "hr.Job",
+        on_delete=models.CASCADE,
+        related_name="career_paths_from",
+        db_index=True,
+    )
+
+    to_job = models.ForeignKey(
+        "hr.Job",
+        on_delete=models.PROTECT,
+        related_name="career_paths_to",
+        db_index=True,
+    )
+
+    sequence = models.PositiveIntegerField(default=10)
+
+    active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ("from_job__name", "sequence", "to_job__name")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["from_job", "to_job"],
+                name="jobcareerpath_unique_transition",
+            ),
+        ]
+
+    def clean(self):
+        super().clean()
+
+        if self.from_job_id == self.to_job_id:
+            raise ValidationError({
+                "to_job": "Job cannot transition to itself."
+            })
+
+    def __str__(self) -> str:
+        return f"{self.from_job} → {self.to_job}"
+
+class CareerPolicy(TimeStampedMixin, UserStampedMixin, models.Model):
+    """
+    Career & Promotion Policy (Enterprise-grade)
+    """
+
+    name = models.CharField(max_length=100, unique=True)
+
+    company = models.ForeignKey(
+        "base.Company",
+        on_delete=models.CASCADE,
+        related_name="career_policies",
+        db_index=True,
+    )
+
+    min_ready_score = models.PositiveSmallIntegerField(default=85)
+    min_near_ready_score = models.PositiveSmallIntegerField(default=70)
+
+    gap_weight = models.FloatField(default=0.5)
+    ok_weight = models.FloatField(default=1.0)
+    missing_weight = models.FloatField(default=0.0)
+
+    active = models.BooleanField(default=True)
+
+    class Meta:
+        verbose_name = "Career Policy"
+        verbose_name_plural = "Career Policies"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["company"],
+                condition=models.Q(active=True),
+                name="one_active_career_policy_per_company",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.company} – {self.name}"
+
+# ============================================================
+# Career Policy Audit Log
+# ============================================================
+
+class CareerPolicyAuditLog(TimeStampedMixin, models.Model):
+    """
+    Immutable audit log for CareerPolicy changes.
+    - Records who changed what and why.
+    - Helps governance & traceability (enterprise best practice).
+    """
+    policy = models.ForeignKey(
+        "hr.CareerPolicy",
+        on_delete=models.CASCADE,
+        related_name="audit_logs",
+        db_index=True,
+    )
+
+    changed_by = models.ForeignKey(
+        "base.User",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="career_policy_audit_logs",
+    )
+
+    reason = models.CharField(max_length=255, blank=True)  # optional short reason
+
+    before = models.JSONField(default=dict, blank=True)
+    after = models.JSONField(default=dict, blank=True)
+    changed_fields = models.JSONField(default=list, blank=True)  # ["field1","field2"]
+
+    class Meta:
+        ordering = ("-created_at",)
+
+    def __str__(self) -> str:
+        return f"Policy #{self.policy_id} changed by {self.changed_by_id} at {self.created_at:%Y-%m-%d %H:%M}"
+
+
+class EmployeeReadinessSnapshot(TimeStampedMixin, models.Model):
+    """
+    Immutable snapshot of employee readiness for timeline/trend analytics.
+    Best practice:
+    - Snapshot is created by scheduled job (daily/weekly) NOT on every change.
+    - Company-scoped for multi-company analytics.
+    """
+    employee = models.ForeignKey(
+        "hr.Employee",
+        on_delete=models.CASCADE,
+        related_name="readiness_snapshots",
+        db_index=True,
+    )
+
+    company = models.ForeignKey(
+        "base.Company",
+        on_delete=models.PROTECT,
+        related_name="employee_readiness_snapshots",
+        db_index=True,
+    )
+
+    job = models.ForeignKey(
+        "hr.Job",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="employee_readiness_snapshots",
+        db_index=True,
+    )
+
+    snapshot_date = models.DateField(db_index=True, default=timezone.localdate)
+
+    # Computed results (stored)
+    score = models.PositiveSmallIntegerField(default=0)   # 0..100
+    status = models.CharField(
+        max_length=16,
+        default="not_ready",
+        choices=(
+            ("ready", "Ready"),
+            ("near_ready", "Near Ready"),
+            ("not_ready", "Not Ready"),
+        ),
+        db_index=True,
+    )
+    fit_score = models.PositiveSmallIntegerField(default=0)  # 0..100
+
+    # Explainability (stored)
+    blocking_reason = models.CharField(max_length=64, blank=True, default="")
+    blocking_factors = models.JSONField(default=list, blank=True)
+
+    # Governance / traceability
+    policy_id = models.PositiveIntegerField(null=True, blank=True)  # CareerPolicy.id (store id only)
+
+    class Meta:
+        ordering = ("-snapshot_date", "-id")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["employee", "job", "snapshot_date"],
+                name="readinesssnapshot_unique_employee_job_date",
+            )
+        ]
+        indexes = [
+            models.Index(fields=["company", "snapshot_date"]),
+            models.Index(fields=["employee", "snapshot_date"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.employee_id} @ {self.snapshot_date} = {self.score}% ({self.status})"
 
 # ------------------------------------------------------------
 # EmployeeCategory — وسم/فئة موظف (غير هرمي)

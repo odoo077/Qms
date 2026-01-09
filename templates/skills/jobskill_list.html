@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}Job Skill Matrix{% endblock %}
+
+{% block content %}
+<div class="w-full px-6 py-6 space-y-6">
+
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-3xl font-bold">Job Skill Matrix</h1>
+      <p class="text-sm opacity-70">{{ page_obj.paginator.count }} requirements</p>
+    </div>
+
+    <a href="{% url 'skills:jobskill_create' %}" class="btn btn-primary btn-sm">
+      + New Requirement
+    </a>
+  </div>
+
+  <form method="get" class="bg-base-100 p-4 rounded-xl shadow-sm border border-base-200">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+
+      <div class="lg:col-span-5">
+        <input name="q" value="{{ request.GET.q }}"
+               class="input input-bordered w-full"
+               placeholder="Job, Skill, Skill Type..." />
+      </div>
+
+      <div class="lg:col-span-4">
+        <select name="job" class="select select-bordered w-full">
+          <option value="">All Jobs</option>
+          {% for j in jobs %}
+            <option value="{{ j.id }}"
+              {% if request.GET.job == j.id|stringformat:"s" %}selected{% endif %}>
+              {{ j.name }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="lg:col-span-3 flex gap-2 justify-end">
+        <button class="btn btn-primary btn-sm">Apply</button>
+        <a href="{% url 'skills:jobskill_list' %}" class="btn btn-ghost btn-sm">Reset</a>
+      </div>
+
+    </div>
+  </form>
+
+  <div class="card bg-base-100 shadow overflow-x-auto">
+    <table class="table table-zebra text-sm w-full">
+      <thead>
+        <tr>
+          <th>Job</th>
+          <th>Skill Type</th>
+          <th>Skill</th>
+          <th>Min Level</th>
+          <th>Status</th>
+          <th class="text-right">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          <td class="font-medium">{{ row.job.name }}</td>
+          <td>{{ row.skill.skill_type.name }}</td>
+          <td>{{ row.skill.name }}</td>
+          <td>{{ row.min_level.name }}</td>
+          <td>
+            {% if row.active %}
+              <span class="badge badge-success">Active</span>
+            {% else %}
+              <span class="badge badge-ghost">Inactive</span>
+            {% endif %}
+          </td>
+          <td class="text-right">
+            <a class="btn btn-ghost btn-xs" href="{% url 'skills:jobskill_edit' row.id %}">Edit</a>
+            <a class="btn btn-ghost btn-xs text-error" href="{% url 'skills:jobskill_delete' row.id %}">Delete</a>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="6" class="text-center opacity-70 py-6">
+            No skill requirements defined.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% include "partials/paginator.html" %}
+</div>
+{% endblock %}

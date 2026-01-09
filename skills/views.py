@@ -12,6 +12,7 @@ from typing import Dict, Iterable, Tuple
 
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.messages.views import SuccessMessageMixin
 from django.core.exceptions import ValidationError
 from django.db.models import Q
 from django.http import HttpResponseRedirect
@@ -20,13 +21,15 @@ from django.urls import reverse, reverse_lazy
 from django.views import View
 from django.views.generic import CreateView, DeleteView, ListView, UpdateView
 
+from base.models import Company
+from hr.models import Job
 from .forms import (
     EmployeeSkillForm,
     ResumeLineForm,
     ResumeLineTypeForm,
     SkillForm,
     SkillLevelForm,
-    SkillTypeForm,
+    SkillTypeForm, CompanySkillForm, JobSkillForm,
 )
 from .models import (
     EmployeeSkill,
@@ -34,7 +37,7 @@ from .models import (
     ResumeLineType,
     Skill,
     SkillLevel,
-    SkillType,
+    SkillType, CompanySkill, JobSkill,
 )
 from .services import (
     EmployeeSkillInput,
@@ -545,6 +548,13 @@ class EmployeeSkillCreateView(LoginRequiredMixin, View):
 
         cd = form.cleaned_data
 
+        # ==================================================
+        # Guard: prevent partial submit (BEST PRACTICE)
+        # ==================================================
+        if not cd.get("skill") or not cd.get("skill_level"):
+            # هذا ليس خطأ، بل إعادة عرض فورم (reload state)
+            return render(request, self.template_name, {"form": form})
+
         try:
             add_employee_skill(
                 EmployeeSkillInput(
@@ -869,3 +879,158 @@ class ResumeLineDeleteView(LoginRequiredMixin, CRUDMessagesMixin, DeleteView):
     template_name = CONFIRM_DELETE_TEMPLATE
     success_url = reverse_lazy("skills:resumeline_list")
     success_message_delete = "Resume line deleted successfully."
+
+
+
+# ==========================================================
+# CompanySkill (Company Enablement)
+# ==========================================================
+
+class CompanySkillListView(LoginRequiredMixin, ListView):
+    model = CompanySkill
+    template_name = "skills/companyskill_list.html"
+    context_object_name = "rows"
+    paginate_by = 50
+
+    def get_queryset(self):
+        qs = (
+            CompanySkill.objects
+            .select_related("company", "skill", "skill__skill_type")
+            .order_by("company__name", "skill__name")
+        )
+
+        q = (self.request.GET.get("q") or "").strip()
+        company_id = (self.request.GET.get("company") or "").strip()
+        active = (self.request.GET.get("active") or "").strip()
+
+        if q:
+            qs = qs.filter(
+                Q(skill__name__icontains=q) |
+                Q(skill__skill_type__name__icontains=q) |
+                Q(company__name__icontains=q)
+            )
+
+        if company_id:
+            qs = qs.filter(company_id=company_id)
+
+        if active in {"0", "1"}:
+            qs = qs.filter(active=(active == "1"))
+
+        return qs
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["companies"] = Company.objects.all().order_by("name")
+        return ctx
+
+
+class CompanySkillCreateView(LoginRequiredMixin, SuccessMessageMixin, CreateView):
+    model = CompanySkill
+    form_class = CompanySkillForm
+    template_name = "skills/companyskill_form.html"
+    success_url = reverse_lazy("skills:companyskill_list")
+    success_message = "Company Skill created successfully."
+
+
+class CompanySkillUpdateView(LoginRequiredMixin, SuccessMessageMixin, UpdateView):
+    model = CompanySkill
+    form_class = CompanySkillForm
+    template_name = "skills/companyskill_form.html"
+    success_url = reverse_lazy("skills:companyskill_list")
+    success_message = "Company Skill updated successfully."
+
+
+class CompanySkillDeleteView(LoginRequiredMixin, DeleteView):
+    model = CompanySkill
+    template_name = "partials/confirm_delete.html"
+    success_url = reverse_lazy("skills:companyskill_list")
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        obj = self.object
+        ctx["object_label"] = "Company Skill"
+        ctx["back_url"] = reverse_lazy("skills:companyskill_list")
+        ctx["confirm_title"] = "Delete Company Skill"
+        ctx["confirm_message"] = f"Are you sure you want to delete '{obj.company} · {obj.skill}'?"
+        return ctx
+
+
+# ==========================================================
+# JobSkill (Skill Matrix)
+# ==========================================================
+
+class JobSkillListView(LoginRequiredMixin, ListView):
+    model = JobSkill
+    template_name = "skills/jobskill_list.html"
+    context_object_name = "rows"
+    paginate_by = 50
+
+    def get_queryset(self):
+        qs = (
+            JobSkill.objects
+            .select_related(
+                "job",
+                "skill",
+                "skill__skill_type",
+                "min_level",
+            )
+            .order_by("job__name", "skill__name")
+        )
+
+        q = (self.request.GET.get("q") or "").strip()
+        job_id = (self.request.GET.get("job") or "").strip()
+        active = (self.request.GET.get("active") or "").strip()
+
+        if q:
+            qs = qs.filter(
+                Q(skill__name__icontains=q) |
+                Q(skill__skill_type__name__icontains=q) |
+                Q(job__name__icontains=q)
+            )
+
+        if job_id:
+            qs = qs.filter(job_id=job_id)
+
+        if active in {"0", "1"}:
+            qs = qs.filter(active=(active == "1"))
+
+        return qs
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx["jobs"] = Job.objects.all().order_by("name")
+        return ctx
+
+
+class JobSkillCreateView(LoginRequiredMixin, SuccessMessageMixin, CreateView):
+    model = JobSkill
+    form_class = JobSkillForm
+    template_name = "skills/jobskill_form.html"
+    success_url = reverse_lazy("skills:jobskill_list")
+    success_message = "Job skill requirement created successfully."
+
+
+class JobSkillUpdateView(LoginRequiredMixin, SuccessMessageMixin, UpdateView):
+    model = JobSkill
+    form_class = JobSkillForm
+    template_name = "skills/jobskill_form.html"
+    success_url = reverse_lazy("skills:jobskill_list")
+    success_message = "Job skill requirement updated successfully."
+
+
+class JobSkillDeleteView(LoginRequiredMixin, DeleteView):
+    model = JobSkill
+    template_name = "partials/confirm_delete.html"
+    success_url = reverse_lazy("skills:jobskill_list")
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        obj = self.object
+        ctx["object_label"] = "Job Required Skill"
+        ctx["back_url"] = reverse_lazy("skills:jobskill_list")
+        ctx["confirm_title"] = "Delete Job Required Skill"
+        ctx["confirm_message"] = (
+            f"Are you sure you want to remove '{obj.skill}' "
+            f"from job '{obj.job}'?"
+        )
+        return ctx

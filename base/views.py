@@ -1,7 +1,7 @@
 # base/views.py
 
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
-from django.db.models import Q
+from django.db.models import Q, Count
 from django.views import View
 from django.views.generic import TemplateView, FormView, CreateView, DetailView, UpdateView, DeleteView
 from django.apps import apps
@@ -13,7 +13,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import PasswordChangeForm
 from django.shortcuts import render, redirect
 from django.template.loader import render_to_string
-from django.urls import reverse, reverse_lazy
+from django.urls import reverse, reverse_lazy, NoReverseMatch
 from django.utils import timezone
 from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
@@ -216,61 +216,321 @@ def password_change_done_view(request):
 
 
 # ------------------------------------------------------------
-# Dashboard
+# Dashboard (Odoo-grade, compact, practical)
 # ------------------------------------------------------------
 class HomeView(LoginRequiredMixin, TemplateView):
     template_name = "home.html"
 
+    # ---- Dashboard knobs (tune without touching template) ----
+    RECENT_LIMIT = 7
+    SEARCH_LIMIT = 8
+
+    # ---------------------------------------------------------
+    # Helpers
+    # ---------------------------------------------------------
+    @staticmethod
+    def _has_field(model, field_name: str) -> bool:
+        return any(f.name == field_name for f in model._meta.get_fields() if hasattr(f, "name"))
+
+    def _filter_active_if_supported(self, qs):
+        """
+        Apply active=True only if model has 'active' field.
+        Keeps this dashboard robust even if some base models differ.
+        """
+        model = qs.model
+        if self._has_field(model, "active"):
+            return qs.filter(active=True)
+        return qs
+
+    def _safe_reverse(self, name: str, fallback: str = "#", kwargs=None) -> str:
+        try:
+            return reverse(name, kwargs=kwargs or {})
+        except NoReverseMatch:
+            return fallback
+
+    def _get_active_company_ids(self, Company, allowed_companies_qs):
+        """
+        Active companies only + within allowed companies.
+        Uses request.allowed_company_ids if provided by middleware,
+        otherwise falls back to user's allowed companies.
+        """
+        # user allowed companies
+        allowed_companies_qs = self._filter_active_if_supported(allowed_companies_qs)
+
+        # middleware-provided allowed company ids (if any)
+        active_ids = getattr(self.request, "allowed_company_ids", None)
+        if active_ids:
+            # intersect with allowed companies, and keep only active companies
+            qs = Company.objects.filter(id__in=active_ids)
+            qs = self._filter_active_if_supported(qs)
+            qs = qs.filter(id__in=allowed_companies_qs.values_list("id", flat=True))
+            return list(qs.values_list("id", flat=True))
+
+        # fallback: all active allowed companies
+        return list(allowed_companies_qs.values_list("id", flat=True))
+
+    # ---------------------------------------------------------
+    # Main context
+    # ---------------------------------------------------------
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
 
+        # Models
         Company = apps.get_model("base", "Company")
         Partner = apps.get_model("base", "Partner")
         User = apps.get_model("base", "User")
 
-        # الشركة الحالية (محقونة من middleware)
+        Employee = apps.get_model("hr", "Employee")
+        Asset = apps.get_model("assets", "Asset")
+
+        Skill = apps.get_model("skills", "Skill")
+        EmployeeSkill = apps.get_model("skills", "EmployeeSkill")
+
+        Payslip = apps.get_model("payroll", "Payslip")
+
+        # Current company injected by middleware (optional)
         current_company = None
         cid = getattr(self.request, "company_id", None)
         if cid:
             current_company = Company.objects.filter(id=cid).first()
         ctx["current_company"] = current_company
 
-        # الشركات المسموح بها للمستخدم
-        allowed_companies = self.request.user.companies.all()
+        # Allowed companies (user scope) + active only
+        allowed_companies = getattr(self.request.user, "companies", None)
+        allowed_companies_qs = allowed_companies.all() if allowed_companies else Company.objects.none()
 
-        # الشركات النشطة (Odoo-like)
-        active_ids = (
-            getattr(self.request, "allowed_company_ids", None)
-            or list(allowed_companies.values_list("id", flat=True))
+        active_company_ids = self._get_active_company_ids(Company, allowed_companies_qs)
+
+        # Active companies queryset (for UI dropdown/preview)
+        active_companies_qs = Company.objects.filter(id__in=active_company_ids).order_by("name")
+        # (ensure active=True if supported)
+        active_companies_qs = self._filter_active_if_supported(active_companies_qs)
+
+        # -------------------------
+        # Base app counts (active companies only)
+        # -------------------------
+        partners_qs = Partner.objects.filter(company_id__in=active_company_ids)
+        partners_qs = self._filter_active_if_supported(partners_qs)
+
+        users_qs = User.objects.filter(company_id__in=active_company_ids)
+        users_qs = self._filter_active_if_supported(users_qs)
+
+        # -------------------------
+        # HR / Assets / Skills / Payroll (active companies + active=True where applicable)
+        # -------------------------
+        employees_qs = Employee.objects.filter(company_id__in=active_company_ids, active=True)
+        assets_qs = Asset.objects.filter(company_id__in=active_company_ids, active=True)
+
+        skills_qs = Skill.objects.filter(active=True)
+        # EmployeeSkill has its own active + company field
+        employee_skills_qs = EmployeeSkill.objects.filter(company_id__in=active_company_ids, active=True)
+
+        # Payslip has no 'active' field; filter by company only
+        payslips_qs = Payslip.objects.filter(company_id__in=active_company_ids)
+
+        # -------------------------
+        # KPI Counters (correct, fast)
+        # -------------------------
+        companies_count = len(getattr(self.request, "allowed_company_ids", []))
+        partners_count = partners_qs.count()
+        users_count = users_qs.count()
+
+        employees_count = employees_qs.count()
+        assets_count = assets_qs.count()
+
+        skills_count = skills_qs.count()
+        employee_skills_count = employee_skills_qs.count()
+
+        payslips_count = payslips_qs.count()
+
+        # -------------------------
+        # Breakdowns (for practical dashboard widgets)
+        # -------------------------
+        # Asset status breakdown
+        assets_by_status = (
+            assets_qs.values("status")
+            .annotate(cnt=Count("id"))
+            .order_by("-cnt")
         )
+        assets_by_status_map = {row["status"]: row["cnt"] for row in assets_by_status}
 
-        # Partners (ACL + Company scope)
-        partner_pks = Partner.objects.with_acl("view").values_list("pk", flat=True)
-        partners_qs = (
-            Partner.objects
-            .filter(pk__in=partner_pks, company_id__in=active_ids)
+        # Payslip state breakdown
+        payslips_by_state = (
+            payslips_qs.values("state")
+            .annotate(cnt=Count("id"))
+            .order_by("-cnt")
+        )
+        payslips_by_state_map = {row["state"]: row["cnt"] for row in payslips_by_state}
+
+        # -------------------------
+        # Recent activity (compact, Odoo-like)
+        # -------------------------
+
+        recent_partners = list(
+            partners_qs
             .select_related("company", "parent")
+            .order_by("-id")[: self.RECENT_LIMIT]
         )
+        for p in recent_partners:
+            p.open_url = self._safe_reverse(
+                "base:partner_edit",
+                kwargs={"pk": p.pk},
+            )
 
-        # Users (ACL + Company scope)
-        user_pks = User.acl_objects.with_acl("view").values_list("pk", flat=True)
-        users_qs = (
-            User.objects
-            .filter(pk__in=user_pks, company_id__in=active_ids)
+        recent_users = list(
+            users_qs
             .select_related("company", "partner")
+            .order_by("-id")[: self.RECENT_LIMIT]
         )
+        for u in recent_users:
+            u.open_url = self._safe_reverse(
+                "base:user_edit",
+                kwargs={"pk": u.pk},
+            )
 
+        recent_employees = list(
+            employees_qs
+            .select_related("company", "department", "job")
+            .order_by("-id")[: self.RECENT_LIMIT]
+        )
+        for e in recent_employees:
+            e.open_url = self._safe_reverse(
+                "hr:employee_edit",
+                kwargs={"pk": e.pk},
+            )
+
+        recent_assets = list(
+            assets_qs
+            .select_related("company", "category", "department", "holder")
+            .order_by("-id")[: self.RECENT_LIMIT]
+        )
+        for a in recent_assets:
+            a.open_url = self._safe_reverse(
+                "assets:asset_edit",
+                kwargs={"pk": a.pk},
+            )
+
+        recent_employee_skills = list(
+            employee_skills_qs
+            .select_related("employee", "skill", "skill_type", "skill_level", "company")
+            .order_by("-id")[: self.RECENT_LIMIT]
+        )
+        for es in recent_employee_skills:
+            es.open_url = self._safe_reverse(
+                "skills:employeeskill_update",
+                kwargs={"pk": es.pk},
+            )
+
+        recent_payslips = list(
+            payslips_qs
+            .select_related("company", "employee", "period")
+            .order_by("-id")[: self.RECENT_LIMIT]
+        )
+        for ps in recent_payslips:
+            ps.open_url = self._safe_reverse(
+                "payroll:payslip_edit",
+                kwargs={"pk": ps.pk},
+            )
+
+        # -------------------------
+        # Global Quick Search (single input, top results)
+        # ?q=...
+        # -------------------------
+        q = (self.request.GET.get("q") or "").strip()
+        search = {
+            "q": q,
+            "partners": [],
+            "employees": [],
+            "assets": [],
+        }
+        if q:
+            # Partners (name + optionally other common fields if exist)
+            partner_filter = Q(name__icontains=q)
+            # add phone/email if fields exist
+            if self._has_field(Partner, "phone"):
+                partner_filter |= Q(phone__icontains=q)
+            if self._has_field(Partner, "email"):
+                partner_filter |= Q(email__icontains=q)
+
+            search["partners"] = list(
+                partners_qs.filter(partner_filter).select_related("company").order_by("name")[: self.SEARCH_LIMIT]
+            )
+
+            # Employees
+            emp_filter = Q(name__icontains=q)
+            if self._has_field(Employee, "private_phone"):
+                emp_filter |= Q(private_phone__icontains=q)
+            if self._has_field(Employee, "private_email"):
+                emp_filter |= Q(private_email__icontains=q)
+
+            search["employees"] = list(
+                employees_qs.filter(emp_filter).select_related("company", "department").order_by("name")[: self.SEARCH_LIMIT]
+            )
+
+            # Assets (code/name/serial)
+            asset_filter = Q(name__icontains=q) | Q(code__icontains=q)
+            if self._has_field(Asset, "serial"):
+                asset_filter |= Q(serial__icontains=q)
+
+            search["assets"] = list(
+                assets_qs.filter(asset_filter).select_related("company").order_by("code")[: self.SEARCH_LIMIT]
+            )
+
+        # -------------------------
+        # URLs (safe reverse so dashboard never breaks if a url name changes)
+        # -------------------------
+        urls = {
+            "partners_list": self._safe_reverse("base:partner_list"),
+            "partners_create": self._safe_reverse("base:partner_create"),
+
+            "employees_list": self._safe_reverse("hr:employee_list"),
+            "employees_create": self._safe_reverse("hr:employee_create"),
+
+            "assets_list": self._safe_reverse("assets:asset_list"),
+            "assets_create": self._safe_reverse("assets:asset_create"),
+
+            "skills_list": self._safe_reverse("skills:skill_list"),
+            "employee_skills_list": self._safe_reverse("skills:employeeskill_list"),
+
+            "payslips_list": self._safe_reverse("payroll:payslip_list"),
+            "payslips_create": self._safe_reverse("payroll:payslip_create"),
+        }
+
+        # -------------------------
+        # Context
+        # -------------------------
         ctx.update({
-            "companies_count": allowed_companies.count(),
-            "partners_count": partners_qs.count(),
-            "users_count": users_qs.count(),
-            "recent_partners": partners_qs.order_by("-id")[:8],
-            "recent_users": (
-                users_qs.order_by("-date_joined")[:8]
-                if hasattr(User, "date_joined")
-                else users_qs.order_by("-id")[:8]
-            ),
-            "recent_companies": allowed_companies.order_by("-id")[:9],
+            # company scope
+            "active_company_ids": active_company_ids,
+            "active_companies": active_companies_qs,
+            "companies_count": companies_count,
+
+            # KPIs
+            "partners_count": partners_count,
+            "users_count": users_count,
+            "employees_count": employees_count,
+            "assets_count": assets_count,
+            "skills_count": skills_count,
+            "employee_skills_count": employee_skills_count,
+            "payslips_count": payslips_count,
+
+            # breakdowns
+            "assets_by_status": assets_by_status_map,
+            "payslips_by_state": payslips_by_state_map,
+
+            # recent
+            "recent_partners": recent_partners,
+            "recent_users": recent_users,
+            "recent_employees": recent_employees,
+            "recent_assets": recent_assets,
+            "recent_employee_skills": recent_employee_skills,
+            "recent_payslips": recent_payslips,
+
+            # search
+            "search": search,
+
+            # urls
+            "urls": urls,
         })
         return ctx
 

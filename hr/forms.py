@@ -3,7 +3,7 @@ from django import forms
 from django.core.exceptions import ValidationError
 
 from base.models import Company
-from .models import Department, Job, Employee, EmployeeEducation
+from .models import Department, Job, Employee, EmployeeEducation, CareerPolicy, JobCareerPath
 
 
 # ============================================================
@@ -457,3 +457,75 @@ class EmployeeEducationForm(forms.ModelForm):
             "end_year": forms.NumberInput(attrs={"class": "input input-bordered w-full"}),
             "notes": forms.Textarea(attrs={"class": "textarea textarea-bordered w-full", "rows": 3}),
         }
+
+
+# ============================================================
+# CareerPolicyForm
+# ============================================================
+class CareerPolicyForm(forms.ModelForm):
+    """
+    Career Policy Form (Enterprise-grade)
+    """
+
+    class Meta:
+        model = CareerPolicy
+        fields = (
+            "name",
+            "company",
+            "min_ready_score",
+            "min_near_ready_score",
+            "gap_weight",
+            "ok_weight",
+            "missing_weight",
+            "active",
+        )
+        widgets = {
+            "name": forms.TextInput(attrs={"class": "input input-bordered w-full"}),
+            "company": forms.Select(attrs={"class": "select select-bordered w-full"}),
+            "min_ready_score": forms.NumberInput(attrs={"class": "input input-bordered w-full"}),
+            "min_near_ready_score": forms.NumberInput(attrs={"class": "input input-bordered w-full"}),
+            "gap_weight": forms.NumberInput(attrs={"class": "input input-bordered w-full", "step": "0.1"}),
+            "ok_weight": forms.NumberInput(attrs={"class": "input input-bordered w-full", "step": "0.1"}),
+            "missing_weight": forms.NumberInput(attrs={"class": "input input-bordered w-full", "step": "0.1"}),
+            "active": forms.CheckboxInput(attrs={"class": "checkbox"}),
+        }
+
+    def clean(self):
+        cleaned = super().clean()
+
+        ready = cleaned.get("min_ready_score")
+        near = cleaned.get("min_near_ready_score")
+
+        if ready is not None and near is not None and near >= ready:
+            self.add_error(
+                "min_near_ready_score",
+                "Near Ready score must be lower than Ready score."
+            )
+
+        return cleaned
+
+# ============================================================
+# Career Path
+# ============================================================
+class JobCareerPathForm(forms.ModelForm):
+    class Meta:
+        model = JobCareerPath
+        fields = (
+            "from_job",
+            "to_job",
+            "sequence",
+            "active",
+        )
+
+    def clean(self):
+        cleaned = super().clean()
+        from_job = cleaned.get("from_job")
+        to_job = cleaned.get("to_job")
+
+        if from_job and to_job and from_job == to_job:
+            raise forms.ValidationError(
+                "Source job and destination job cannot be the same."
+            )
+
+        return cleaned
+

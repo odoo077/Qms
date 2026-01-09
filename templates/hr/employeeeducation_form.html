@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}
+{% if object %}Edit Education{% else %}Add Education{% endif %}
+{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto px-6 py-8">
+
+  <div class="card bg-base-100 shadow border border-base-200">
+    <div class="card-body">
+
+      <h2 class="text-xl font-semibold mb-6">
+        {% if object %}Edit Education{% else %}Add Education{% endif %}
+      </h2>
+
+      <form method="post">
+        {% csrf_token %}
+
+        <div class="grid grid-cols-1 gap-5">
+
+          {{ form.employee }}
+
+          <div>
+            <label class="label">Degree</label>
+            {{ form.degree }}
+          </div>
+
+          <div>
+            <label class="label">Field of Study</label>
+            {{ form.field_of_study }}
+          </div>
+
+          <div>
+            <label class="label">Institution</label>
+            {{ form.institution }}
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="label">Start Year</label>
+              {{ form.start_year }}
+            </div>
+            <div>
+              <label class="label">End Year</label>
+              {{ form.end_year }}
+            </div>
+          </div>
+
+        </div>
+
+        <div class="mt-8 flex justify-between">
+          <a href="{{ object.employee.get_absolute_url if object else '#' }}"
+             class="btn btn-ghost">
+            Cancel
+          </a>
+          <button type="submit" class="btn btn-primary">
+            Save
+          </button>
+        </div>
+
+      </form>
+
+    </div>
+  </div>
+
+</div>
+{% endblock %}

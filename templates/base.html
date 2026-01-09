@@ -202,14 +202,13 @@
 </div>
 
 
-<!-- HR -->
+<!-- ================= HR ================= -->
 <div class="dropdown dropdown-hover">
   <label
     tabindex="0"
     class="btn btn-ghost btn-sm
            {% if ns == 'hr' %}btn-active font-semibold{% endif %}"
   >
-    <!-- Main icon -->
     <svg xmlns="http://www.w3.org/2000/svg"
          class="h-4 w-4 mr-1"
          fill="none"
@@ -225,14 +224,12 @@
 
   <ul
     tabindex="0"
-    class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-64 text-sm"
+    class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-72 text-sm"
   >
 
-    <!-- ================= Master Data ================= -->
+    <!-- ================= People ================= -->
     <li class="menu-title opacity-60">
-      <span class="flex items-center gap-2">
-        📁 Master Data
-      </span>
+      <span>👥 People</span>
     </li>
 
     <li>
@@ -245,9 +242,7 @@
 
     <!-- ================= Organization ================= -->
     <li class="menu-title opacity-60">
-      <span class="flex items-center gap-2">
-        🏢 Organization
-      </span>
+      <span>🏢 Organization</span>
     </li>
 
     <li>
@@ -262,19 +257,38 @@
       </a>
     </li>
 
+    <li class="divider my-1"></li>
+
+    <!-- ================= Career & Development ================= -->
+    <li class="menu-title opacity-60">
+      <span>🧭 Career & Development</span>
+    </li>
+
+    <li>
+      <a href="{% url 'hr:jobcareerpath_list' %}">
+        🔀 Career Paths
+      </a>
+    </li>
+
+    <li>
+      <a href="{% url 'hr:career_policy_list' %}">
+        📜 Career Policies
+      </a>
+    </li>
+
   </ul>
 </div>
 
 
 
-<!-- Skills -->
+
+<!-- ================= Skills ================= -->
 <div class="dropdown dropdown-hover">
   <label
     tabindex="0"
     class="btn btn-ghost btn-sm
            {% if ns == 'skills' %}btn-active font-semibold{% endif %}"
   >
-    <!-- Main icon -->
     <svg xmlns="http://www.w3.org/2000/svg"
          class="h-4 w-4 mr-1"
          fill="none"
@@ -288,26 +302,11 @@
     Skills
   </label>
 
-  <ul
-    tabindex="0"
-    class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-64 text-sm"
-  >
+  <ul class="dropdown-content menu p-2 shadow bg-base-100 rounded-box w-72 text-sm">
 
     <!-- ================= Configuration ================= -->
     <li class="menu-title opacity-60">
-      <span class="flex items-center gap-2">
-        <svg xmlns="http://www.w3.org/2000/svg"
-             class="h-4 w-4"
-             fill="none"
-             viewBox="0 0 24 24"
-             stroke="currentColor">
-          <path stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.527-.878 3.27.865 2.392 2.392a1.724 1.724 0 001.065 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.878 1.527-.865 3.27-2.392 2.392a1.724 1.724 0 00-2.573 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.527.878-3.27-.865-2.392-2.392a1.724 1.724 0 00-1.065-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.878-1.527.865-3.27 2.392-2.392.996.574 2.295.048 2.573-1.065z" />
-        </svg>
-        Configuration
-      </span>
+      <span>⚙ Configuration</span>
     </li>
 
     <li>
@@ -330,16 +329,40 @@
 
     <li class="divider my-1"></li>
 
+    <!-- ================= Enablement ================= -->
+    <li class="menu-title opacity-60">
+      <span>🏢 Enablement</span>
+    </li>
+
+    <li>
+      <a href="{% url 'skills:companyskill_list' %}">
+        🔌 Company Skills
+      </a>
+    </li>
+
+    <li class="divider my-1"></li>
+
+    <!-- ================= Job Architecture ================= -->
+    <li class="menu-title opacity-60">
+      <span>🏗 Job Architecture</span>
+    </li>
+
+    <li>
+      <a href="{% url 'skills:jobskill_list' %}">
+        📐 Job Skill Matrix
+      </a>
+    </li>
+
+    <li class="divider my-1"></li>
+
     <!-- ================= Master Data ================= -->
     <li class="menu-title opacity-60">
-      <span class="flex items-center gap-2">
-        📚 Master Data
-      </span>
+      <span>📚 Master Data</span>
     </li>
 
     <li>
       <a href="{% url 'skills:skill_list' %}">
-        ✨ Skills
+        ✨ Skills Catalog
       </a>
     </li>
 
@@ -347,9 +370,7 @@
 
     <!-- ================= Operations ================= -->
     <li class="menu-title opacity-60">
-      <span class="flex items-center gap-2">
-        ⚙ Operations
-      </span>
+      <span>⚡ Operations</span>
     </li>
 
     <li>
@@ -366,6 +387,7 @@
 
   </ul>
 </div>
+
 
 
 

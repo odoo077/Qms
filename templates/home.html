@@ -1,388 +1,340 @@
 {# templates/home.html #}
 {% extends "base.html" %}
-{% load static %}
 
-{# ---- Page metadata ---- #}
-{% block title %}360 Manager{% endblock %}
+{% block title %}Dashboard · 360 Manager{% endblock %}
 
+{% block header_title %}Dashboard{% endblock %}
+
+
+{% block page_actions %}
+<form method="get" class="flex items-center gap-2">
+  <label class="input input-sm input-bordered flex items-center gap-2 w-72">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 opacity-60" viewBox="0 0 24 24" fill="none">
+      <path d="M21 21l-4.3-4.3m1.8-5.2a7 7 0 11-14 0 7 7 0 0114 0z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+    <input name="q" value="{{ search.q }}" class="grow" placeholder="Quick search (employee, asset, partner)..." />
+  </label>
+  <button class="btn btn-sm btn-primary">Search</button>
+  {% if search.q %}
+    <a href="?" class="btn btn-sm btn-ghost">Reset</a>
+  {% endif %}
+</form>
+{% endblock %}
 {% block content %}
-<div class="space-y-8">
+<div class="space-y-6">
 
-  {# ===================== HERO / QUICK START ===================== #}
-  <section class="relative rounded-2xl bg-base-100 ring-1 ring-base-300/60 shadow-xl overflow-hidden">
-    <div aria-hidden="true" class="pointer-events-none absolute inset-0">
-      <div class="absolute -top-24 left-1/4 w-[40rem] h-[40rem] rounded-full blur-3xl bg-primary/10"></div>
-      <div class="absolute -bottom-20 -right-24 w-[36rem] h-[36rem] rounded-full blur-3xl bg-secondary/10"></div>
+
+  {# ========================================================= #}
+  {# QUICK ACTIONS #}
+  {# ========================================================= #}
+  <section class="rounded-2xl border border-base-200 bg-base-100">
+    <div class="p-4 border-b border-base-200">
+      <h2 class="font-semibold">Quick Actions</h2>
+      <p class="text-sm opacity-70">Common operations</p>
     </div>
-
-    <div class="relative px-6 py-8 sm:px-8 lg:px-10">
-      <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
-        <div class="max-w-2xl">
-          <h2 class="text-3xl sm:text-4xl font-black tracking-tight">Your ops, one clean view</h2>
-          <p class="mt-2 text-base-content/70">
-            Jump into your most common actions and scan the latest activity across apps.
-          </p>
-          <div class="mt-5 flex flex-wrap gap-2">
-            <a href="{% url 'base:partner_list' %}" class="btn btn-primary btn-sm">Open Partners</a>
-            <a href="{% url 'hr:employee_list' %}" class="btn btn-secondary btn-sm">Browse Employees</a>
-            <a href="{% url 'payroll:payslip_list' %}" class="btn btn-accent btn-sm">View Payslips</a>
-          </div>
-        </div>
-
-        <!-- quick create palette -->
-        <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
-          {% if perms.base.add_partner %}
-            <a href="{% url 'base:partner_create' %}" class="btn btn-outline btn-sm">+ Partner</a>
-          {% endif %}
-          {% if perms.base.add_user %}
-            <a href="{% url 'base:user_create' %}" class="btn btn-outline btn-sm">+ User</a>
-          {% endif %}
-          {% if perms.base.add_company %}
-            <a href="{% url 'base:company_create' %}" class="btn btn-outline btn-sm">+ Company</a>
-          {% endif %}
-          {% if perms.assets.add_asset %}
-            <a href="{% url 'assets:asset_create' %}" class="btn btn-outline btn-sm">+ Asset</a>
-          {% endif %}
-          {% if perms.hr.add_employee %}
-            <a href="{% url 'hr:employee_create' %}" class="btn btn-outline btn-sm">+ Employee</a>
-          {% endif %}
-          {% if perms.payroll.add_payslip %}
-            <a href="{% url 'payroll:payslip_create' %}" class="btn btn-outline btn-sm">+ Payslip</a>
-          {% endif %}
-        </div>
-      </div>
-
-      <!-- app hubs -->
-      <div class="mt-8 grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
-        <a href="{% url 'base:partner_list' %}" class="card group hover:-translate-y-0.5 hover:shadow-xl transition">
-          <div class="card-body p-4">
-            <div class="flex items-center gap-2">
-              <span class="badge badge-primary badge-sm"></span>
-              <span class="font-medium">Partners</span>
-            </div>
-            <span class="text-xs text-base-content/60">Open directory</span>
-          </div>
-        </a>
-
-        <a href="{% url 'base:user_list' %}" class="card group hover:-translate-y-0.5 hover:shadow-xl transition">
-          <div class="card-body p-4">
-            <div class="flex items-center gap-2">
-              <span class="badge badge-secondary badge-sm"></span>
-              <span class="font-medium">Users</span>
-            </div>
-            <span class="text-xs text-base-content/60">Manage accounts</span>
-          </div>
-        </a>
-
-        <a href="{% url 'base:company_list' %}" class="card group hover:-translate-y-0.5 hover:shadow-xl transition">
-          <div class="card-body p-4">
-            <div class="flex items-center gap-2">
-              <span class="badge badge-accent badge-sm"></span>
-              <span class="font-medium">Companies</span>
-            </div>
-            <span class="text-xs text-base-content/60">Allowed only</span>
-          </div>
-        </a>
-
-        <a href="{% url 'hr:department_list' %}" class="card group hover:-translate-y-0.5 hover:shadow-xl transition">
-          <div class="card-body p-4">
-            <div class="flex items-center gap-2">
-              <span class="badge badge-ghost badge-sm"></span>
-              <span class="font-medium">Departments</span>
-            </div>
-            <span class="text-xs text-base-content/60">Structure</span>
-          </div>
-        </a>
-
-        <a href="{% url 'hr:job_list' %}" class="card group hover:-translate-y-0.5 hover:shadow-xl transition">
-          <div class="card-body p-4">
-            <div class="flex items-center gap-2">
-              <span class="badge badge-ghost badge-sm"></span>
-              <span class="font-medium">Jobs</span>
-            </div>
-            <span class="text-xs text-base-content/60">Positions</span>
-          </div>
-        </a>
-
-        <a href="{% url 'hr:employee_list' %}" class="card group hover:-translate-y-0.5 hover:shadow-xl transition">
-          <div class="card-body p-4">
-            <div class="flex items-center gap-2">
-              <span class="badge badge-ghost badge-sm"></span>
-              <span class="font-medium">Employees</span>
-            </div>
-            <span class="text-xs text-base-content/60">Roster</span>
-          </div>
-        </a>
-      </div>
+    <div class="p-4 flex flex-wrap gap-2">
+      <a href="{{ urls.employees_create }}" class="btn btn-sm btn-outline">Add Employee</a>
+      <a href="{{ urls.assets_create }}" class="btn btn-sm btn-outline">Add Asset</a>
+      <a href="{{ urls.payslips_create }}" class="btn btn-sm btn-outline">Create Payslip</a>
+      <a href="{{ urls.partners_create }}" class="btn btn-sm btn-outline">Add Partner</a>
     </div>
   </section>
 
-  {# ===================== KPI STRIP ===================== #}
-  <section class="grid grid-cols-1 md:grid-cols-3 gap-4">
-    <div class="stat bg-base-100 rounded-2xl ring-1 ring-base-300/60 shadow-md">
-      <div class="stat-title">Companies</div>
-      <div class="stat-value text-primary">{{ companies_count|default:"–" }}</div>
-      <div class="stat-desc">allowed</div>
+  {# ========================================================= #}
+  {# KPI STRIP (Compact) #}
+  {# ========================================================= #}
+  <section class="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-3">
+    <div class="rounded-xl border border-base-200 bg-base-100 p-3">
+      <div class="text-xs uppercase tracking-wide opacity-60">Companies</div>
+      <div class="mt-1 text-2xl font-semibold text-primary">{{ companies_count|default:"0" }}</div>
+      <div class="text-xs opacity-60 mt-1">Active only</div>
     </div>
-    <div class="stat bg-base-100 rounded-2xl ring-1 ring-base-300/60 shadow-md">
-      <div class="stat-title">Partners</div>
-      <div class="stat-value text-secondary">{{ partners_count|default:"–" }}</div>
-      <div class="stat-desc">{% if current_company %}{{ current_company.name }}{% else %}all{% endif %}</div>
+
+    <div class="rounded-xl border border-base-200 bg-base-100 p-3">
+      <div class="text-xs uppercase tracking-wide opacity-60">Partners</div>
+      <div class="mt-1 text-2xl font-semibold">{{ partners_count|default:"0" }}</div>
+      <div class="text-xs opacity-60 mt-1">Active only</div>
     </div>
-    <div class="stat bg-base-100 rounded-2xl ring-1 ring-base-300/60 shadow-md">
-      <div class="stat-title">Users</div>
-      <div class="stat-value text-accent">{{ users_count|default:"–" }}</div>
-      <div class="stat-desc">active</div>
+
+    <div class="rounded-xl border border-base-200 bg-base-100 p-3">
+      <div class="text-xs uppercase tracking-wide opacity-60">Users</div>
+      <div class="mt-1 text-2xl font-semibold">{{ users_count|default:"0" }}</div>
+      <div class="text-xs opacity-60 mt-1">Active only</div>
+    </div>
+
+    <div class="rounded-xl border border-base-200 bg-base-100 p-3">
+      <div class="text-xs uppercase tracking-wide opacity-60">Employees</div>
+      <div class="mt-1 text-2xl font-semibold text-secondary">{{ employees_count|default:"0" }}</div>
+      <div class="text-xs opacity-60 mt-1">active=True</div>
+    </div>
+
+    <div class="rounded-xl border border-base-200 bg-base-100 p-3">
+      <div class="text-xs uppercase tracking-wide opacity-60">Assets</div>
+      <div class="mt-1 text-2xl font-semibold text-secondary">{{ assets_count|default:"0" }}</div>
+      <div class="text-xs opacity-60 mt-1">active=True</div>
+    </div>
+
+    <div class="rounded-xl border border-base-200 bg-base-100 p-3">
+      <div class="text-xs uppercase tracking-wide opacity-60">Skills</div>
+      <div class="mt-1 text-2xl font-semibold">{{ skills_count|default:"0" }}</div>
+      <div class="text-xs opacity-60 mt-1">active=True</div>
+    </div>
+
+    <div class="rounded-xl border border-base-200 bg-base-100 p-3">
+      <div class="text-xs uppercase tracking-wide opacity-60">Employee Skills</div>
+      <div class="mt-1 text-2xl font-semibold">{{ employee_skills_count|default:"0" }}</div>
+      <div class="text-xs opacity-60 mt-1">active=True</div>
+    </div>
+
+    <div class="rounded-xl border border-base-200 bg-base-100 p-3">
+      <div class="text-xs uppercase tracking-wide opacity-60">Payslips</div>
+      <div class="mt-1 text-2xl font-semibold text-accent">{{ payslips_count|default:"0" }}</div>
+      <div class="text-xs opacity-60 mt-1">All states</div>
     </div>
   </section>
 
-  {# ===================== STREAM & SHORTCUTS ===================== #}
-  <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-    <!-- Activity stream -->
-    <div class="lg:col-span-2 card bg-base-100/80 ring-1 ring-base-300/70 shadow-xl">
-      <div class="card-body p-5">
-        <div class="flex items-center justify-between gap-2">
-          <h3 class="text-lg font-semibold">Recent activity{% if current_company %} — {{ current_company.name }}{% endif %}</h3>
-          <div class="join">
-            <a href="{% url 'base:partner_list' %}" class="btn btn-xs btn-outline join-item">Partners</a>
-            <a href="{% url 'hr:employee_list' %}" class="btn btn-xs btn-outline join-item">Employees</a>
-            <a href="{% url 'assets:asset_list' %}" class="btn btn-xs btn-outline join-item">Assets</a>
+  {# ========================================================= #}
+  {# STATUS SNAPSHOTS (Assets / Payslips) #}
+  {# ========================================================= #}
+  <section class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+    <div class="rounded-2xl border border-base-200 bg-base-100">
+      <div class="p-4 border-b border-base-200 flex items-center justify-between">
+        <div class="font-semibold">Assets by Status</div>
+        <a href="{{ urls.assets_list }}" class="link link-hover text-sm">Open Assets</a>
+      </div>
+      <div class="p-4">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+          <div class="rounded-xl bg-base-200/40 p-3">
+            <div class="opacity-70 text-xs uppercase">Available</div>
+            <div class="text-xl font-semibold mt-1">{{ assets_by_status.available|default:"0" }}</div>
           </div>
-        </div>
-        <div class="divider my-2"></div>
-
-        <div class="grid md:grid-cols-2 gap-6">
-          <!-- Recent partners -->
-          <div>
-            <div class="flex items-center justify-between">
-              <h4 class="font-medium">Partners</h4>
-              <a href="{% url 'base:partner_list' %}" class="link link-hover text-xs">View all</a>
-            </div>
-            <ul class="mt-2 divide-y divide-base-300/60">
-              {% if recent_partners %}
-                {% for p in recent_partners %}
-                <li class="py-3 flex items-center justify-between gap-3">
-                  <div class="min-w-0">
-                    <p class="font-medium truncate">{{ p.display_name }}</p>
-                    <p class="text-xs text-base-content/60 truncate">
-                      {{ p.get_company_type_display }}{% if p.company %} • {{ p.company }}{% endif %}
-                    </p>
-                  </div>
-                  <div class="flex gap-2 shrink-0">
-                    <a href="{% url 'base:partner_detail' p.id %}" class="btn btn-primary btn-ghost btn-xs">Open</a>
-                    <a href="{% url 'base:partner_edit' p.id %}" class="btn btn-ghost btn-xs">Edit</a>
-                  </div>
-                </li>
-                {% endfor %}
-              {% else %}
-                <li class="py-3 text-sm text-base-content/70">No partners yet.</li>
-              {% endif %}
-            </ul>
+          <div class="rounded-xl bg-base-200/40 p-3">
+            <div class="opacity-70 text-xs uppercase">Assigned</div>
+            <div class="text-xl font-semibold mt-1">{{ assets_by_status.assigned|default:"0" }}</div>
           </div>
-
-          <!-- Recent users -->
-          <div>
-            <div class="flex items-center justify-between">
-              <h4 class="font-medium">Users</h4>
-              <a href="{% url 'base:user_list' %}" class="link link-hover text-xs">View all</a>
-            </div>
-            <ul class="mt-2 divide-y divide-base-300/60">
-              {% if recent_users %}
-                {% for u in recent_users %}
-                <li class="py-3 flex items-center justify-between gap-3">
-                  <div class="min-w-0">
-                    <p class="font-medium truncate">{{ u.get_full_name|default:u.email }}</p>
-                    <p class="text-xs text-base-content/60 truncate">
-                      {{ u.email }}{% if u.company %} • {{ u.company }}{% endif %}
-                    </p>
-                  </div>
-                  <span class="text-xs text-base-content/60 shrink-0">
-                    {% if u.date_joined %}Joined {{ u.date_joined|date:"Y-m-d" }}{% endif %}
-                  </span>
-                </li>
-                {% endfor %}
-              {% else %}
-                <li class="py-3 text-sm text-base-content/70">No users yet.</li>
-              {% endif %}
-            </ul>
+          <div class="rounded-xl bg-base-200/40 p-3">
+            <div class="opacity-70 text-xs uppercase">Maintenance</div>
+            <div class="text-xl font-semibold mt-1">{{ assets_by_status.maintenance|default:"0" }}</div>
+          </div>
+          <div class="rounded-xl bg-base-200/40 p-3">
+            <div class="opacity-70 text-xs uppercase">Retired</div>
+            <div class="text-xl font-semibold mt-1">{{ assets_by_status.retired|default:"0" }}</div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Shortcuts / Focus -->
-    <div class="card bg-base-100/80 ring-1 ring-base-300/70 shadow-xl">
-      <div class="card-body p-5">
-        <h3 class="text-lg font-semibold">Quick focus</h3>
-        <div class="divider my-2"></div>
-        <div class="grid gap-2">
-          <a class="btn btn-sm btn-outline justify-start" href="{% url 'performance:task_list' %}">My assigned tasks</a>
-          <a class="btn btn-sm btn-outline justify-start" href="{% url 'performance:evaluation_list' %}">Pending evaluations</a>
-          <a class="btn btn-sm btn-outline justify-start" href="{% url 'assets:assignment_list' %}">Asset handovers</a>
-          <a class="btn btn-sm btn-outline justify-start" href="{% url 'payroll:payslip_list' %}">Latest payslips</a>
+    <div class="rounded-2xl border border-base-200 bg-base-100">
+      <div class="p-4 border-b border-base-200 flex items-center justify-between">
+        <div class="font-semibold">Payslips by State</div>
+        <a href="{{ urls.payslips_list }}" class="link link-hover text-sm">Open Payslips</a>
+      </div>
+      <div class="p-4">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+          <div class="rounded-xl bg-base-200/40 p-3">
+            <div class="opacity-70 text-xs uppercase">Draft</div>
+            <div class="text-xl font-semibold mt-1">{{ payslips_by_state.draft|default:"0" }}</div>
+          </div>
+          <div class="rounded-xl bg-base-200/40 p-3">
+            <div class="opacity-70 text-xs uppercase">Validated</div>
+            <div class="text-xl font-semibold mt-1">{{ payslips_by_state.validated|default:"0" }}</div>
+          </div>
+          <div class="rounded-xl bg-base-200/40 p-3">
+            <div class="opacity-70 text-xs uppercase">Paid</div>
+            <div class="text-xl font-semibold mt-1">{{ payslips_by_state.paid|default:"0" }}</div>
+          </div>
+          <div class="rounded-xl bg-base-200/40 p-3">
+            <div class="opacity-70 text-xs uppercase">Cancelled</div>
+            <div class="text-xl font-semibold mt-1">{{ payslips_by_state.cancel|default:"0" }}</div>
+          </div>
         </div>
       </div>
     </div>
   </section>
 
-  {# ===================== CROSS-APP STRIP ===================== #}
-  <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-    <!-- Assets -->
-    <div class="card bg-base-100/80 ring-1 ring-base-300/70 shadow-xl">
-      <div class="card-body p-5">
-        <div class="flex items-center justify-between">
-          <h3 class="text-lg font-semibold">Recent assets</h3>
-          <a href="{% url 'assets:asset_list' %}" class="btn btn-xs btn-outline">All assets</a>
-        </div>
-        <div class="divider my-2"></div>
-
-        {% if recent_assets %}
-          <ul class="divide-y divide-base-300/60">
-            {% for a in recent_assets %}
-              <li class="py-3 flex items-center justify-between gap-3">
-                <div class="min-w-0">
-                  <p class="font-medium truncate">{{ a.code }} — {{ a.name }}</p>
-                  <p class="text-xs text-base-content/60 truncate">
-                    {{ a.get_status_display }}{% if a.holder %} • holder: {{ a.holder }}{% endif %}
-                  </p>
-                </div>
-                <a href="{% url 'assets:asset_edit' a.id %}" class="btn btn-xs btn-ghost">Open</a>
-              </li>
-            {% endfor %}
-          </ul>
-        {% else %}
-          <p class="text-sm text-base-content/70">No assets to show.</p>
-        {% endif %}
-      </div>
+  {# ========================================================= #}
+  {# QUICK SEARCH RESULTS (only when q exists) #}
+  {# ========================================================= #}
+  {% if search.q %}
+  <section class="rounded-2xl border border-base-200 bg-base-100">
+    <div class="p-4 border-b border-base-200">
+      <h2 class="font-semibold">Search Results</h2>
+      <p class="text-sm opacity-70">Top matches for “{{ search.q }}”</p>
     </div>
 
-    <!-- Employees -->
-    <div class="card bg-base-100/80 ring-1 ring-base-300/70 shadow-xl">
-      <div class="card-body p-5">
-        <div class="flex items-center justify-between">
-          <h3 class="text-lg font-semibold">Recent employees</h3>
-          <a href="{% url 'hr:employee_list' %}" class="btn btn-xs btn-outline">All employees</a>
+    <div class="p-4 grid grid-cols-1 lg:grid-cols-3 gap-4">
+
+      <div>
+        <div class="text-sm font-semibold mb-2">Partners</div>
+        <div class="space-y-2">
+          {% for p in search.partners %}
+            <div class="flex items-center justify-between rounded-xl border border-base-200 p-3">
+              <div class="min-w-0">
+                <div class="truncate font-medium">{{ p.name }}</div>
+                <div class="text-xs opacity-60 truncate">{{ p.company }}</div>
+              </div>
+              <a class="btn btn-xs btn-ghost" href="{{ p.open_url }}">Open</a>
+            </div>
+          {% empty %}
+            <div class="text-sm opacity-60">No matches</div>
+          {% endfor %}
         </div>
-        <div class="divider my-2"></div>
-
-        {% if recent_employees %}
-          <ul class="divide-y divide-base-300/60">
-            {% for e in recent_employees %}
-              <li class="py-3 flex items-center justify-between gap-3">
-                <div class="min-w-0">
-                  <p class="font-medium truncate">{{ e.name }}</p>
-                  <p class="text-xs text-base-content/60 truncate">
-                    {% if e.job %}{{ e.job }} • {% endif %}{% if e.department %}{{ e.department }}{% endif %}
-                  </p>
-                </div>
-                <a href="{% url 'hr:employee_edit' e.id %}" class="btn btn-xs btn-ghost">Open</a>
-              </li>
-            {% endfor %}
-          </ul>
-        {% else %}
-          <p class="text-sm text-base-content/70">No employees to show.</p>
-        {% endif %}
       </div>
-    </div>
 
-    <!-- Performance -->
-    <div class="card bg-base-100/80 ring-1 ring-base-300/70 shadow-xl">
-      <div class="card-body p-5">
-        <div class="flex items-center justify-between">
-          <h3 class="text-lg font-semibold">Performance</h3>
-          <a href="{% url 'performance:task_list' %}" class="btn btn-xs btn-outline">Tasks</a>
+      <div>
+        <div class="text-sm font-semibold mb-2">Employees</div>
+        <div class="space-y-2">
+          {% for e in search.employees %}
+            <div class="flex items-center justify-between rounded-xl border border-base-200 p-3">
+              <div class="min-w-0">
+                <div class="truncate font-medium">{{ e.name }}</div>
+                <div class="text-xs opacity-60 truncate">{{ e.department }}</div>
+              </div>
+              <a class="btn btn-xs btn-ghost" href="{{ e.open_url }}">Open</a>
+            </div>
+          {% empty %}
+            <div class="text-sm opacity-60">No matches</div>
+          {% endfor %}
         </div>
-        <div class="divider my-2"></div>
-
-        {% if recent_tasks %}
-          <ul class="divide-y divide-base-300/60">
-            {% for t in recent_tasks %}
-              <li class="py-3 flex items-center justify-between gap-3">
-                <div class="min-w-0">
-                  <p class="font-medium truncate">{{ t.title|default:t.name }}</p>
-                  <p class="text-xs text-base-content/60 truncate">
-                    {% if t.employee %}{{ t.employee }} • {% endif %}{{ t.status|default:t.state }}
-                  </p>
-                </div>
-                <a href="{% url 'performance:task_edit' t.id %}" class="btn btn-xs btn-ghost">Open</a>
-              </li>
-            {% endfor %}
-          </ul>
-        {% elif recent_evaluations %}
-          <ul class="divide-y divide-base-300/60">
-            {% for ev in recent_evaluations %}
-              <li class="py-3 flex items-center justify-between gap-3">
-                <div class="min-w-0">
-                  <p class="font-medium truncate">{{ ev.name }}</p>
-                  <p class="text-xs text-base-content/60 truncate">
-                    {{ ev.employee }} • {{ ev.state }}
-                  </p>
-                </div>
-                <a href="{% url 'performance:evaluation_edit' ev.id %}" class="btn btn-xs btn-ghost">Open</a>
-              </li>
-            {% endfor %}
-          </ul>
-        {% else %}
-          <p class="text-sm text-base-content/70">No performance items to show.</p>
-        {% endif %}
       </div>
+
+      <div>
+        <div class="text-sm font-semibold mb-2">Assets</div>
+        <div class="space-y-2">
+          {% for a in search.assets %}
+            <div class="flex items-center justify-between rounded-xl border border-base-200 p-3">
+              <div class="min-w-0">
+                <div class="truncate font-medium">{{ a.code }} — {{ a.name }}</div>
+                <div class="text-xs opacity-60 truncate">{{ a.company }}</div>
+              </div>
+              <a class="btn btn-xs btn-ghost" href="{{ a.open_url }}">Open</a>
+            </div>
+          {% empty %}
+            <div class="text-sm opacity-60">No matches</div>
+          {% endfor %}
+        </div>
+      </div>
+
     </div>
   </section>
+  {% endif %}
 
-  {# ===================== PAYROLL SPOTLIGHT ===================== #}
-  <section class="card bg-base-100/80 ring-1 ring-base-300/70 shadow-xl">
-    <div class="card-body p-5">
-      <div class="flex items-center justify-between">
-        <h3 class="text-lg font-semibold">Payroll spotlight</h3>
-        <div class="flex gap-2">
-          <a href="{% url 'payroll:payslip_list' %}" class="btn btn-xs btn-outline">Payslips</a>
-          <a href="{% url 'payroll:period_list' %}" class="btn btn-xs btn-outline">Periods</a>
+  {# ========================================================= #}
+  {# RECENT ACTIVITY (compact lists, no big cards) #}
+  {# ========================================================= #}
+  <section class="grid grid-cols-1 xl:grid-cols-2 gap-4">
+
+    <div class="rounded-2xl border border-base-200 bg-base-100">
+      <div class="p-4 border-b border-base-200 flex items-center justify-between">
+        <div>
+          <div class="font-semibold">Recent Employees</div>
+          <div class="text-sm opacity-70">active=True (latest)</div>
         </div>
+        <a href="{{ urls.employees_list }}" class="link link-hover text-sm">View all</a>
       </div>
-      <div class="divider my-2"></div>
-
-      {% if recent_payslips %}
+      <div class="p-2">
         <div class="overflow-x-auto">
           <table class="table table-sm">
-            <thead>
-              <tr>
-                <th>Employee</th>
-                <th>Period</th>
-                <th>Net</th>
-                <th>Status</th>
-                <th></th>
-              </tr>
-            </thead>
             <tbody>
-              {% for ps in recent_payslips %}
-              <tr class="hover">
-                <td class="truncate">{{ ps.employee }}</td>
-                <td>{{ ps.period.year }}-{{ ps.period.month|stringformat:"02d" }}</td>
-                <td>{{ ps.net }}</td>
-                <td><span class="badge">{{ ps.state }}</span></td>
-                <td><a href="{% url 'payroll:payslip_detail' ps.id %}" class="btn btn-ghost btn-xs">Open</a></td>
+              {% for e in recent_employees %}
+              <tr>
+                <td class="font-medium">{{ e.name }}</td>
+                <td class="opacity-70">{{ e.department }}</td>
+                <td class="text-right">
+                  <a class="btn btn-xs btn-ghost" href="{{ e.open_url }}">Open</a>
+                </td>
               </tr>
+              {% empty %}
+              <tr><td class="opacity-60">No recent employees</td></tr>
               {% endfor %}
             </tbody>
           </table>
         </div>
-      {% else %}
-        <p class="text-sm text-base-content/70">No payslips yet.</p>
-      {% endif %}
+      </div>
     </div>
+
+    <div class="rounded-2xl border border-base-200 bg-base-100">
+      <div class="p-4 border-b border-base-200 flex items-center justify-between">
+        <div>
+          <div class="font-semibold">Recent Assets</div>
+          <div class="text-sm opacity-70">active=True (latest)</div>
+        </div>
+        <a href="{{ urls.assets_list }}" class="link link-hover text-sm">View all</a>
+      </div>
+      <div class="p-2">
+        <div class="overflow-x-auto">
+          <table class="table table-sm">
+            <tbody>
+              {% for a in recent_assets %}
+              <tr>
+                <td class="font-medium">{{ a.code }}</td>
+                <td class="truncate">{{ a.name }}</td>
+                <td class="opacity-70">{{ a.status }}</td>
+                <td class="text-right">
+                  <a class="btn btn-xs btn-ghost" href="{{ a.open_url }}">Open</a>
+                </td>
+              </tr>
+              {% empty %}
+              <tr><td class="opacity-60">No recent assets</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="rounded-2xl border border-base-200 bg-base-100">
+      <div class="p-4 border-b border-base-200 flex items-center justify-between">
+        <div class="font-semibold">Recent Partners</div>
+        <a href="{{ urls.partners_list }}" class="link link-hover text-sm">View all</a>
+      </div>
+      <div class="p-2">
+        <table class="table table-sm">
+          <tbody>
+            {% for p in recent_partners %}
+            <tr>
+              <td class="font-medium">{{ p.name }}</td>
+              <td class="opacity-70">{{ p.company }}</td>
+              <td class="text-right">
+                <a class="btn btn-xs btn-ghost" href="{{ p.open_url }}">Open</a>
+              </td>
+            </tr>
+            {% empty %}
+            <tr><td class="opacity-60">No recent partners</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="rounded-2xl border border-base-200 bg-base-100">
+      <div class="p-4 border-b border-base-200 flex items-center justify-between">
+        <div class="font-semibold">Recent Payslips</div>
+        <a href="{{ urls.payslips_list }}" class="link link-hover text-sm">View all</a>
+      </div>
+      <div class="p-2">
+        <table class="table table-sm">
+          <tbody>
+            {% for ps in recent_payslips %}
+            <tr>
+              <td class="font-medium">{{ ps.employee }}</td>
+              <td class="opacity-70">{{ ps.period }}</td>
+              <td class="opacity-70">{{ ps.state }}</td>
+              <td class="text-right">
+                <a class="btn btn-xs btn-ghost" href="{{ ps.open_url }}">Open</a>
+              </td>
+            </tr>
+            {% empty %}
+            <tr><td class="opacity-60">No recent payslips</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
   </section>
 
-</div>
-{% endblock %}
 
-{% block extra_scripts %}
-<script>
-  // (Optional) Example: duplicate tiny heatmap blocks if present on page in future sections
-  (function () {
-    const container = document.querySelector('[data-heatmap-30d]');
-    if (!container) return;
-    const base = Array.from(container.children).slice(0,7);
-    for (let i = 0; i < 3; i++) base.forEach(node => container.appendChild(node.cloneNode(true)));
-  })();
-</script>
+
+</div>
 {% endblock %}

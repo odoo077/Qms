@@ -14,7 +14,7 @@ from .models import (
     Skill,
     EmployeeSkill,
     ResumeLine,
-    ResumeLineType,
+    ResumeLineType, CompanySkill, JobSkill,
 )
 
 
@@ -240,3 +240,32 @@ class ResumeLineForm(BaseCleanModelForm):
             )
 
         return cleaned
+
+
+# ============================================================
+# CompanySkillForm
+# ============================================================
+class CompanySkillForm(forms.ModelForm):
+    class Meta:
+        model = CompanySkill
+        fields = ("company", "skill", "active")
+        widgets = {
+            "company": forms.Select(attrs={"class": "select select-bordered w-full"}),
+            "skill": forms.Select(attrs={"class": "select select-bordered w-full"}),
+            "active": forms.CheckboxInput(attrs={"class": "checkbox"}),
+        }
+
+
+# ============================================================
+# JobSkillForm (Skill Matrix)
+# ============================================================
+class JobSkillForm(forms.ModelForm):
+    class Meta:
+        model = JobSkill
+        fields = ("job", "skill", "min_level", "active")
+        widgets = {
+            "job": forms.Select(attrs={"class": "select select-bordered w-full"}),
+            "skill": forms.Select(attrs={"class": "select select-bordered w-full"}),
+            "min_level": forms.Select(attrs={"class": "select select-bordered w-full"}),
+            "active": forms.CheckboxInput(attrs={"class": "checkbox"}),
+        }

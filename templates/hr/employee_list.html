@@ -196,6 +196,9 @@
             <!-- Employee status (Suspended وغيرها) -->
             <th>Employee Status</th>
 
+            <!-- Career Readiness -->
+            <th>Career Readiness</th>
+
             <!-- Record status (Active/Archived) -->
             <th>Record</th>
 
@@ -242,6 +245,45 @@
                 <span class="badge badge-ghost">—</span>
               {% endif %}
             </td>
+
+            <!-- Career Readiness -->
+            <td>
+              {% if emp.readiness_label %}
+                <div class="flex flex-col items-start gap-1
+                  {% if not emp.active %}
+                    opacity-50
+                  {% endif %}
+                ">
+
+                  <a href="{{ emp.get_absolute_url }}"
+                     class="badge cursor-pointer hover:opacity-80 transition
+                       {% if emp.readiness_label == 'Ready' %}
+                         badge-success
+                       {% elif emp.readiness_label == 'Near Ready' %}
+                         badge-warning
+                       {% elif emp.readiness_label == 'Not Ready' %}
+                         badge-error
+                       {% else %}
+                         badge-ghost
+                       {% endif %}
+                     ">
+                    {{ emp.readiness_label }}
+                  </a>
+
+                  {% if emp.readiness_score is not None %}
+                    <span class="text-xs opacity-70">
+                      {{ emp.readiness_score }}%
+                    </span>
+                  {% endif %}
+
+
+
+                </div>
+              {% else %}
+                <span class="text-xs opacity-50">—</span>
+              {% endif %}
+            </td>
+
 
             <!-- Record badge -->
             <td>

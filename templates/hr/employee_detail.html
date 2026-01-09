@@ -5,7 +5,7 @@
 {% endblock %}
 
 {% block content %}
-<div class="max-w-7xl mx-auto px-6 py-6 space-y-6">
+<div class=" mx-auto px-6 py-6 space-y-6">
 
     <!-- ===================================================== -->
     <!-- Header -->
@@ -64,95 +64,280 @@
 
 <div class="tab-content bg-base-100 p-6 rounded-box mt-4">
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+<!-- ===================================================== -->
+<!-- Career Readiness Summary -->
+<!-- ===================================================== -->
 
-        <!-- ================= General ================= -->
-        <div class="card bg-base-100 shadow p-6">
-            <h3 class="font-semibold text-lg mb-4">
-                General
-            </h3>
+<div class="space-y-6">
 
-            <ul class="space-y-2 text-sm">
-                <li class="flex justify-between gap-2">
-                    <span class="opacity-70">Company</span>
-                    <span class="font-medium">{{ employee.company.name }}</span>
-                </li>
+  <!-- ================= Top Summary Grid ================= -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-                <li class="flex justify-between gap-2">
-                    <span class="opacity-70">Department</span>
-                    <span class="text-right">
-                        {{ employee.department.complete_name|default:"—" }}
-                    </span>
-                </li>
+    <!-- ================= General ================= -->
+    <div class="card bg-base-100 shadow-sm border border-base-200 p-6">
+      <h3 class="font-semibold text-base mb-4 tracking-wide">
+        General Information
+      </h3>
 
-                <li class="flex justify-between gap-2">
-                    <span class="opacity-70">Job Title</span>
-                    <span class="font-medium">
-                        {{ employee.job.name|default:"—" }}
-                    </span>
-                </li>
+      <ul class="space-y-3 text-sm">
+        <li class="flex justify-between">
+          <span class="text-base-content/60">Company</span>
+          <span class="font-medium">{{ employee.company.name }}</span>
+        </li>
 
-                <li class="flex justify-between gap-2">
-                    <span class="opacity-70">Manager</span>
-                    <span class="font-medium">
-                        {{ employee.manager.name|default:"—" }}
-                    </span>
-                </li>
-            </ul>
-        </div>
+        <li class="flex justify-between">
+          <span class="text-base-content/60">Department</span>
+          <span class="text-right">
+            {{ employee.department.complete_name|default:"—" }}
+          </span>
+        </li>
 
-        <!-- ================= Account ================= -->
-        <div class="card bg-base-100 shadow p-6">
-            <h3 class="font-semibold text-lg mb-4">
-                Account
-            </h3>
+        <li class="flex justify-between">
+          <span class="text-base-content/60">Job Title</span>
+          <span class="font-medium">
+            {{ employee.job.name|default:"—" }}
+          </span>
+        </li>
 
-            <ul class="space-y-2 text-sm">
-                <li class="flex justify-between gap-2">
-                    <span class="opacity-70">User</span>
-                    <span class="font-medium">
-                        {{ employee.user.email|default:"—" }}
-                    </span>
-                </li>
-
-                <li class="flex justify-between gap-2">
-                    <span class="opacity-70">Barcode</span>
-                    <span class="font-mono">
-                        {{ employee.barcode|default:"—" }}
-                    </span>
-                </li>
-
-                <li class="flex justify-between gap-2">
-                    <span class="opacity-70">PIN</span>
-                    <span class="font-mono">
-                        {{ employee.pin|default:"—" }}
-                    </span>
-                </li>
-            </ul>
-        </div>
-
-        <!-- ================= Classification ================= -->
-        <div class="card bg-base-100 shadow p-6">
-            <h3 class="font-semibold text-lg mb-4">
-                Classification
-            </h3>
-
-            {% if employee.categories.exists %}
-                <div class="flex flex-wrap gap-2">
-                    {% for cat in employee.categories.all %}
-                        <span class="badge badge-outline">
-                            {{ cat.name }}
-                        </span>
-                    {% endfor %}
-                </div>
-            {% else %}
-                <p class="text-sm opacity-60">
-                    No classifications assigned.
-                </p>
-            {% endif %}
-        </div>
-
+        <li class="flex justify-between">
+          <span class="text-base-content/60">Manager</span>
+          <span class="font-medium">
+            {{ employee.manager.name|default:"—" }}
+          </span>
+        </li>
+      </ul>
     </div>
+
+    <!-- ================= Account ================= -->
+    <div class="card bg-base-100 shadow-sm border border-base-200 p-6">
+      <h3 class="font-semibold text-base mb-4 tracking-wide">
+        Account Details
+      </h3>
+
+      <ul class="space-y-3 text-sm">
+        <li class="flex justify-between">
+          <span class="text-base-content/60">User</span>
+          <span class="font-medium truncate max-w-[60%]">
+            {{ employee.user.email|default:"—" }}
+          </span>
+        </li>
+
+        <li class="flex justify-between">
+          <span class="text-base-content/60">Barcode</span>
+          <span class="font-mono">
+            {{ employee.barcode|default:"—" }}
+          </span>
+        </li>
+
+        <li class="flex justify-between">
+          <span class="text-base-content/60">PIN</span>
+          <span class="font-mono">
+            {{ employee.pin|default:"—" }}
+          </span>
+        </li>
+      </ul>
+    </div>
+
+    <!-- ================= Classification ================= -->
+    <div class="card bg-base-100 shadow-sm border border-base-200 p-6">
+      <h3 class="font-semibold text-base mb-4 tracking-wide">
+        Classification
+      </h3>
+
+      {% if employee.categories.exists %}
+        <div class="flex flex-wrap gap-2">
+          {% for cat in employee.categories.all %}
+            <span class="badge badge-outline text-xs">
+              {{ cat.name }}
+            </span>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="text-sm text-base-content/60">
+          No classifications assigned.
+        </p>
+      {% endif %}
+    </div>
+
+  </div>
+
+  <!-- ================= Career Readiness ================= -->
+  <div class="card bg-base-100 shadow-md border border-base-200 p-6">
+
+    <div class="flex items-center justify-between mb-5">
+      <h3 class="font-semibold text-lg tracking-wide">
+        Career Readiness Overview
+      </h3>
+
+      {% if job_fit %}
+        {% if job_fit.score >= 85 %}
+          <span class="badge badge-success badge-lg">Ready</span>
+        {% elif job_fit.score >= 70 %}
+          <span class="badge badge-warning badge-lg">Near Ready</span>
+        {% else %}
+          <span class="badge badge-error badge-lg">Not Ready</span>
+        {% endif %}
+      {% endif %}
+    </div>
+
+    {% if job_fit %}
+
+      <!-- Score -->
+      <div class="mb-5">
+        <div class="flex justify-between text-sm mb-1">
+          <span class="text-base-content/60">Readiness Score</span>
+          <span class="font-semibold">{{ job_fit.score }}%</span>
+        </div>
+
+        <progress
+          class="progress
+            {% if job_fit.score >= 85 %}
+              progress-success
+            {% elif job_fit.score >= 70 %}
+              progress-warning
+            {% else %}
+              progress-error
+            {% endif %}
+          "
+          value="{{ job_fit.score }}"
+          max="100">
+        </progress>
+      </div>
+
+      <!-- Explanation -->
+      <p class="text-sm text-base-content/70 mb-4">
+        {% if job_fit.score >= 85 %}
+          Employee fully meets the required skills for the current role.
+        {% elif job_fit.score >= 70 %}
+          Minor skill gaps identified. Targeted training is recommended.
+        {% else %}
+          Significant skill gaps detected. Development is required before progression.
+        {% endif %}
+      </p>
+
+      {% if next_eligible_job %}
+        <div class="text-sm mb-4">
+          <span class="text-base-content/60">Next eligible role:</span>
+          <a href="{{ next_eligible_job.get_absolute_url }}"
+             class="ml-1 link link-hover font-medium">
+            {{ next_eligible_job.name }}
+          </a>
+        </div>
+      {% endif %}
+
+      {% if training_recommendations_top %}
+        <div class="mt-5">
+          <h4 class="text-sm font-semibold mb-3 tracking-wide">
+            Priority Training Recommendations
+          </h4>
+
+          <ul class="space-y-3 text-sm">
+            {% for rec in training_recommendations_top %}
+              <li class="flex flex-col gap-1">
+                <div class="flex items-center gap-2">
+                  <span class="h-2 w-2 rounded-full
+                    {% if rec.status == 'missing' %}
+                      bg-error
+                    {% else %}
+                      bg-warning
+                    {% endif %}
+                  "></span>
+
+                  <span class="font-medium">
+                    {{ rec.skill.name }}
+                    <span class="text-base-content/50">
+                      ({{ rec.status|capfirst }})
+                    </span>
+                  </span>
+                </div>
+
+                <span class="ml-4 text-xs text-base-content/60">
+                  {% if rec.status == "missing" %}
+                    Critical requirement for the next eligible role.
+                  {% else %}
+                    Improvement recommended for career progression.
+                  {% endif %}
+                </span>
+              </li>
+            {% endfor %}
+          </ul>
+
+          <div class="mt-3">
+            <label for="emp_tabs"
+                   class="link link-hover text-sm text-base-content/70"
+                   onclick="document.querySelector('input[aria-label=&quot;Skills&quot;]').click()">
+              View full skill gap →
+            </label>
+          </div>
+        </div>
+      {% endif %}
+
+    {% else %}
+      <p class="text-sm text-base-content/60">
+        Readiness data not available.
+      </p>
+    {% endif %}
+  </div>
+
+  <!-- ================= Next Role ================= -->
+  {% if next_role %}
+  <div class="card bg-base-100 shadow-sm border border-base-200 p-6">
+    <h3 class="font-semibold text-lg mb-2 tracking-wide">
+      Next Role – Skill Readiness
+    </h3>
+
+    <p class="text-xs text-base-content/60 mb-3">
+      Skill requirements for the next role, compared against the employee’s current skill profile.
+    </p>
+
+
+    <p class="text-sm text-base-content/60 mb-4">
+      Target role:
+      <span class="font-medium">{{ next_role.name }}</span>
+    </p>
+
+    {% if next_role_missing_skills or next_role_gap_skills %}
+
+      {% if next_role_missing_skills %}
+        <div class="mb-4">
+          <p class="text-sm font-semibold text-error mb-1">
+            Missing Skills
+          </p>
+          <ul class="list-disc list-inside text-sm text-base-content/80">
+            {% for req in next_role_missing_skills %}
+              <li>{{ req.skill.name }} ({{ req.min_level.name }})</li>
+            {% endfor %}
+          </ul>
+        </div>
+      {% endif %}
+
+      {% if next_role_gap_skills %}
+        <div>
+          <p class="text-sm font-semibold text-warning mb-1">
+            Skills to Improve
+          </p>
+          <ul class="list-disc list-inside text-sm text-base-content/80">
+            {% for item in next_role_gap_skills %}
+              <li>
+                {{ item.skill.name }} —
+                {{ item.current.name }} → {{ item.required.name }}
+              </li>
+            {% endfor %}
+          </ul>
+        </div>
+      {% endif %}
+
+    {% else %}
+      <p class="text-sm text-success">
+        All required skills for the next role are met.
+      </p>
+    {% endif %}
+  </div>
+  {% endif %}
+
+</div>
+
+
 
 </div>
 
@@ -162,7 +347,9 @@
         <div class="tab-content bg-base-100 p-6 rounded-box mt-4">
 
             <div class="flex items-center justify-between mb-4">
-                <h3 class="text-lg font-semibold">Employee Skills</h3>
+                <h3 class="text-lg font-semibold">
+                  Current Role – Employee Skills
+                </h3>
                 <a href="{% url 'skills:employeeskill_create' %}?employee={{ employee.id }}"
                    class="btn btn-sm btn-primary">
                     + Add Skill
@@ -195,8 +382,161 @@
                     </tbody>
                 </table>
             </div>
+{% if skill_gap %}
+    <div class="mt-6">
+        <h4 class="font-semibold text-md mb-3 text-error">
+          Current Role – Skill Gap Analysis
+        </h4>
+
+        <div class="overflow-x-auto">
+            <table class="table table-zebra w-full text-sm">
+                <thead>
+                    <tr>
+                        <th>Required Skill</th>
+                        <th>Required Level</th>
+                        <th>Employee Level</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in skill_gap %}
+                    <tr>
+                      <td>{{ row.required_skill.name }}</td>
+                      <td>{{ row.required_level.name }} ({{ row.required_level.level_progress }}%)</td>
+                      <td>
+                        {% if row.employee_level %}
+                          {{ row.employee_level.name }} ({{ row.employee_level.level_progress }}%)
+                        {% else %}
+                          —
+                        {% endif %}
+                      </td>
+                      <td>
+                        {% if row.status == "ok" %}
+                          <span class="badge badge-success">OK</span>
+                        {% elif row.status == "gap" %}
+                          <span class="badge badge-warning">GAP</span>
+                        {% else %}
+                          <span class="badge badge-error">MISSING</span>
+                        {% endif %}
+                      </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="4" class="text-center opacity-70">No requirements for this job.</td></tr>
+                    {% endfor %}
+
+                </tbody>
+            </table>
+        </div>
+    </div>
+{% endif %}
 
         </div>
+
+<!-- ================= Career Path ================= -->
+<input type="radio" name="emp_tabs" class="tab" aria-label="Career Path" />
+<div class="tab-content bg-base-100 p-6 rounded-box mt-4">
+
+  <h3 class="text-lg font-semibold mb-2">Career Path</h3>
+  <p class="text-sm text-base-content/60 mb-5">
+    Career progression analysis based on actual skill readiness, not scores.
+  </p>
+
+  {% if career_path %}
+    <div class="overflow-x-auto">
+      <table class="table table-zebra w-full text-sm">
+        <thead>
+          <tr>
+            <th>Target Role</th>
+            <th>Promotion Status</th>
+            <th>Missing Skills</th>
+            <th>Skills to Improve</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+
+          {% for row in career_path %}
+          <tr
+            {% if row.eligible %}
+              class="bg-success/10 border-l-4 border-success"
+            {% endif %}
+          >
+
+            <!-- Target Role -->
+            <td class="font-medium">
+              {% if row.job %}
+                <a href="{% url 'hr:job_detail' row.job.pk %}"
+                   class="link link-hover font-semibold">
+                  {{ row.job.name }}
+                </a>
+              {% else %}
+                —
+              {% endif %}
+            </td>
+
+            <!-- Promotion Status -->
+            <td>
+              {% if row.eligible %}
+                <span class="badge badge-success">Ready for Promotion</span>
+              {% else %}
+                <span class="badge badge-warning">Not Ready</span>
+              {% endif %}
+            </td>
+
+            <!-- Missing Skills -->
+            <td>
+              {% if row.missing_count > 0 %}
+                <span class="text-error font-semibold">
+                  {{ row.missing_count }}
+                </span>
+              {% else %}
+                <span class="text-success">—</span>
+              {% endif %}
+            </td>
+
+            <!-- Skills to Improve -->
+            <td>
+              {% if row.gap_count > 0 %}
+                <span class="text-warning font-semibold">
+                  {{ row.gap_count }}
+                </span>
+              {% else %}
+                <span class="text-success">—</span>
+              {% endif %}
+            </td>
+
+            <!-- Action -->
+            <td class="text-sm">
+              {% if row.eligible %}
+                <span class="text-success font-medium">
+                  Eligible for promotion
+                </span>
+              {% else %}
+                <span class="text-base-content/60">
+                  Development required
+                </span>
+              {% endif %}
+            </td>
+
+          </tr>
+          {% endfor %}
+
+        </tbody>
+      </table>
+    </div>
+
+    <p class="text-xs text-base-content/50 mt-3">
+      Promotion eligibility is determined strictly by skill completeness (no missing or gap skills).
+    </p>
+
+  {% else %}
+    <p class="text-sm opacity-60">
+      No career path defined for this role.
+    </p>
+  {% endif %}
+
+</div>
+
 
 
 <!-- ================= Assets ================= -->

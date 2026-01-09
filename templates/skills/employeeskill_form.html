@@ -114,10 +114,25 @@
 
         </div>
 
+
+        <script>
+        document.addEventListener("DOMContentLoaded", function () {
+          const skillType = document.getElementById("id_skill_type");
+          if (skillType) {
+            skillType.addEventListener("change", function () {
+              this.form.submit();
+            });
+          }
+        });
+      </script>
+
       </form>
 
     </div>
   </div>
 
 </div>
+
+
+
 {% endblock %}

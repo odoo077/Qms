@@ -94,6 +94,75 @@ class SkillAdmin(AppAdmin):
 
 
 # ============================================================
+# CompanySkill
+# ============================================================
+
+@admin.register(models.CompanySkill)
+class CompanySkillAdmin(AppAdmin):
+    """
+    تفعيل/تعطيل المهارات لكل شركة (Company ↔ Skill).
+    - هذا هو مصدر الحقيقة لبطاقة Skills في Dashboard.
+    - مستثنى من صلاحيات الكائن عبر AppAdmin.
+    """
+    list_display = ("company", "skill", "active")
+    list_filter = ("company", "active")
+    search_fields = ("company__name", "skill__name")
+    list_select_related = ("company", "skill")
+    autocomplete_fields = ("company", "skill")
+    ordering = ("company__name", "skill__name")
+    actions = (action_activate, action_deactivate)
+
+
+# ============================================================
+# Job Required Skill (Skill Matrix)
+# ============================================================
+
+@admin.register(models.JobSkill)
+class JobSkillAdmin(AppAdmin):
+    """
+    المهارات المطلوبة للوظائف (Skill Matrix).
+    - تحدد الحد الأدنى من المهارة المطلوبة لكل Job.
+    - Skill Global، والربط يتم على مستوى Job.
+    """
+
+    list_display = (
+        "job",
+        "skill",
+        "min_level",
+        "active",
+    )
+
+    list_filter = (
+        "job",
+        "active",
+    )
+
+    search_fields = (
+        "job__name",
+        "skill__name",
+    )
+
+    list_select_related = (
+        "job",
+        "skill",
+        "min_level",
+    )
+
+    ordering = (
+        "job__name",
+        "skill__name",
+    )
+
+    autocomplete_fields = (
+        "job",
+        "skill",
+        "min_level",
+    )
+
+    actions = (action_activate, action_deactivate)
+
+
+# ============================================================
 # EmployeeSkill — EXEMPT from object-level perms in Admin
 # ============================================================
 
