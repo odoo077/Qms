@@ -1,28 +1,44 @@
 # skills/signals.py
 # ============================================================
-# Signals for Skills app (FINAL – Delegates ACL to base)
+# Signals for Skills app (FINAL – NO ACL / NO PERMISSIONS)
 #
 # Responsibilities:
-# - Capture old employee before save (for ACL transfer)
-# - Delegate ALL object-level ACL to base.apply_default_acl
+# - Keep signals minimal and deterministic
+# - Handle ONLY data integrity helpers if needed
 #
-# IMPORTANT:
-# - No direct ACL logic here
-# - No grant/revoke calls
-# - Matches hr.signals philosophy
+# Explicitly NOT responsible for:
+# - Object-level permissions
+# - View/Add/Edit/Delete access
+# - ACL, Guardian, or role-based logic
+#
+# This file is intentionally lightweight.
 # ============================================================
 
 from __future__ import annotations
 
-from django.db.models.signals import pre_save, post_save
+from django.db.models.signals import pre_save
 from django.dispatch import receiver
 
-from base.acl_service import apply_default_acl
 from . import models
 
 
+# ============================================================
+# Internal helpers
+# ============================================================
 
 def _capture_old_employee(instance):
+    """
+    Capture previous employee_id before save.
+
+    Purpose:
+    - Data comparison
+    - Auditing / future extensions
+    - Safe to keep even without ACL
+
+    NOTE:
+    - No permissions logic
+    - No side effects
+    """
     if not instance.pk:
         instance._old_employee_id = None
         return
@@ -35,43 +51,32 @@ def _capture_old_employee(instance):
 
 
 # ============================================================
-# EmployeeSkill
+# EmployeeSkill Signals
 # ============================================================
 
 @receiver(pre_save, sender=models.EmployeeSkill)
 def employeeskill_capture_old_employee(sender, instance, **kwargs):
+    """
+    Capture previous employee before saving EmployeeSkill.
+
+    Safe:
+    - No permissions
+    - No writes
+    """
     _capture_old_employee(instance)
 
 
-
-@receiver(post_save, sender=models.EmployeeSkill)
-def employeeskill_apply_acl(sender, instance: models.EmployeeSkill, created: bool, **kwargs):
-    """
-    Delegate ACL handling to base.apply_default_acl.
-    """
-    apply_default_acl(
-        instance,
-        created=created,
-        old_employee_id=getattr(instance, "_old_employee_id", None),
-    )
-
-
 # ============================================================
-# ResumeLine
+# ResumeLine Signals
 # ============================================================
 
 @receiver(pre_save, sender=models.ResumeLine)
 def resumeline_capture_old_employee(sender, instance, **kwargs):
+    """
+    Capture previous employee before saving ResumeLine.
+
+    Safe:
+    - No permissions
+    - No writes
+    """
     _capture_old_employee(instance)
-
-
-@receiver(post_save, sender=models.ResumeLine)
-def resumeline_apply_acl(sender, instance: models.ResumeLine, created: bool, **kwargs):
-    """
-    Delegate ACL handling to base.apply_default_acl.
-    """
-    apply_default_acl(
-        instance,
-        created=created,
-        old_employee_id=getattr(instance, "_old_employee_id", None),
-    )

@@ -1,8 +1,7 @@
-# skills/models.py
 # ============================================================
 # Skills & Resume — Odoo-like data model (FINAL)
-# - متوافق مع base + hr + ACL
-# - جاهز للإنتاج
+# - متوافق مع base + hr
+# - بدون ACL / Permissions
 # ============================================================
 
 from __future__ import annotations
@@ -13,7 +12,6 @@ from django.db import models
 from django.db.models import Q, UniqueConstraint, CheckConstraint, F
 from django.utils.translation import gettext_lazy as _
 
-from base.acl import AccessControlledMixin, ACLManager
 from base.models import Company, CompanyScopeManager
 
 User = get_user_model()
@@ -138,15 +136,10 @@ class Skill(TimeUserStampedMixin):
 
 
 # ============================================================
-# Company Skill (Skill enabled per company)
+# Company Skill
 # ============================================================
 
 class CompanySkill(TimeUserStampedMixin):
-    """
-    يحدد المهارات المفعّلة لكل شركة (Odoo-like multi-company enablement).
-    - Skill نفسها تبقى Global
-    - التفعيل/التعطيل يتم على مستوى الشركة عبر هذا الجدول
-    """
     company = models.ForeignKey(
         Company, on_delete=models.CASCADE, related_name="company_skills", db_index=True
     )
@@ -174,17 +167,10 @@ class CompanySkill(TimeUserStampedMixin):
 
 
 # ============================================================
-# Job Required Skill (Skill Matrix)
+# Job Required Skill
 # ============================================================
 
 class JobSkill(TimeUserStampedMixin):
-    """
-    المهارات المطلوبة لوظيفة معينة (Skill Matrix).
-    - مرتبطة بالوظيفة
-    - المهارة نفسها Global
-    - المستوى يحدد الحد الأدنى المطلوب
-    كل سجل JobSkill = مهارة واحدة مطلوبة
-    """
     job = models.ForeignKey(
         "hr.Job",
         on_delete=models.CASCADE,
@@ -207,31 +193,31 @@ class JobSkill(TimeUserStampedMixin):
     class Meta:
         verbose_name = _("Job Required Skill")
         verbose_name_plural = _("Job Required Skills")
+        ordering = ("job__name", "skill__name")
         constraints = [
-            models.UniqueConstraint(
+            UniqueConstraint(
                 fields=["job", "skill"],
                 name="jobskill_unique_job_skill",
             ),
         ]
-        ordering = ("job__name", "skill__name")
 
     def clean(self):
         super().clean()
-
         if self.skill and self.min_level:
             if self.skill.skill_type_id != self.min_level.skill_type_id:
                 raise ValidationError({
-                    "min_level": "Minimum level must belong to the same skill type as the selected skill."
+                    "min_level": _("Minimum level must belong to the same skill type as the selected skill.")
                 })
 
     def __str__(self) -> str:
         return f"{self.job} → {self.skill} (≥ {self.min_level})"
 
+
 # ============================================================
 # Employee Skill
 # ============================================================
 
-class EmployeeSkill(TimeUserStampedMixin, AccessControlledMixin):
+class EmployeeSkill(TimeUserStampedMixin):
     employee = models.ForeignKey(
         "hr.Employee",
         on_delete=models.CASCADE,
@@ -258,17 +244,12 @@ class EmployeeSkill(TimeUserStampedMixin, AccessControlledMixin):
     active = models.BooleanField(_("Active"), default=True)
 
     objects = CompanyScopeManager()
-    acl = ACLManager()
 
     class Meta:
         verbose_name = _("Employee Skill")
         verbose_name_plural = _("Employee Skills")
         ordering = ("employee__company__name", "employee__name", "skill_type__sequence", "skill__name")
-        permissions = [
-            ("rate_skill", "Can rate/evaluate employee skill"),
-        ]
         constraints = [
-            # قيد التفرد الصحيح (Employee + Skill)
             UniqueConstraint(
                 fields=["employee", "skill"],
                 name="employeeskill_unique_employee_skill",
@@ -282,55 +263,28 @@ class EmployeeSkill(TimeUserStampedMixin, AccessControlledMixin):
             ),
         ]
 
-    # NOTE:
     def clean(self) -> None:
         super().clean()
 
-        # ==================================================
-        # (1) Skill ↔ SkillType consistency (SAFE)
-        # ==================================================
         if self.skill_id and self.skill_type_id:
-            skill_type_id = (
-                Skill.objects
-                .filter(id=self.skill_id)
-                .values_list("skill_type_id", flat=True)
-                .first()
-            )
-            if skill_type_id and skill_type_id != self.skill_type_id:
-                raise ValidationError({
-                    "skill": _("Skill must belong to the selected skill type.")
-                })
+            if self.skill.skill_type_id != self.skill_type_id:
+                raise ValidationError({"skill": _("Skill must belong to the selected skill type.")})
 
         if self.skill_level_id and self.skill_type_id:
-            level_type_id = (
-                SkillLevel.objects
-                .filter(id=self.skill_level_id)
-                .values_list("skill_type_id", flat=True)
-                .first()
-            )
-            if level_type_id and level_type_id != self.skill_type_id:
-                raise ValidationError({
-                    "skill_level": _("Level must belong to the selected skill type.")
-                })
+            if self.skill_level.skill_type_id != self.skill_type_id:
+                raise ValidationError({"skill_level": _("Level must belong to the selected skill type.")})
 
-        # ==================================================
-        # (2) CompanySkill enablement check
-        # ==================================================
         if self.employee_id and self.skill_id:
-            company_id = self.employee.company_id
             is_enabled = CompanySkill.objects.filter(
-                company_id=company_id,
+                company_id=self.employee.company_id,
                 skill_id=self.skill_id,
                 active=True,
             ).exists()
-
             if not is_enabled:
-                raise ValidationError({
-                    "skill": _("This skill is not enabled for the employee company.")
-                })
+                raise ValidationError({"skill": _("This skill is not enabled for the employee company.")})
 
     def save(self, *args, **kwargs):
-        if self.employee_id and self.employee.company_id:
+        if self.employee_id:
             self.company_id = self.employee.company_id
         super().save(*args, **kwargs)
 
@@ -361,7 +315,7 @@ class ResumeLineType(TimeUserStampedMixin):
 # Resume Line
 # ============================================================
 
-class ResumeLine(TimeUserStampedMixin, AccessControlledMixin):
+class ResumeLine(TimeUserStampedMixin):
     employee = models.ForeignKey(
         "hr.Employee",
         on_delete=models.CASCADE,
@@ -386,7 +340,6 @@ class ResumeLine(TimeUserStampedMixin, AccessControlledMixin):
     active = models.BooleanField(_("Active"), default=True)
 
     objects = CompanyScopeManager()
-    acl = ACLManager()
 
     class Meta:
         verbose_name = _("Resume Line")
@@ -399,12 +352,9 @@ class ResumeLine(TimeUserStampedMixin, AccessControlledMixin):
             ),
         ]
 
-    # NOTE:
-    # company is enforced from employee.company to keep multi-company integrity.
     def clean(self) -> None:
         super().clean()
 
-        # توحيد الشركة مع الموظف
         if self.employee and self.company != self.employee.company:
             self.company = self.employee.company
 
@@ -412,7 +362,7 @@ class ResumeLine(TimeUserStampedMixin, AccessControlledMixin):
             raise ValidationError({"date_end": _("Date to must be after or equal to Date from.")})
 
     def save(self, *args, **kwargs):
-        if self.employee_id and self.employee.company_id:
+        if self.employee_id:
             self.company_id = self.employee.company_id
         if self.certificate_file and not self.certificate_filename:
             self.certificate_filename = self.certificate_file.name.rsplit("/", 1)[-1]

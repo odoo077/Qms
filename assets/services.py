@@ -1,38 +1,20 @@
-# -*- coding: utf-8 -*-
+# assets/services.py
 """
 Domain Services للأصول (Odoo-like strict behavior)
 
 - assign_asset / unassign_asset: هي نقطة الحقيقة الوحيدة للإسناد.
 - close_open_assignments_for_asset: إغلاق العهدة المفتوحة عند حالات لا تسمح بالإسناد.
-- صلاحيات ACL (كما هي).
 """
 
 from __future__ import annotations
-from typing import Optional, Iterable
+from typing import Optional
 from datetime import date
 
-from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 
-from base.acl_service import grant_access, revoke_access
 from . import models as m
-
-User = get_user_model()
-
-
-# ------------------------------------------------------------
-# ACL helpers (كما هي)
-# ------------------------------------------------------------
-def grant_default_object_perms(asset: m.Asset, users: Iterable[User]) -> None:
-    for u in users:
-        grant_access(asset, user=u, view=True, change=True, delete=True)
-
-
-def revoke_all_object_perms(asset: m.Asset, users: Iterable[User]) -> None:
-    for u in users:
-        revoke_access(asset, user=u)
 
 
 # ------------------------------------------------------------
@@ -48,7 +30,12 @@ NON_ASSIGNABLE_STATUSES = {
 # Assignment helpers
 # ------------------------------------------------------------
 @transaction.atomic
-def close_open_assignments_for_asset(asset: m.Asset, *, close_date: Optional[date] = None, reason: str = "") -> int:
+def close_open_assignments_for_asset(
+    asset: m.Asset,
+    *,
+    close_date: Optional[date] = None,
+    reason: str = "",
+) -> int:
     """
     يغلق أي AssetAssignment مفتوح للأصل:
     - Open = date_to is null
@@ -67,7 +54,11 @@ def close_open_assignments_for_asset(asset: m.Asset, *, close_date: Optional[dat
         asg.date_to = close_date
         if reason:
             base_note = (asg.note or "").strip()
-            asg.note = (base_note + ("\n" if base_note else "") + f"Auto-closed: {reason}")[:255]
+            asg.note = (
+                base_note
+                + ("\n" if base_note else "")
+                + f"Auto-closed: {reason}"
+            )[:255]
         asg.save(update_fields=["date_to", "note"])
         count += 1
 
@@ -100,7 +91,10 @@ def assign_asset(
             "Asset must be in 'Available' status."
         )
 
-    if m.AssetAssignment.objects.filter(asset=asset, date_to__isnull=True).exists():
+    if m.AssetAssignment.objects.filter(
+        asset=asset,
+        date_to__isnull=True,
+    ).exists():
         raise ValidationError("Asset already has an open assignment.")
 
     asg = m.AssetAssignment.objects.create(
@@ -137,13 +131,18 @@ def unassign_asset(
         .order_by("-id")
         .first()
     )
+
     if not latest_open:
         return
 
     latest_open.date_to = date_to or timezone.localdate()
     if note:
         base_note = (latest_open.note or "").strip()
-        latest_open.note = (base_note + (" | " if base_note else "") + note)[:255]
+        latest_open.note = (
+            base_note
+            + (" | " if base_note else "")
+            + note
+        )[:255]
     latest_open.save(update_fields=["date_to", "note"])
 
     asset.holder = None

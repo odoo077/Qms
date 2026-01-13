@@ -8,7 +8,7 @@
 <div class="w-full px-6 py-8 space-y-8">
 
   <!-- ===================================================== -->
-  <!-- Page Header (Form Standard) -->
+  <!-- Page Header -->
   <!-- ===================================================== -->
   <div class="space-y-1">
     <h1 class="text-3xl font-semibold tracking-tight">
@@ -19,7 +19,7 @@
       {% endif %}
     </h1>
     <p class="text-sm text-base-content/60">
-      Define and manage skill categories used across employees.
+      Define skill categories used for evaluations, career paths, and certifications
     </p>
   </div>
 
@@ -29,27 +29,26 @@
   <form method="post" class="space-y-8">
     {% csrf_token %}
 
+    {% if form.non_field_errors %}
+      <div class="alert alert-error text-sm">
+        {{ form.non_field_errors }}
+      </div>
+    {% endif %}
+
+    {% for hidden in form.hidden_fields %}
+      {{ hidden }}
+    {% endfor %}
+
     <!-- ===================================================== -->
     <!-- Main Card -->
     <!-- ===================================================== -->
-    <div class="card bg-base-100 border border-base-200 shadow-sm">
-      <div class="card-body p-8 space-y-10">
-
-        <!-- Global Errors -->
-        {% if form.non_field_errors %}
-          <div class="alert alert-error text-sm">
-            {{ form.non_field_errors }}
-          </div>
-        {% endif %}
-
-        {% for hidden in form.hidden_fields %}
-          {{ hidden }}
-        {% endfor %}
+    <div class="card bg-base-100">
+      <div class="card-body space-y-10">
 
         <!-- ================================================= -->
         <!-- Core Information -->
         <!-- ================================================= -->
-        <div class="space-y-4">
+        <section class="space-y-4">
           <h2 class="text-xs font-semibold uppercase tracking-wider text-base-content/60">
             Core Information
           </h2>
@@ -83,12 +82,12 @@
             </div>
 
           </div>
-        </div>
+        </section>
 
         <!-- ================================================= -->
         <!-- Behavior -->
         <!-- ================================================= -->
-        <div class="space-y-4">
+        <section class="space-y-4">
           <h2 class="text-xs font-semibold uppercase tracking-wider text-base-content/60">
             Behavior
           </h2>
@@ -96,8 +95,7 @@
           <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
 
             <!-- Certification -->
-            <label class="flex items-center gap-3 p-4 border border-base-200 rounded-lg
-                          hover:bg-base-200/40 transition-colors cursor-pointer">
+            <label class="label cursor-pointer justify-start gap-3">
               {{ form.is_certification }}
               <span class="label-text font-medium">
                 Is Certification
@@ -105,8 +103,7 @@
             </label>
 
             <!-- Active -->
-            <label class="flex items-center gap-3 p-4 border border-base-200 rounded-lg
-                          hover:bg-base-200/40 transition-colors cursor-pointer">
+            <label class="label cursor-pointer justify-start gap-3">
               {{ form.active }}
               <span class="label-text font-medium">
                 Active
@@ -114,13 +111,13 @@
             </label>
 
           </div>
-        </div>
+        </section>
 
         <!-- ================================================= -->
         <!-- Statistics (Edit only) -->
         <!-- ================================================= -->
         {% if object %}
-          <div class="space-y-4">
+          <section class="space-y-4">
             <h2 class="text-xs font-semibold uppercase tracking-wider text-base-content/60">
               Statistics
             </h2>
@@ -138,14 +135,14 @@
                        readonly>
               </div>
             </div>
-          </div>
+          </section>
         {% endif %}
 
       </div>
     </div>
 
     <!-- ===================================================== -->
-    <!-- Actions (Form Standard) -->
+    <!-- Actions -->
     <!-- ===================================================== -->
     <div class="flex justify-between items-center pt-4 border-t border-base-200">
 
@@ -163,16 +160,14 @@
         {% endif %}
       </div>
 
-      <div>
-        <button type="submit"
-                class="btn btn-primary shadow-sm">
-          {% if object %}
-            Save Changes
-          {% else %}
-            Create Skill Type
-          {% endif %}
-        </button>
-      </div>
+      <button type="submit"
+              class="btn btn-primary">
+        {% if object %}
+          Save Changes
+        {% else %}
+          Create Skill Type
+        {% endif %}
+      </button>
 
     </div>
 

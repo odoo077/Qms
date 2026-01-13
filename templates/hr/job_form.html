@@ -1,125 +1,218 @@
-{# templates/hr/job_form.html  (REPLACE بالكامل) #}
 {% extends "base.html" %}
-{% load static %}
 
 {% block title %}
   {% if object %}Edit Job · {{ object.name }}{% else %}Create Job{% endif %}
 {% endblock %}
 
 {% block content %}
+<div class="w-full px-6 py-6 space-y-6">
 
-<div class="max-w-5xl mx-auto space-y-8">
-
-  <!-- Header -->
-  <div class="flex items-start justify-between">
+  <!-- ===================================================== -->
+  <!-- PAGE HEADER -->
+  <!-- ===================================================== -->
+  <section class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
     <div>
-      <h1 class="text-2xl font-semibold">
+      <h1 class="text-3xl font-bold tracking-tight">
         {% if object %}Edit Job{% else %}Create Job{% endif %}
       </h1>
-      <p class="text-sm opacity-70">Manage job position, department, recruitment and details.</p>
+      <p class="text-sm text-base-content/60">
+        Define job position, department, recruitment plan, and requirements
+      </p>
     </div>
 
-    <a href="{% url 'hr:job_list' %}" class="btn btn-sm btn-ghost">Back</a>
-  </div>
-
-  {% if form.non_field_errors %}
-    <div class="alert alert-error shadow-sm">
-      <ul class="list-disc list-inside text-sm">
-        {% for err in form.non_field_errors %}<li>{{ err }}</li>{% endfor %}
-      </ul>
+    <div>
+      <a href="{% url 'hr:job_list' %}"
+         class="btn btn-ghost btn-sm">
+        Back
+      </a>
     </div>
-  {% endif %}
+  </section>
 
-  <form method="post" class="space-y-6">
+  <!-- ===================================================== -->
+  <!-- FORM -->
+  <!-- ===================================================== -->
+  <form method="post" class="space-y-8">
     {% csrf_token %}
 
-    <div class="card bg-base-100 shadow-sm">
-      <div class="card-body grid grid-cols-1 md:grid-cols-2 gap-6">
+    <!-- Non-field errors -->
+    {% if form.non_field_errors %}
+      <div class="alert alert-error text-sm">
+        {{ form.non_field_errors }}
+      </div>
+    {% endif %}
 
-        <!-- Company -->
-        <div>
-          <label class="label"><span class="label-text font-medium">Company</span></label>
-          {{ form.company }}
-          {% if form.company.errors %}<p class="text-error text-sm mt-1">{{ form.company.errors.0 }}</p>{% endif %}
-        </div>
+    {% for hidden in form.hidden_fields %}
+      {{ hidden }}
+    {% endfor %}
 
-        <!-- Department -->
-        <div>
-          <label class="label"><span class="label-text font-medium">Department</span></label>
-          {{ form.department }}
-          {% if form.department.errors %}<p class="text-error text-sm mt-1">{{ form.department.errors.0 }}</p>{% endif %}
-          <p class="text-xs opacity-60 mt-1">Filtered automatically by company.</p>
-        </div>
+    <!-- ===================================================== -->
+    <!-- JOB DETAILS CARD -->
+    <!-- ===================================================== -->
+    <section class="card bg-base-100 border border-base-200 shadow-sm">
+      <div class="p-6 space-y-6">
 
-        <!-- Name -->
-        <div>
-          <label class="label"><span class="label-text font-medium">Job Title</span></label>
-          {{ form.name }}
-          {% if form.name.errors %}<p class="text-error text-sm mt-1">{{ form.name.errors.0 }}</p>{% endif %}
-        </div>
+        <h2 class="text-base font-semibold tracking-wide">
+          Job Information
+        </h2>
 
-        <!-- Sequence -->
-        <div>
-          <label class="label"><span class="label-text font-medium">Sequence</span></label>
-          {{ form.sequence }}
-          {% if form.sequence.errors %}<p class="text-error text-sm mt-1">{{ form.sequence.errors.0 }}</p>{% endif %}
-        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
 
-        <!-- Recruitment -->
-        <div>
-          <label class="label"><span class="label-text font-medium">Planned Recruitment</span></label>
-          {{ form.no_of_recruitment }}
-          {% if form.no_of_recruitment.errors %}<p class="text-error text-sm mt-1">{{ form.no_of_recruitment.errors.0 }}</p>{% endif %}
-        </div>
+          <!-- Company -->
+          <div class="form-control">
+            <label class="label p-0 mb-1">
+              <span class="label-text font-medium">
+                {{ form.company.label }}
+              </span>
+            </label>
+            {{ form.company }}
+            {% for e in form.company.errors %}
+              <p class="text-error text-xs mt-1">{{ e }}</p>
+            {% endfor %}
+          </div>
 
-        <!-- Recruiter -->
-        <div>
-          <label class="label"><span class="label-text font-medium">Recruiter</span></label>
-          {{ form.recruiter }}
-          {% if form.recruiter.errors %}<p class="text-error text-sm mt-1">{{ form.recruiter.errors.0 }}</p>{% endif %}
-        </div>
+          <!-- Department -->
+          <div class="form-control">
+            <label class="label p-0 mb-1">
+              <span class="label-text font-medium">
+                {{ form.department.label }}
+              </span>
+            </label>
+            {{ form.department }}
+            {% for e in form.department.errors %}
+              <p class="text-error text-xs mt-1">{{ e }}</p>
+            {% endfor %}
+            <p class="text-xs text-base-content/60 mt-1">
+              Automatically filtered by company
+            </p>
+          </div>
 
-        <!-- Contract Type -->
-        <div class="md:col-span-2">
-          <label class="label"><span class="label-text font-medium">Contract Type</span></label>
-          {{ form.contract_type }}
-          {% if form.contract_type.errors %}<p class="text-error text-sm mt-1">{{ form.contract_type.errors.0 }}</p>{% endif %}
-        </div>
+          <!-- Job Name -->
+          <div class="form-control">
+            <label class="label p-0 mb-1">
+              <span class="label-text font-medium">
+                {{ form.name.label }}
+              </span>
+            </label>
+            {{ form.name }}
+            {% for e in form.name.errors %}
+              <p class="text-error text-xs mt-1">{{ e }}</p>
+            {% endfor %}
+          </div>
 
-        <!-- Description -->
-        <div class="md:col-span-2">
-          <label class="label"><span class="label-text font-medium">Description</span></label>
-          {{ form.description }}
-          {% if form.description.errors %}<p class="text-error text-sm mt-1">{{ form.description.errors.0 }}</p>{% endif %}
-        </div>
+          <!-- Sequence -->
+          <div class="form-control">
+            <label class="label p-0 mb-1">
+              <span class="label-text font-medium">
+                {{ form.sequence.label }}
+              </span>
+            </label>
+            {{ form.sequence }}
+            {% for e in form.sequence.errors %}
+              <p class="text-error text-xs mt-1">{{ e }}</p>
+            {% endfor %}
+          </div>
 
-        <!-- Requirements -->
-        <div class="md:col-span-2">
-          <label class="label"><span class="label-text font-medium">Requirements</span></label>
-          {{ form.requirements }}
-          {% if form.requirements.errors %}<p class="text-error text-sm mt-1">{{ form.requirements.errors.0 }}</p>{% endif %}
-        </div>
+          <!-- Planned Recruitment -->
+          <div class="form-control">
+            <label class="label p-0 mb-1">
+              <span class="label-text font-medium">
+                {{ form.no_of_recruitment.label }}
+              </span>
+            </label>
+            {{ form.no_of_recruitment }}
+            {% for e in form.no_of_recruitment.errors %}
+              <p class="text-error text-xs mt-1">{{ e }}</p>
+            {% endfor %}
+          </div>
 
-        <!-- Active -->
-        <div class="md:col-span-2">
-          <label class="label cursor-pointer justify-start gap-3">
-            {{ form.active }}
-            <span class="label-text font-medium">Active</span>
-          </label>
-          {% if form.active.errors %}<p class="text-error text-sm mt-1">{{ form.active.errors.0 }}</p>{% endif %}
+          <!-- Recruiter -->
+          <div class="form-control">
+            <label class="label p-0 mb-1">
+              <span class="label-text font-medium">
+                {{ form.recruiter.label }}
+              </span>
+            </label>
+            {{ form.recruiter }}
+            {% for e in form.recruiter.errors %}
+              <p class="text-error text-xs mt-1">{{ e }}</p>
+            {% endfor %}
+          </div>
+
+          <!-- Contract Type -->
+          <div class="form-control md:col-span-2">
+            <label class="label p-0 mb-1">
+              <span class="label-text font-medium">
+                {{ form.contract_type.label }}
+              </span>
+            </label>
+            {{ form.contract_type }}
+            {% for e in form.contract_type.errors %}
+              <p class="text-error text-xs mt-1">{{ e }}</p>
+            {% endfor %}
+          </div>
+
+          <!-- Description -->
+          <div class="form-control md:col-span-2">
+            <label class="label p-0 mb-1">
+              <span class="label-text font-medium">
+                {{ form.description.label }}
+              </span>
+            </label>
+            {{ form.description }}
+            {% for e in form.description.errors %}
+              <p class="text-error text-xs mt-1">{{ e }}</p>
+            {% endfor %}
+          </div>
+
+          <!-- Requirements -->
+          <div class="form-control md:col-span-2">
+            <label class="label p-0 mb-1">
+              <span class="label-text font-medium">
+                {{ form.requirements.label }}
+              </span>
+            </label>
+            {{ form.requirements }}
+            {% for e in form.requirements.errors %}
+              <p class="text-error text-xs mt-1">{{ e }}</p>
+            {% endfor %}
+          </div>
+
+          <!-- Active -->
+          <div class="form-control md:col-span-2">
+            <label class="label cursor-pointer justify-start gap-3">
+              {{ form.active }}
+              <span class="label-text font-medium">
+                {{ form.active.label }}
+              </span>
+            </label>
+            {% for e in form.active.errors %}
+              <p class="text-error text-xs mt-1">{{ e }}</p>
+            {% endfor %}
+          </div>
+
         </div>
 
       </div>
-    </div>
+    </section>
 
-    <div class="flex justify-end gap-3">
-      <a href="{% url 'hr:job_list' %}" class="btn btn-ghost">Cancel</a>
-      <button type="submit" class="btn btn-primary">
+    <!-- ===================================================== -->
+    <!-- ACTIONS -->
+    <!-- ===================================================== -->
+    <div class="flex justify-end gap-3 pt-4 border-t border-base-200">
+
+      <a href="{% url 'hr:job_list' %}"
+         class="btn btn-ghost">
+        Cancel
+      </a>
+
+      <button type="submit"
+              class="btn btn-primary">
         {% if object %}Save Changes{% else %}Create Job{% endif %}
       </button>
+
     </div>
 
   </form>
-</div>
 
+</div>
 {% endblock %}

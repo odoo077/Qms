@@ -1,23 +1,80 @@
-{% if page_obj %}
-  {% with request.GET.urlencode as qs %}
-    <div class="mt-4 flex items-center justify-between">
-      <div class="text-sm opacity-70">
-        Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }} · {{ page_obj.paginator.count }} total
-      </div>
+{% if page_obj and page_obj.paginator.num_pages > 1 %}
+{% with request.GET.urlencode as qs %}
+<div class="mt-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
 
-      <div class="join">
-        {% if page_obj.has_previous %}
+  <!-- ===================================================== -->
+  <!-- Results summary -->
+  <!-- ===================================================== -->
+  <div class="text-sm text-base-content/70">
+    Showing
+    <span class="font-medium">
+      {{ page_obj.start_index }}
+    </span>
+    –
+    <span class="font-medium">
+      {{ page_obj.end_index }}
+    </span>
+    of
+    <span class="font-medium">
+      {{ page_obj.paginator.count }}
+    </span>
+    results
+  </div>
+
+  <!-- ===================================================== -->
+  <!-- Pagination controls -->
+  <!-- ===================================================== -->
+  <div class="join">
+
+    {# First page #}
+    {% if page_obj.number > 2 %}
+      <a class="btn btn-sm join-item"
+         href="?{% if qs %}{{ qs }}&{% endif %}page=1">
+        « First
+      </a>
+    {% endif %}
+
+    {# Previous #}
+    {% if page_obj.has_previous %}
+      <a class="btn btn-sm join-item"
+         href="?{% if qs %}{{ qs }}&{% endif %}page={{ page_obj.previous_page_number }}">
+        ‹ Prev
+      </a>
+    {% endif %}
+
+    {# Page range (windowed) #}
+    {% for p in page_obj.paginator.page_range %}
+      {% if p >= page_obj.number|add:"-2" and p <= page_obj.number|add:"2" %}
+        {% if p == page_obj.number %}
+          <span class="btn btn-sm join-item btn-primary btn-active">
+            {{ p }}
+          </span>
+        {% else %}
           <a class="btn btn-sm join-item"
-             href="?{% if qs %}{{ qs }}&{% endif %}page={{ page_obj.previous_page_number }}">« Prev</a>
+             href="?{% if qs %}{{ qs }}&{% endif %}page={{ p }}">
+            {{ p }}
+          </a>
         {% endif %}
+      {% endif %}
+    {% endfor %}
 
-        <span class="btn btn-sm join-item btn-ghost">Page {{ page_obj.number }}</span>
+    {# Next #}
+    {% if page_obj.has_next %}
+      <a class="btn btn-sm join-item"
+         href="?{% if qs %}{{ qs }}&{% endif %}page={{ page_obj.next_page_number }}">
+        Next ›
+      </a>
+    {% endif %}
 
-        {% if page_obj.has_next %}
-          <a class="btn btn-sm join-item"
-             href="?{% if qs %}{{ qs }}&{% endif %}page={{ page_obj.next_page_number }}">Next »</a>
-        {% endif %}
-      </div>
-    </div>
-  {% endwith %}
+    {# Last page #}
+    {% if page_obj.number < page_obj.paginator.num_pages|add:"-1" %}
+      <a class="btn btn-sm join-item"
+         href="?{% if qs %}{{ qs }}&{% endif %}page={{ page_obj.paginator.num_pages }}">
+        Last »
+      </a>
+    {% endif %}
+
+  </div>
+</div>
+{% endwith %}
 {% endif %}

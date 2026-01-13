@@ -150,6 +150,7 @@ class DepartmentForm(forms.ModelForm):
 # JobForm (FINAL)
 # ============================================================
 class JobForm(forms.ModelForm):
+    accepts_allowed_company_ids = True
     """
     Job form (Odoo-like, FINAL):
     - Company field visible
@@ -460,11 +461,15 @@ class EmployeeEducationForm(forms.ModelForm):
 
 
 # ============================================================
-# CareerPolicyForm
+# CareerPolicyForm (FINAL – Company Scoped, NO ACL)
 # ============================================================
+
 class CareerPolicyForm(forms.ModelForm):
     """
-    Career Policy Form (Enterprise-grade)
+    Career Policy Form (Enterprise-grade):
+    - Company scoped (allowed_company_ids)
+    - No record-level ACL
+    - No Django permissions logic
     """
 
     class Meta:
@@ -484,11 +489,44 @@ class CareerPolicyForm(forms.ModelForm):
             "company": forms.Select(attrs={"class": "select select-bordered w-full"}),
             "min_ready_score": forms.NumberInput(attrs={"class": "input input-bordered w-full"}),
             "min_near_ready_score": forms.NumberInput(attrs={"class": "input input-bordered w-full"}),
-            "gap_weight": forms.NumberInput(attrs={"class": "input input-bordered w-full", "step": "0.1"}),
-            "ok_weight": forms.NumberInput(attrs={"class": "input input-bordered w-full", "step": "0.1"}),
-            "missing_weight": forms.NumberInput(attrs={"class": "input input-bordered w-full", "step": "0.1"}),
-            "active": forms.CheckboxInput(attrs={"class": "checkbox"}),
+            "gap_weight": forms.NumberInput(attrs={
+                "class": "input input-bordered w-full",
+                "step": "0.1",
+            }),
+            "ok_weight": forms.NumberInput(attrs={
+                "class": "input input-bordered w-full",
+                "step": "0.1",
+            }),
+            "missing_weight": forms.NumberInput(attrs={
+                "class": "input input-bordered w-full",
+                "step": "0.1",
+            }),
+            "active": forms.CheckboxInput(attrs={"class": "toggle toggle-primary"}),
         }
+
+    def __init__(self, *args, **kwargs):
+        # --------------------------------------------------
+        # Accept company scope from BaseScoped views
+        # --------------------------------------------------
+        self.allowed_company_ids = kwargs.pop("allowed_company_ids", None)
+        super().__init__(*args, **kwargs)
+
+        # --------------------------------------------------
+        # Limit company choices (Company Scope)
+        # --------------------------------------------------
+        if self.allowed_company_ids is not None and "company" in self.fields:
+            self.fields["company"].queryset = (
+                self.fields["company"]
+                .queryset
+                .filter(id__in=self.allowed_company_ids)
+                .order_by("name")
+            )
+
+        # --------------------------------------------------
+        # Default company on CREATE
+        # --------------------------------------------------
+        if not self.instance.pk and self.allowed_company_ids:
+            self.initial.setdefault("company", self.allowed_company_ids[0])
 
     def clean(self):
         cleaned = super().clean()
@@ -496,6 +534,9 @@ class CareerPolicyForm(forms.ModelForm):
         ready = cleaned.get("min_ready_score")
         near = cleaned.get("min_near_ready_score")
 
+        # --------------------------------------------------
+        # Business rule validation
+        # --------------------------------------------------
         if ready is not None and near is not None and near >= ready:
             self.add_error(
                 "min_near_ready_score",
@@ -503,6 +544,7 @@ class CareerPolicyForm(forms.ModelForm):
             )
 
         return cleaned
+
 
 # ============================================================
 # Career Path

@@ -4,10 +4,10 @@ HR Views (Odoo-like behavior)
 
 Design principles:
 - Company scope is enforced via CompanyOwnedMixin / CompanyScopeManager
-- ACL is enforced via AccessControlledMixin + ACLManager
 - No implicit magic or hidden permissions
 - Views are thin: logic lives in models/forms
 """
+from django.core.exceptions import PermissionDenied
 from django.shortcuts import redirect, get_object_or_404
 from django.utils.decorators import method_decorator
 from django.views.decorators.http import require_POST
@@ -19,26 +19,27 @@ from skills.services import compute_employee_job_gap, compute_employee_job_fit_s
 from .models import Department, Job, Employee, get_root_departments, build_department_tree, EmployeeStatusHistory, \
     EmployeeEducation, EmployeeStatus, CareerPolicy
 from .forms import DepartmentForm, JobForm, EmployeeForm, EmployeeEducationForm, CareerPolicyForm
-from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
-from django.core.exceptions import PermissionDenied
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import Count, Q, F, Value, Prefetch
 from django.db.models.functions import Coalesce, Greatest
-from django.http import HttpResponse
+from django.http import HttpResponse, Http404
 from django.template.loader import render_to_string
 from django.urls import reverse_lazy
 from django.views.generic import TemplateView
 from django.views.generic.edit import UpdateView
 from base.company_context import get_allowed_company_ids
-from base.views import BaseScopedListView, BaseScopedDetailView, BaseScopedCreateView, BaseScopedUpdateView
+from base.views import BaseScopedListView, BaseScopedDetailView, BaseScopedCreateView, BaseScopedUpdateView, \
+    BaseScopedDeleteView
 from skills.models import EmployeeSkill, JobSkill
 from assets.models import AssetAssignment
 from .services import change_employee_status
 from django.views.generic import View, DeleteView
 from django.urls import reverse
-from django.urls import reverse_lazy
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView
 from hr.models import JobCareerPath
 from hr.forms import JobCareerPathForm
+from django.core.exceptions import ValidationError
+
 
 
 # ==========================================================
@@ -72,10 +73,8 @@ class DepartmentListView(LoginRequiredMixin, TemplateView):
 
         ctx["departments_by_company"] = departments_by_company
 
-        # صلاحية الإضافة
-        ctx["can_add"] = self.request.user.has_perm("hr.add_department")
-
         return ctx
+
 
 class DepartmentDetailView(LoginRequiredMixin, BaseScopedDetailView):
     """
@@ -83,25 +82,18 @@ class DepartmentDetailView(LoginRequiredMixin, BaseScopedDetailView):
 
     Rules:
     - Company scoped via BaseScopedDetailView (consistent with the app)
-    - Edit permission via Django permissions only
     """
 
     model = Department
     template_name = "hr/department_detail.html"
 
     def get_object(self, queryset=None):
-        """
-        Department is a structural object:
-        - No object-level ACL
-        - Company scope only
-        - Django permission controls edit, not view
-        """
         obj = super(BaseScopedDetailView, self).get_object(queryset=queryset)
 
         # تحقق نطاق الشركة فقط
         active_ids = get_allowed_company_ids(self.request)
         if active_ids and obj.company_id not in active_ids:
-            raise PermissionDenied("Department is outside active company scope.")
+            raise HttpResponse(status=404)
 
         return obj
 
@@ -115,6 +107,7 @@ class DepartmentDetailView(LoginRequiredMixin, BaseScopedDetailView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
+
         # -------------------------------
         # Sub-departments (children)
         # -------------------------------
@@ -135,17 +128,12 @@ class DepartmentDetailView(LoginRequiredMixin, BaseScopedDetailView):
             .select_related("company", "job", "manager", "user")
             .order_by("name")
         )
-        user = self.request.user
 
-        ctx["can_edit"] = (
-            user.is_superuser
-            or user.has_perm("hr.change_department")
-        )
         return ctx
+
 
 class DepartmentCreateView(
     LoginRequiredMixin,
-    PermissionRequiredMixin,
     BaseScopedCreateView,
 ):
     """
@@ -157,7 +145,6 @@ class DepartmentCreateView(
     form_class = DepartmentForm
     template_name = "hr/department_form.html"
     success_url = reverse_lazy("hr:department_list")
-    permission_required = "hr.add_department"
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
@@ -184,11 +171,11 @@ class DepartmentCreateView(
             company = Company.objects.filter(pk=active_cid).first()
 
         if not company:
-            raise PermissionDenied("No active company selected.")
+            return self.form_invalid(form)
 
         # enforce scope
         if allowed and company.id not in allowed:
-            raise PermissionDenied("Company is outside active scope.")
+            return self.form_invalid(form)
 
         form.instance.company = company
 
@@ -200,9 +187,22 @@ class DepartmentCreateView(
         return super().form_valid(form)
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 class DepartmentUpdateView(
     LoginRequiredMixin,
-    PermissionRequiredMixin,
     BaseScopedUpdateView,
 ):
     """
@@ -215,16 +215,13 @@ class DepartmentUpdateView(
     template_name = "hr/department_form.html"
     success_url = reverse_lazy("hr:department_list")
 
-    permission_required = "hr.change_department"
-    raise_exception = True
-
     def get_queryset(self):
         return Department.objects.select_related("company", "parent", "manager")
 
     def _enforce_object_scope_or_404(self, obj):
         allowed_company_ids = get_allowed_company_ids(self.request) or []
         if allowed_company_ids and obj.company_id not in allowed_company_ids:
-            raise PermissionDenied("Department is outside active company scope.")
+            raise Http404
         return obj
 
     def get_form_kwargs(self):
@@ -247,6 +244,7 @@ class DepartmentUpdateView(
 
         return UpdateView.form_valid(self, form)
 
+
 # ==========================================================
 # Jobs
 # ==========================================================
@@ -255,10 +253,19 @@ class DepartmentUpdateView(
 class JobListView(LoginRequiredMixin, BaseScopedListView):
     """
     List jobs for allowed companies (multi-company aware).
+    - Company scope ONLY
+    - NO record-level ACL
     """
     model = Job
     template_name = "hr/job_list.html"
     paginate_by = 50
+
+    def filter_queryset(self, qs):
+        """
+        Disable record-level ACL.
+        Keep company scope filtering only.
+        """
+        return qs
 
     def get_queryset(self):
         qs = (
@@ -285,13 +292,13 @@ class JobListView(LoginRequiredMixin, BaseScopedListView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx["can_add"] = self.request.user.has_perm("hr.add_job")
         return ctx
+
 
 class JobDetailView(LoginRequiredMixin, BaseScopedDetailView):
     """
     Job Detail (STRUCTURAL):
-    - Company scope only
+    - Company scope ONLY
     - NO record-level ACL
     """
     model = Job
@@ -308,9 +315,9 @@ class JobDetailView(LoginRequiredMixin, BaseScopedDetailView):
         )
 
     def _enforce_object_scope_or_404(self, obj):
-        allowed = get_allowed_company_ids(self.request)
-        if allowed and obj.company_id not in allowed:
-            raise PermissionDenied("Job is outside active company scope.")
+        allowed_company_ids = get_allowed_company_ids(self.request)
+        if allowed_company_ids and obj.company_id not in allowed_company_ids:
+            raise Http404
         return obj
 
     def get_context_data(self, **kwargs):
@@ -325,177 +332,247 @@ class JobDetailView(LoginRequiredMixin, BaseScopedDetailView):
             .order_by("name")
         )
 
-        ctx["can_edit"] = self.request.user.has_perm("hr.change_job")
-        ctx["can_manage_employees"] = self.request.user.has_perm(
-            "hr.change_employee"
-        )
-
         return ctx
 
 
-class JobCreateView(LoginRequiredMixin, PermissionRequiredMixin, BaseScopedCreateView):
+class JobCreateView(
+    LoginRequiredMixin,
+    BaseScopedCreateView,
+):
     """
-    Create new job (company auto-default from allowed companies; user can change).
+    Create new Job:
+    - Company scope enforced
+    - NO permissions
+    - NO record-level ACL
     """
     model = Job
     form_class = JobForm
     template_name = "hr/job_form.html"
     success_url = reverse_lazy("hr:job_list")
-    permission_required = "hr.add_job"
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
-        allowed_ids = get_allowed_company_ids(self.request)
-        kwargs["allowed_company_ids"] = allowed_ids
+        allowed_company_ids = get_allowed_company_ids(self.request)
+        if hasattr(self.form_class, "accepts_allowed_company_ids"):
+            kwargs["allowed_company_ids"] = allowed_company_ids
         return kwargs
 
     def get_initial(self):
         initial = super().get_initial()
-        allowed_ids = get_allowed_company_ids(self.request)
-        if allowed_ids:
-            initial.setdefault("company", allowed_ids[0])
+        allowed_company_ids = get_allowed_company_ids(self.request)
+        if allowed_company_ids:
+            initial.setdefault("company", allowed_company_ids[0])
         return initial
 
 
 class JobUpdateView(
     LoginRequiredMixin,
-    PermissionRequiredMixin,
     BaseScopedUpdateView,
 ):
     """
     Job Update (STRUCTURAL):
-    - NO record-level ACL
     - Company scope only
-    - Django permission only
+    - NO permissions
+    - NO record-level ACL
     """
     model = Job
     form_class = JobForm
     template_name = "hr/job_form.html"
     success_url = reverse_lazy("hr:job_list")
 
-    permission_required = "hr.change_job"
-    raise_exception = True
-
     def get_queryset(self):
         return Job.objects.select_related("company", "department")
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        allowed_ids = get_allowed_company_ids(self.request)
+        if hasattr(self.form_class, "accepts_allowed_company_ids"):
+            kwargs["allowed_company_ids"] = allowed_ids
+        return kwargs
+
     def _enforce_object_scope_or_404(self, obj):
-        """
-        OVERRIDE:
-        Disable record-level ACL.
-        """
-        allowed_company_ids = get_allowed_company_ids(self.request)
-        if allowed_company_ids and obj.company_id not in allowed_company_ids:
-            raise PermissionDenied("Job is outside active company scope.")
+        allowed_ids = get_allowed_company_ids(self.request)
+        if allowed_ids and obj.company_id not in allowed_ids:
+            raise Http404
         return obj
 
     def form_valid(self, form):
-        """
-        Bypass BaseScopedUpdateView.form_valid()
-        which enforces record ACL.
-        """
         form.instance.company_id = self.object.company_id
         return UpdateView.form_valid(self, form)
 
+
 class JobEmployeeUpdateView(
     LoginRequiredMixin,
-    PermissionRequiredMixin,
     BaseScopedUpdateView,
 ):
     """
     Change employee job (Odoo-like, FINAL).
+
+    Rules:
     - Company scope only
-    - Django permission only (hr.change_employee)
+    - NO permissions
     - NO record-level ACL
     """
     model = Employee
     fields = ("job",)
     template_name = "hr/job_employee_form.html"
-    permission_required = "hr.change_employee"
-    raise_exception = True
     success_url = reverse_lazy("hr:employee_list")
 
     def get_queryset(self):
         return Employee.objects.select_related(
-            "company", "job", "department"
+            "company",
+            "job",
+            "department",
         )
 
     def _enforce_object_scope_or_404(self, obj):
-        allowed = get_allowed_company_ids(self.request)
-        if allowed and obj.company_id not in allowed:
-            raise PermissionDenied("Employee outside company scope.")
+        allowed_company_ids = get_allowed_company_ids(self.request)
+        if allowed_company_ids and obj.company_id not in allowed_company_ids:
+            raise Http404
         return obj
 
     def form_valid(self, form):
-        # enforce company from existing object
         form.instance.company_id = self.object.company_id
 
-        # job must belong to same company
-        if form.instance.job and form.instance.job.company_id != form.instance.company_id:
-            raise PermissionDenied("Job must belong to same company.")
+        job = form.instance.job
+        if job and job.company_id != form.instance.company_id:
+            raise ValidationError(
+                "Selected job must belong to the same company as the employee."
+            )
 
-        # bypass BaseScopedUpdateView.form_valid (ACL per-record)
         return UpdateView.form_valid(self, form)
 
 
-# ==========================================================
-# Career Policy (UI Management)
-# ==========================================================
+class JobDeleteView(
+    LoginRequiredMixin,
+    BaseScopedDeleteView,
+):
+    """
+    Delete Job (STRUCTURAL, FINAL)
 
+    Rules:
+    - Company scope only
+    - NO permissions
+    - NO record-level ACL
+    """
+
+    model = Job
+    template_name = "partials/confirm_delete.html"
+    success_url = reverse_lazy("hr:job_list")
+
+    object_label = "Job"
+    confirm_label = "Delete Job"
+
+    def get_queryset(self):
+        return Job.objects.select_related("company", "department")
+
+    def _enforce_object_scope_or_404(self, obj):
+        allowed_company_ids = get_allowed_company_ids(self.request)
+        if allowed_company_ids and obj.company_id not in allowed_company_ids:
+            raise Http404
+        return obj
+
+    def delete(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        return DeleteView.delete(self, request, *args, **kwargs)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# ==========================================================
+# Career Policy - List
+# ==========================================================
 class CareerPolicyListView(LoginRequiredMixin, BaseScopedListView):
     model = CareerPolicy
-    template_name = "hr/careerpolicy_list.html"
-    paginate_by = 50
+    template_name = "hr/career_policy_list.html"
     context_object_name = "policies"
+    paginate_by = 50
 
     def get_queryset(self):
         qs = super().get_queryset().select_related("company")
         return qs.order_by("company__name", "-active", "-id")
 
 
-class CareerPolicyCreateView(LoginRequiredMixin, BaseScopedCreateView):
+# ==========================================================
+# Career Policy - Create
+# ==========================================================
+class CareerPolicyCreateView(LoginRequiredMixin, CreateView):
     model = CareerPolicy
     form_class = CareerPolicyForm
-    template_name = "hr/careerpolicy_form.html"
-    success_url = reverse_lazy("hr:careerpolicy_list")
+    template_name = "hr/career_policy_form.html"
+    success_url = reverse_lazy("hr:career_policy_list")
 
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        kwargs["allowed_company_ids"] = get_allowed_company_ids(self.request)
-        return kwargs
+    def form_valid(self, form):
+        allowed = get_allowed_company_ids(self.request)
+
+        # Enforce company scope (NO permissions)
+        if allowed and form.instance.company_id not in allowed:
+            return self.form_invalid(form)
+
+        return super().form_valid(form)
 
 
-class CareerPolicyUpdateView(LoginRequiredMixin, BaseScopedUpdateView):
+# ==========================================================
+# Career Policy - Update
+# ==========================================================
+class CareerPolicyUpdateView(LoginRequiredMixin, UpdateView):
     model = CareerPolicy
     form_class = CareerPolicyForm
-    template_name = "hr/careerpolicy_form.html"
-    success_url = reverse_lazy("hr:careerpolicy_list")
+    template_name = "hr/career_policy_form.html"
+    success_url = reverse_lazy("hr:career_policy_list")
 
-    def get_form_kwargs(self):
-        kwargs = super().get_form_kwargs()
-        kwargs["allowed_company_ids"] = get_allowed_company_ids(self.request)
-        return kwargs
+    def get_queryset(self):
+        return CareerPolicy.objects.select_related("company")
 
+    def dispatch(self, request, *args, **kwargs):
+        obj = self.get_object()
+        allowed = get_allowed_company_ids(request)
+
+        if allowed and obj.company_id not in allowed:
+            return redirect("hr:career_policy_list")
+
+        return super().dispatch(request, *args, **kwargs)
+
+
+# ==========================================================
+# Career Policy - Delete
+# ==========================================================
 class CareerPolicyDeleteView(LoginRequiredMixin, DeleteView):
     model = CareerPolicy
     template_name = "partials/confirm_delete.html"
+    success_url = reverse_lazy("hr:career_policy_list")
 
-    def get_success_url(self):
-        return reverse("hr:careerpolicy_list")
+    def dispatch(self, request, *args, **kwargs):
+        obj = self.get_object()
+        allowed = get_allowed_company_ids(request)
+
+        if allowed and obj.company_id not in allowed:
+            return redirect("hr:career_policy_list")
+
+        return super().dispatch(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx["object_label"] = "Career Policy"
         ctx["confirm_label"] = "Delete Policy"
-        ctx["back_url"] = reverse("hr:careerpolicy_list")
+        ctx["back_url"] = reverse_lazy("hr:career_policy_list")
         return ctx
-
-    def dispatch(self, request, *args, **kwargs):
-        obj = self.get_object()
-        allowed = get_allowed_company_ids(request)
-        if allowed and obj.company_id not in allowed:
-            raise PermissionDenied("Outside company scope.")
-        return super().dispatch(request, *args, **kwargs)
 
 
 # ==========================================================
@@ -556,7 +633,6 @@ class AjaxDepartmentOptionsView(LoginRequiredMixin, View):
             company_id = None
 
         if not company_id or (allowed_ids and company_id not in allowed_ids):
-            # return empty list but keep placeholder
             html = render_to_string(self.template_name, {"departments": []}, request=request)
             return HttpResponse(html)
 
@@ -569,6 +645,28 @@ class AjaxDepartmentOptionsView(LoginRequiredMixin, View):
         html = render_to_string(self.template_name, {"departments": departments}, request=request)
         return HttpResponse(html)
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # ==========================================================
 # Employees
 # ==========================================================
@@ -576,7 +674,7 @@ class AjaxDepartmentOptionsView(LoginRequiredMixin, View):
 class EmployeeListView(LoginRequiredMixin, BaseScopedListView):
     model = Employee
     template_name = "hr/employee_list.html"
-    paginate_by = 50
+    paginate_by = 25
     context_object_name = "employees"
 
     def get_queryset(self):
@@ -687,6 +785,20 @@ class EmployeeListView(LoginRequiredMixin, BaseScopedListView):
         return ctx
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 class EmployeeDetailView(LoginRequiredMixin, BaseScopedDetailView):
     """
     Employee detail view (Odoo-like)
@@ -776,7 +888,7 @@ class EmployeeDetailView(LoginRequiredMixin, BaseScopedDetailView):
         }
 
         # ==================================================
-        # FIX: Correct Eligibility (Promotion Only)
+        # Promotion Eligibility (STRICT)
         # ==================================================
         for row in career_path:
             job = row.get("job")
@@ -806,7 +918,7 @@ class EmployeeDetailView(LoginRequiredMixin, BaseScopedDetailView):
             row["gap_count"] = gap
 
         # ==================================================
-        # Next Role (First Logical Step – NOT Eligible Based)
+        # Next Role (Logical, not eligibility-based)
         # ==================================================
         next_role = None
         if career_path:
@@ -816,14 +928,14 @@ class EmployeeDetailView(LoginRequiredMixin, BaseScopedDetailView):
                     break
 
         ctx["next_role"] = next_role
-        ctx["next_eligible_job"] = next_role  # UI compatibility
+        ctx["next_eligible_job"] = next_role
 
         # ==================================================
         # Next Role – Skill Readiness
         # ==================================================
-        next_role_missing_skills = []
-        next_role_gap_skills = []
-        next_role_met_skills = []
+        ctx["next_role_missing_skills"] = []
+        ctx["next_role_gap_skills"] = []
+        ctx["next_role_met_skills"] = []
 
         if next_role:
             required_skills = (
@@ -850,21 +962,17 @@ class EmployeeDetailView(LoginRequiredMixin, BaseScopedDetailView):
                 emp_skill = employee_skills.get(req.skill_id)
 
                 if not emp_skill:
-                    next_role_missing_skills.append(req)
+                    ctx["next_role_missing_skills"].append(req)
                     continue
 
                 if emp_skill.skill_level.level_progress < req.min_level.level_progress:
-                    next_role_gap_skills.append({
+                    ctx["next_role_gap_skills"].append({
                         "skill": req.skill,
                         "required": req.min_level,
                         "current": emp_skill.skill_level,
                     })
                 else:
-                    next_role_met_skills.append(req)
-
-        ctx["next_role_missing_skills"] = next_role_missing_skills
-        ctx["next_role_gap_skills"] = next_role_gap_skills
-        ctx["next_role_met_skills"] = next_role_met_skills
+                    ctx["next_role_met_skills"].append(req)
 
         # ==================================================
         # Training & Blockers
@@ -875,10 +983,8 @@ class EmployeeDetailView(LoginRequiredMixin, BaseScopedDetailView):
         ctx["career_blockers"] = compute_career_blocking_factors(employee)
 
         # ==================================================
-        # UI & Relations
+        # Manager Chain & Subordinates
         # ==================================================
-        ctx["can_edit"] = True
-
         chain = []
         node = employee.manager
         while node:
@@ -911,7 +1017,6 @@ class EmployeeDetailView(LoginRequiredMixin, BaseScopedDetailView):
         ctx["current_asset_assignments"] = asset_assignments.filter(date_to__isnull=True)
         ctx["employee_assets_open"] = ctx["current_asset_assignments"]
         ctx["employee_assets_history"] = asset_assignments
-        ctx["can_assign_asset"] = not ctx["current_asset_assignments"].exists()
 
         # ==================================================
         # Statuses & Education
@@ -935,6 +1040,24 @@ class EmployeeDetailView(LoginRequiredMixin, BaseScopedDetailView):
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 class EmployeeCreateView(LoginRequiredMixin, BaseScopedCreateView):
     model = Employee
     form_class = EmployeeForm
@@ -948,6 +1071,7 @@ class EmployeeCreateView(LoginRequiredMixin, BaseScopedCreateView):
         kwargs["allowed_company_ids"] = allowed
         kwargs["active_company_id"] = get_company_id(self.request)
         return kwargs
+
 
 class EmployeeUpdateView(LoginRequiredMixin, BaseScopedUpdateView):
     model = Employee
@@ -978,8 +1102,14 @@ class EmployeeUpdateView(LoginRequiredMixin, BaseScopedUpdateView):
         kwargs["active_company_id"] = self.object.company_id
         return kwargs
 
+
 @method_decorator(require_POST, name="dispatch")
 class EmployeeBulkActionView(LoginRequiredMixin, View):
+    """
+    Bulk archive / restore employees.
+    - Company scope enforced
+    """
+
     def post(self, request):
         action = request.POST.get("action")
         ids = request.POST.getlist("ids")
@@ -988,7 +1118,17 @@ class EmployeeBulkActionView(LoginRequiredMixin, View):
             messages.warning(request, "No employees selected.")
             return redirect("hr:employee_list")
 
+        allowed_company_ids = get_allowed_company_ids(request)
+
         qs = Employee.objects.filter(id__in=ids)
+
+        # Enforce company scope
+        if allowed_company_ids:
+            qs = qs.filter(company_id__in=allowed_company_ids)
+
+        if not qs.exists():
+            messages.error(request, "No valid employees in active company scope.")
+            return redirect("hr:employee_list")
 
         if action == "archive":
             qs.update(active=False)
@@ -1005,13 +1145,23 @@ class EmployeeBulkActionView(LoginRequiredMixin, View):
 # Employee Status Change
 # ==========================================================
 
-class EmployeeChangeStatusView(View):
+class EmployeeChangeStatusView(LoginRequiredMixin, View):
     """
     Handle employee status change (POST only).
+
+    Rules:
+    - Login required
+    - Company scope enforced
+    - Business logic delegated to service layer
     """
 
     def post(self, request, pk):
         employee = get_object_or_404(Employee, pk=pk)
+
+        # Enforce company scope
+        allowed_company_ids = get_allowed_company_ids(request)
+        if allowed_company_ids and employee.company_id not in allowed_company_ids:
+            raise PermissionDenied("Employee outside active company scope.")
 
         status_id = request.POST.get("status")
         reason = request.POST.get("reason", "").strip()
@@ -1029,7 +1179,7 @@ class EmployeeChangeStatusView(View):
                 new_status=status,
                 reason=reason,
                 note=note,
-                changed_by=request.user if request.user.is_authenticated else None,
+                changed_by=request.user,
             )
             messages.success(
                 request,
@@ -1040,14 +1190,39 @@ class EmployeeChangeStatusView(View):
 
         return redirect(employee.get_absolute_url())
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # ==========================================================
 # Employee Education
 # ==========================================================
 
 @method_decorator(require_POST, name="dispatch")
 class EmployeeEducationCreateView(LoginRequiredMixin, View):
+    """
+    Create education record for employee.
+    - Login required
+    - Company scope enforced
+    """
+
     def post(self, request, employee_id):
         employee = get_object_or_404(Employee, pk=employee_id)
+
+        # Enforce company scope
+        allowed = get_allowed_company_ids(request)
+        if allowed and employee.company_id not in allowed:
+            raise PermissionDenied("Outside company scope.")
 
         form = EmployeeEducationForm(request.POST)
         if form.is_valid():
@@ -1060,12 +1235,19 @@ class EmployeeEducationCreateView(LoginRequiredMixin, View):
 
         return redirect(employee.get_absolute_url())
 
+
 @method_decorator(require_POST, name="dispatch")
 class EducationUpdateView(LoginRequiredMixin, View):
+    """
+    Update education record.
+    - Login required
+    - Company scope enforced
+    """
+
     def post(self, request, pk):
         education = get_object_or_404(EmployeeEducation, pk=pk)
 
-        # company scope (safe)
+        # Enforce company scope
         allowed = get_allowed_company_ids(request)
         if allowed and education.employee.company_id not in allowed:
             raise PermissionDenied("Outside company scope.")
@@ -1083,7 +1265,14 @@ class EducationUpdateView(LoginRequiredMixin, View):
 
         return redirect(education.employee.get_absolute_url())
 
+
 class EducationDeleteView(LoginRequiredMixin, DeleteView):
+    """
+    Delete education record.
+    - Login required
+    - Company scope enforced
+    """
+
     model = EmployeeEducation
     template_name = "partials/confirm_delete.html"
 

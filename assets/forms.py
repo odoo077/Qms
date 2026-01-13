@@ -31,7 +31,7 @@ class ScopedModelForm(forms.ModelForm):
 
         company_field = self.fields.get("company")
         if company_field:
-            allowed_companies = Company.objects.with_acl("view")
+            allowed_companies = Company.objects.all()
             company_field.queryset = allowed_companies
 
             cur_id = get_current_company(self.request)
@@ -39,7 +39,7 @@ class ScopedModelForm(forms.ModelForm):
                 if not getattr(self.instance, "pk", None):
                     company_field.initial = cur_id
 
-    def _current_company_id_for_filtering(self):
+    def _current_company_id_for_filtering(self) -> Optional[int]:
         company_id = None
 
         if "company" in self.fields:
@@ -66,14 +66,15 @@ class ScopedModelForm(forms.ModelForm):
         if company_id:
             self.fields[field_name].queryset = qs.filter(company_id=company_id)
         else:
-            allowed_ids = Company.objects.with_acl("view").values_list("id", flat=True)
-            self.fields[field_name].queryset = qs.filter(company_id__in=allowed_ids)
+            self.fields[field_name].queryset = qs.none()
 
     def _exclude_self(self, field_name: str):
         if field_name not in self.fields:
             return
         if getattr(self.instance, "pk", None):
-            self.fields[field_name].queryset = self.fields[field_name].queryset.exclude(pk=self.instance.pk)
+            self.fields[field_name].queryset = (
+                self.fields[field_name].queryset.exclude(pk=self.instance.pk)
+            )
 
 
 # ============================================================
@@ -88,7 +89,11 @@ class AssetCategoryForm(ScopedModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self._filter_by_company("parent", m.AssetCategory.objects.all(), active_only=False)
+        self._filter_by_company(
+            "parent",
+            m.AssetCategory.objects.all(),
+            active_only=False,
+        )
         self._exclude_self("parent")
 
         if self.instance.pk and "company" in self.fields:
@@ -116,18 +121,30 @@ class AssetForm(ScopedModelForm):
             "parent",
             "active",
         ]
-        # holder ليس حقل UI عام لأنه يُدار عبر Workflow (Assign/Unassign)
-        # وسيظهر read-only في التفاصيل فقط لاحقًا
+        # holder ليس حقل UI عام
+        # يُدار عبر Workflow (Assign / Unassign)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self._filter_by_company("category", m.AssetCategory.objects.all(), active_only=True)
+        self._filter_by_company(
+            "category",
+            m.AssetCategory.objects.all(),
+            active_only=True,
+        )
 
         Department = apps.get_model("hr", "Department")
-        self._filter_by_company("department", Department.objects.all(), active_only=True)
+        self._filter_by_company(
+            "department",
+            Department.objects.all(),
+            active_only=True,
+        )
 
-        self._filter_by_company("parent", m.Asset.objects.all(), active_only=True)
+        self._filter_by_company(
+            "parent",
+            m.Asset.objects.all(),
+            active_only=True,
+        )
         self._exclude_self("parent")
 
         if self.instance.pk and "company" in self.fields:
@@ -142,7 +159,9 @@ class AssetAssignForm(forms.Form):
     """
     Workflow: Assign Asset to Employee (calls services.assign_asset)
     """
-    employee = forms.ModelChoiceField(queryset=apps.get_model("hr", "Employee").objects.none())
+    employee = forms.ModelChoiceField(
+        queryset=apps.get_model("hr", "Employee").objects.none()
+    )
     date_from = forms.DateField(required=False, initial=date.today)
     note = forms.CharField(required=False, max_length=255)
 
@@ -150,8 +169,11 @@ class AssetAssignForm(forms.Form):
         self.request = kwargs.pop("request", None)
         self.asset: m.Asset = kwargs.pop("asset")
 
-        # ✅ NEW (إضافة)
-        self.assign_to_employee_id = kwargs.pop("assign_to_employee_id", None)
+        # Optional: pre-selected employee
+        self.assign_to_employee_id = kwargs.pop(
+            "assign_to_employee_id",
+            None,
+        )
 
         super().__init__(*args, **kwargs)
 
@@ -160,14 +182,13 @@ class AssetAssignForm(forms.Form):
         qs = Employee.objects.all()
         if hasattr(Employee, "active"):
             qs = qs.filter(active=True)
-        if getattr(Employee, "company_id", None) is not None:
+
+        if hasattr(Employee, "company_id"):
             qs = qs.filter(company_id=self.asset.company_id)
 
         self.fields["employee"].queryset = qs
 
-        # ==================================================
-        # ✅ NEW: Auto-select employee when coming from Employee page
-        # ==================================================
+        # Auto-select employee when coming from Employee page
         if self.assign_to_employee_id:
             try:
                 employee = qs.get(pk=self.assign_to_employee_id)
@@ -188,4 +209,3 @@ class AssetUnassignForm(forms.Form):
         self.request = kwargs.pop("request", None)
         self.asset: m.Asset = kwargs.pop("asset")
         super().__init__(*args, **kwargs)
-

@@ -6,7 +6,6 @@
 from django.contrib import admin, messages
 from django.db import transaction
 from base.admin_mixins import AppAdmin  # ✅ الاستثناء من صلاحيات الكائن
-from base.admin import ObjectACLInline
 
 from performance.models import (
     Objective,
@@ -278,7 +277,6 @@ class ObjectiveAdmin(AppAdmin):
     readonly_fields = ("created_at", "updated_at", "created_by", "updated_by")
 
     inlines = [
-        ObjectACLInline,
         ObjectiveDepartmentAssignmentInline,
         ObjectiveEmployeeAssignmentInline,
         ObjectiveParticipantInline,
@@ -400,7 +398,6 @@ class KPIAdmin(AppAdmin):
 
     actions = ["action_recompute_kpis", action_activate, action_deactivate]
 
-    inlines = [ObjectACLInline]
 
     @admin.action(description="Recompute selected KPIs")
     def action_recompute_kpis(self, request, queryset):
@@ -682,7 +679,6 @@ class TaskAdmin(AppAdmin):
     ]
 
     inlines = [
-        ObjectACLInline,
         TaskWatcherInline,
         TaskDependencyInline,
     ]
@@ -885,7 +881,7 @@ class EvaluationTemplateAdmin(AppAdmin):
         if USE_AUTOCOMPLETE: autocomplete_fields = ["objective","kpi"]
         else:                 raw_id_fields = ["objective","kpi"]
 
-    inlines = [ObjectACLInline, EvaluationParameterInline]
+    inlines = [EvaluationParameterInline]
 
     actions = [action_activate, action_deactivate]
 
@@ -900,7 +896,6 @@ class EvaluationParameterAdmin(AppAdmin):
     else:                 raw_id_fields = ["template","objective","kpi"]
     readonly_fields = ("created_at","updated_at","created_by","updated_by")
 
-    inlines = [ObjectACLInline]
 
 @admin.register(Evaluation)
 class EvaluationAdmin(AppAdmin):
@@ -977,7 +972,7 @@ class EvaluationAdmin(AppAdmin):
         else:
             raw_id_fields = ["parameter"]
 
-    inlines = [ObjectACLInline, EvaluationParameterResultInline]
+    inlines = [EvaluationParameterResultInline]
 
     actions = ["recompute_evaluations", action_activate, action_deactivate]
 
@@ -1013,8 +1008,6 @@ class EvaluationParameterResultAdmin(AppAdmin):
     if USE_AUTOCOMPLETE: autocomplete_fields = ["evaluation","parameter"]
     else:                 raw_id_fields = ["evaluation","parameter"]
     readonly_fields = ("created_at","updated_at","created_by","updated_by")
-
-    inlines = [ObjectACLInline]
 
 
 

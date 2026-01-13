@@ -5,7 +5,6 @@ from django.db import models
 from django.core.exceptions import ValidationError
 from django.db.models import Sum
 
-from base.acl import ACLManager
 from base.models import TimeStampedMixin
 
 # ------------------------------------------------------------
@@ -77,7 +76,7 @@ class PayrollPeriod(TimeStampedMixin):
     STATE = [("open", "Open"), ("closed", "Closed")]
     state = models.CharField(max_length=10, choices=STATE, default="open")
 
-    objects = ACLManager()
+
 
     class Meta:
         db_table = "payroll_period"
@@ -131,7 +130,7 @@ class Payslip(TimeStampedMixin):
 
     note = models.CharField(max_length=255, blank=True)
 
-    objects = ACLManager()
+
 
     class Meta:
         db_table = "payroll_payslip"
@@ -223,7 +222,7 @@ class EmployeeSalary(TimeStampedMixin):
 
     note = models.CharField(max_length=255, blank=True)
 
-    objects = ACLManager()
+
 
     class Meta:
         db_table = "payroll_employee_salary"
@@ -271,7 +270,7 @@ class PayrollStructure(models.Model):
     use_worked_day_lines = models.BooleanField(default=False)
     company = models.ForeignKey("base.Company", on_delete=models.PROTECT, related_name="pay_structures")
 
-    objects = ACLManager()
+
 
     class Meta:
         db_table = "payroll_structure"

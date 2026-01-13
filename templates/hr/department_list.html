@@ -4,11 +4,9 @@
 {% block page_title %}Departments{% endblock %}
 
 {% block page_actions %}
-  {% if can_add %}
-    <a href="{% url 'hr:department_create' %}" class="btn btn-primary btn-sm">
-      + New Department
-    </a>
-  {% endif %}
+  <a href="{% url 'hr:department_create' %}" class="btn btn-primary btn-sm">
+    + New Department
+  </a>
 {% endblock %}
 
 {% block content %}

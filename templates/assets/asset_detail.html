@@ -5,228 +5,220 @@ Asset · {{ object.code }}
 {% endblock %}
 
 {% block content %}
-<div class="w-full max-w-6xl px-6 py-8 space-y-8 mx-auto">
+<div class="w-full px-6 py-6 space-y-6">
 
-    <!-- ===================================================== -->
-    <!-- Header -->
-    <!-- ===================================================== -->
-    <div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-
-        <div class="space-y-1">
-            <h1 class="text-3xl font-bold tracking-tight">
-                {{ object.code }} — {{ object.name }}
-            </h1>
-            <p class="text-sm opacity-70">
-                Asset details and assignment lifecycle
-            </p>
-        </div>
-
-        <div class="flex gap-2 flex-wrap">
-            <a href="{% url 'assets:asset_list' %}" class="btn btn-ghost btn-sm">
-                ← Back
-            </a>
-
-            <a href="{% url 'assets:asset_edit' object.id %}"
-               class="btn btn-outline btn-sm">
-                Edit
-            </a>
-
-            {% if object.active and object.status == "available" %}
-                <a href="{% url 'assets:asset_assign' object.id %}"
-                   class="btn btn-primary btn-sm">
-                    Assign
-                </a>
-            {% endif %}
-
-            {% if current_assignment %}
-                <a href="{% url 'assets:asset_unassign' object.id %}"
-                   class="btn btn-warning btn-sm">
-                    Unassign
-                </a>
-            {% endif %}
-        </div>
-
+  <!-- ===================================================== -->
+  <!-- PAGE HEADER -->
+  <!-- ===================================================== -->
+  <section class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+    <div>
+      <h1 class="text-3xl font-bold tracking-tight">
+        {{ object.code }} — {{ object.name }}
+      </h1>
+      <p class="text-sm text-base-content/60">
+        Asset details and assignment lifecycle
+      </p>
     </div>
 
-    <!-- ===================================================== -->
-    <!-- Asset Information -->
-    <!-- ===================================================== -->
-    <div class="card bg-base-100 shadow">
-        <div class="card-body space-y-4">
+    <div class="flex gap-2 flex-wrap">
+      <a href="{% url 'assets:asset_list' %}"
+         class="btn btn-ghost btn-sm">
+        Back
+      </a>
 
-            <h2 class="text-lg font-semibold">
-                Asset Information
-            </h2>
+      <a href="{% url 'assets:asset_edit' object.id %}"
+         class="btn btn-outline btn-sm">
+        Edit
+      </a>
 
-            <dl class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-4 text-sm">
+      {% if object.active and object.status == "available" %}
+        <a href="{% url 'assets:asset_assign' object.id %}"
+           class="btn btn-primary btn-sm">
+          Assign
+        </a>
+      {% endif %}
 
-                <div>
-                    <div class="opacity-60">Code</div>
-                    <div class="font-mono font-medium">{{ object.code }}</div>
-                </div>
+      {% if current_assignment %}
+        <a href="{% url 'assets:asset_unassign' object.id %}"
+           class="btn btn-outline btn-warning btn-sm">
+          Unassign
+        </a>
+      {% endif %}
+    </div>
+  </section>
 
-                <div>
-                    <div class="opacity-60">Name</div>
-                    <div class="font-medium">{{ object.name }}</div>
-                </div>
+  <!-- ===================================================== -->
+  <!-- ASSET INFORMATION -->
+  <!-- ===================================================== -->
+  <section class="card bg-base-100 border border-base-200 shadow-sm">
+    <div class="p-6 space-y-6">
 
-                <div>
-                    <div class="opacity-60">Company</div>
-                    <div>{{ object.company }}</div>
-                </div>
+      <h2 class="text-base font-semibold tracking-wide">
+        Asset Information
+      </h2>
 
-                <div>
-                    <div class="opacity-60">Category</div>
-                    <div>{{ object.category|default:"—" }}</div>
-                </div>
+      <dl class="grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-4 text-sm">
 
-                <div>
-                    <div class="opacity-60">Department</div>
-                    <div>{{ object.department|default:"—" }}</div>
-                </div>
+        <div class="text-base-content/60">Code</div>
+        <div class="font-mono font-medium md:col-span-2">
+          {{ object.code }}
+        </div>
 
-                <div>
-                    <div class="opacity-60">Status</div>
-                    <div>
-                        {% if object.status == "assigned" %}
-                            <span class="badge badge-primary badge-sm">Assigned</span>
-                        {% elif object.status == "available" %}
-                            <span class="badge badge-success badge-sm">Available</span>
-                        {% elif object.status == "maintenance" %}
-                            <span class="badge badge-warning badge-sm">Maintenance</span>
-                        {% else %}
-                            <span class="badge badge-ghost badge-sm">Retired</span>
-                        {% endif %}
-                    </div>
-                </div>
+        <div class="text-base-content/60">Name</div>
+        <div class="md:col-span-2">
+          {{ object.name }}
+        </div>
 
-            </dl>
+        <div class="text-base-content/60">Company</div>
+        <div class="md:col-span-2">
+          {{ object.company }}
+        </div>
+
+        <div class="text-base-content/60">Category</div>
+        <div class="md:col-span-2">
+          {{ object.category|default:"—" }}
+        </div>
+
+        <div class="text-base-content/60">Department</div>
+        <div class="md:col-span-2">
+          {{ object.department|default:"—" }}
+        </div>
+
+        <div class="text-base-content/60">Status</div>
+        <div class="md:col-span-2">
+          {% if object.status == "available" %}
+            <span class="badge badge-success badge-sm">Available</span>
+          {% elif object.status == "assigned" %}
+            <span class="badge badge-primary badge-sm">Assigned</span>
+          {% elif object.status == "maintenance" %}
+            <span class="badge badge-warning badge-sm">Maintenance</span>
+          {% else %}
+            <span class="badge badge-ghost badge-sm">Retired</span>
+          {% endif %}
+        </div>
+
+      </dl>
+
+    </div>
+  </section>
+
+  <!-- ===================================================== -->
+  <!-- CURRENT ASSIGNMENT -->
+  <!-- ===================================================== -->
+  <section class="card bg-base-100 border border-base-200 shadow-sm">
+    <div class="p-6 space-y-4">
+
+      <h2 class="text-base font-semibold tracking-wide">
+        Current Assignment
+      </h2>
+
+      {% if current_assignment %}
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 text-sm">
+
+          <div>
+            <div class="text-base-content/60">Employee</div>
+            <div class="font-medium">
+              {{ current_assignment.employee }}
+            </div>
+          </div>
+
+          <div>
+            <div class="text-base-content/60">Assigned From</div>
+            <div>
+              {{ current_assignment.date_from|date:"Y-m-d" }}
+            </div>
+          </div>
+
+          <div>
+            <div class="text-base-content/60">Holding Duration</div>
+            <div class="font-semibold">
+              {{ current_assignment.date_from|timesince }}
+            </div>
+          </div>
+
+          <div>
+            <div class="text-base-content/60">State</div>
+            <span class="badge badge-primary badge-sm">
+              Active
+            </span>
+          </div>
 
         </div>
+      {% else %}
+        <p class="text-sm text-base-content/60">
+          This asset is currently not assigned.
+        </p>
+      {% endif %}
+
     </div>
+  </section>
 
-    <!-- ===================================================== -->
-    <!-- Current Assignment -->
-    <!-- ===================================================== -->
-    <div class="card bg-base-100 shadow">
-        <div class="card-body space-y-4">
+  <!-- ===================================================== -->
+  <!-- ASSIGNMENT HISTORY -->
+  <!-- ===================================================== -->
+  <section class="card bg-base-100 border border-base-200 shadow-sm overflow-x-auto">
+    <div class="p-6 space-y-4">
 
-            <h2 class="text-lg font-semibold">
-                Current Assignment
-            </h2>
+      <h2 class="text-base font-semibold tracking-wide">
+        Assignment History
+      </h2>
 
-            {% if current_assignment %}
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-6 text-sm">
+      <table class="table table-zebra w-full text-sm">
+        <thead class="bg-base-200">
+          <tr>
+            <th>Employee</th>
+            <th>From</th>
+            <th>To</th>
+            <th>Duration</th>
+            <th>Status</th>
+          </tr>
+        </thead>
 
-                    <div>
-                        <div class="opacity-60">Employee</div>
-                        <div class="font-medium">
-                            {{ current_assignment.employee }}
-                        </div>
-                    </div>
+        <tbody>
+          {% for asg in assignment_history %}
+          <tr>
 
-                    <div>
-                        <div class="opacity-60">Assigned From</div>
-                        <div>
-                            {{ current_assignment.date_from|date:"Y-m-d" }}
-                        </div>
-                    </div>
+            <td class="font-medium">
+              {{ asg.employee }}
+            </td>
 
-                    <div>
-                        <div class="opacity-60">Holding Duration</div>
-                        <div class="font-semibold">
-                            {{ current_assignment.date_from|timesince }}
-                        </div>
-                    </div>
+            <td>
+              {{ asg.date_from|date:"Y-m-d"|default:"—" }}
+            </td>
 
-                    <div>
-                        <div class="opacity-60">State</div>
-                        <span class="badge badge-primary badge-outline">
-                            Active
-                        </span>
-                    </div>
+            <td>
+              {{ asg.date_to|date:"Y-m-d"|default:"—" }}
+            </td>
 
-                </div>
-            {% else %}
-                <p class="text-sm opacity-60">
-                    This asset is currently not assigned.
-                </p>
-            {% endif %}
+            <td>
+              {% if asg.date_to %}
+                {{ asg.date_from|timesince:asg.date_to }}
+              {% else %}
+                {{ asg.date_from|timesince }}
+              {% endif %}
+            </td>
 
-        </div>
+            <td>
+              {% if asg.date_to %}
+                <span class="badge badge-ghost badge-sm">Closed</span>
+              {% else %}
+                <span class="badge badge-primary badge-sm">Active</span>
+              {% endif %}
+            </td>
+
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="5" class="py-8 text-center text-base-content/60">
+              No assignment history available.
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
     </div>
-
-    <!-- ===================================================== -->
-    <!-- Assignment History -->
-    <!-- ===================================================== -->
-    <div class="card bg-base-100 shadow overflow-x-auto">
-        <div class="card-body space-y-4">
-
-            <h2 class="text-lg font-semibold">
-                Assignment History
-            </h2>
-
-            <table class="table table-zebra w-full text-sm">
-                <thead>
-                    <tr>
-                        <th>Employee</th>
-                        <th>From</th>
-                        <th>To</th>
-                        <th>Duration</th>
-                        <th>Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-
-                    {% for asg in assignment_history %}
-                    <tr class="{% if asg.date_to is None %}bg-base-200{% endif %}">
-
-                        <td class="font-medium">
-                            {{ asg.employee }}
-                        </td>
-
-                        <td>
-                            {{ asg.date_from|date:"Y-m-d"|default:"—" }}
-                        </td>
-
-                        <td>
-                            {% if asg.date_to %}
-                                {{ asg.date_to|date:"Y-m-d" }}
-                            {% else %}
-                                —
-                            {% endif %}
-                        </td>
-
-                        <td>
-                            {% if asg.date_to %}
-                                {{ asg.date_from|timesince:asg.date_to }}
-                            {% else %}
-                                {{ asg.date_from|timesince }}
-                            {% endif %}
-                        </td>
-
-                        <td>
-                            {% if asg.date_to %}
-                                <span class="badge badge-ghost badge-sm">Closed</span>
-                            {% else %}
-                                <span class="badge badge-primary badge-sm">Active</span>
-                            {% endif %}
-                        </td>
-
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="5" class="text-center py-8 opacity-60">
-                            No assignment history available.
-                        </td>
-                    </tr>
-                    {% endfor %}
-
-                </tbody>
-            </table>
-
-        </div>
-    </div>
+  </section>
 
 </div>
 {% endblock %}

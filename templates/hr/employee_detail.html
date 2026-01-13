@@ -38,19 +38,91 @@
             </p>
         </div>
 
-        {% if can_edit %}
-            <div class="flex gap-2">
-                <a href="{{ employee.get_edit_url }}" class="btn btn-primary btn-sm">
-                    Edit
-                </a>
+        <div class="flex gap-2">
+          <a href="{{ employee.get_edit_url }}" class="btn btn-primary btn-sm">
+              Edit
+          </a>
 
-                <button type="button"
-                        class="btn btn-outline btn-sm btn-warning"
-                        onclick="document.getElementById('change-status-modal').showModal()">
-                    Change Status
-                </button>
-            </div>
-        {% endif %}
+          <button type="button"
+                  class="btn btn-outline btn-sm btn-warning"
+                  onclick="document.getElementById('change-status-modal').showModal()">
+              Change Status
+          </button>
+      </div>
+
+    </div>
+
+
+    <!-- ================= Career Summary ================= -->
+    <div class="card bg-base-100 shadow-md border border-base-200 p-6 mb-6">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+
+        <!-- Current Role Status -->
+        <div>
+          <p class="text-xs text-base-content/60 mb-1">Current Role Status</p>
+          {% if job_fit %}
+            {% if job_fit.score >= 85 %}
+              <span class="badge badge-success">Ready</span>
+            {% elif job_fit.score >= 70 %}
+              <span class="badge badge-warning">Near Ready</span>
+            {% else %}
+              <span class="badge badge-error">Not Ready</span>
+            {% endif %}
+          {% else %}
+            <span class="badge badge-ghost">—</span>
+          {% endif %}
+        </div>
+
+        <!-- Next Role -->
+        <div>
+          <p class="text-xs text-base-content/60 mb-1">Next Role</p>
+          {% if next_role %}
+            <a href="{% url 'hr:job_detail' next_role.id %}"
+               class="link link-hover font-semibold">
+              {{ next_role.name }}
+            </a>
+          {% else %}
+            <span class="text-sm opacity-60">—</span>
+          {% endif %}
+        </div>
+
+        <!-- Promotion Status -->
+        <div>
+          <p class="text-xs text-base-content/60 mb-1">Promotion Status</p>
+          {% if career_path %}
+            {% if career_path.0.eligible %}
+              <span class="badge badge-success">Eligible for Promotion</span>
+            {% else %}
+              <span class="badge badge-neutral">Not Eligible for Promotion</span>
+            {% endif %}
+          {% else %}
+            <span class="badge badge-ghost">—</span>
+          {% endif %}
+        </div>
+
+        <!-- Blocking Reason -->
+        <div>
+          <p class="text-xs text-base-content/60 mb-1">Blocking Reason</p>
+          {% if career_path and not career_path.0.eligible %}
+            {% if career_path.0.missing_skills %}
+              <span class="text-error text-sm">
+                Missing Skills
+              </span>
+            {% elif career_path.0.gap_skills %}
+              <span class="text-warning text-sm">
+                Skills Need Improvement
+              </span>
+            {% else %}
+              <span class="text-sm opacity-60">—</span>
+            {% endif %}
+          {% else %}
+            <span class="text-success text-sm">
+              No blockers
+            </span>
+          {% endif %}
+        </div>
+
+      </div>
     </div>
 
 
@@ -59,465 +131,595 @@
     <!-- ===================================================== -->
     <div class="tabs tabs-bordered">
 
-<!-- ================= Overview ================= -->
-<input type="radio" name="emp_tabs" class="tab" aria-label="Overview" checked />
+    <!-- ================= Overview ================= -->
+    <input type="radio" name="emp_tabs" class="tab" aria-label="Overview" checked />
+    <div class="tab-content bg-base-100 p-6 rounded-box mt-4">
 
-<div class="tab-content bg-base-100 p-6 rounded-box mt-4">
+      <div class="space-y-8">
 
-<!-- ===================================================== -->
-<!-- Career Readiness Summary -->
-<!-- ===================================================== -->
+        <!-- ===================================================== -->
+        <!-- Top Summary (Admin-friendly) -->
+        <!-- ===================================================== -->
+        <section>
+          <div class="flex items-start justify-between gap-4 mb-4">
+            <div>
+              <h3 class="text-lg font-semibold">Overview</h3>
+              <p class="text-xs text-base-content/60 mt-1">
+                Quick summary for administrative decisions (role readiness, next step, and key profile details).
+              </p>
+            </div>
 
-<div class="space-y-6">
-
-  <!-- ================= Top Summary Grid ================= -->
-  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-    <!-- ================= General ================= -->
-    <div class="card bg-base-100 shadow-sm border border-base-200 p-6">
-      <h3 class="font-semibold text-base mb-4 tracking-wide">
-        General Information
-      </h3>
-
-      <ul class="space-y-3 text-sm">
-        <li class="flex justify-between">
-          <span class="text-base-content/60">Company</span>
-          <span class="font-medium">{{ employee.company.name }}</span>
-        </li>
-
-        <li class="flex justify-between">
-          <span class="text-base-content/60">Department</span>
-          <span class="text-right">
-            {{ employee.department.complete_name|default:"—" }}
-          </span>
-        </li>
-
-        <li class="flex justify-between">
-          <span class="text-base-content/60">Job Title</span>
-          <span class="font-medium">
-            {{ employee.job.name|default:"—" }}
-          </span>
-        </li>
-
-        <li class="flex justify-between">
-          <span class="text-base-content/60">Manager</span>
-          <span class="font-medium">
-            {{ employee.manager.name|default:"—" }}
-          </span>
-        </li>
-      </ul>
-    </div>
-
-    <!-- ================= Account ================= -->
-    <div class="card bg-base-100 shadow-sm border border-base-200 p-6">
-      <h3 class="font-semibold text-base mb-4 tracking-wide">
-        Account Details
-      </h3>
-
-      <ul class="space-y-3 text-sm">
-        <li class="flex justify-between">
-          <span class="text-base-content/60">User</span>
-          <span class="font-medium truncate max-w-[60%]">
-            {{ employee.user.email|default:"—" }}
-          </span>
-        </li>
-
-        <li class="flex justify-between">
-          <span class="text-base-content/60">Barcode</span>
-          <span class="font-mono">
-            {{ employee.barcode|default:"—" }}
-          </span>
-        </li>
-
-        <li class="flex justify-between">
-          <span class="text-base-content/60">PIN</span>
-          <span class="font-mono">
-            {{ employee.pin|default:"—" }}
-          </span>
-        </li>
-      </ul>
-    </div>
-
-    <!-- ================= Classification ================= -->
-    <div class="card bg-base-100 shadow-sm border border-base-200 p-6">
-      <h3 class="font-semibold text-base mb-4 tracking-wide">
-        Classification
-      </h3>
-
-      {% if employee.categories.exists %}
-        <div class="flex flex-wrap gap-2">
-          {% for cat in employee.categories.all %}
-            <span class="badge badge-outline text-xs">
-              {{ cat.name }}
-            </span>
-          {% endfor %}
-        </div>
-      {% else %}
-        <p class="text-sm text-base-content/60">
-          No classifications assigned.
-        </p>
-      {% endif %}
-    </div>
-
-  </div>
-
-  <!-- ================= Career Readiness ================= -->
-  <div class="card bg-base-100 shadow-md border border-base-200 p-6">
-
-    <div class="flex items-center justify-between mb-5">
-      <h3 class="font-semibold text-lg tracking-wide">
-        Career Readiness Overview
-      </h3>
-
-      {% if job_fit %}
-        {% if job_fit.score >= 85 %}
-          <span class="badge badge-success badge-lg">Ready</span>
-        {% elif job_fit.score >= 70 %}
-          <span class="badge badge-warning badge-lg">Near Ready</span>
-        {% else %}
-          <span class="badge badge-error badge-lg">Not Ready</span>
-        {% endif %}
-      {% endif %}
-    </div>
-
-    {% if job_fit %}
-
-      <!-- Score -->
-      <div class="mb-5">
-        <div class="flex justify-between text-sm mb-1">
-          <span class="text-base-content/60">Readiness Score</span>
-          <span class="font-semibold">{{ job_fit.score }}%</span>
-        </div>
-
-        <progress
-          class="progress
-            {% if job_fit.score >= 85 %}
-              progress-success
-            {% elif job_fit.score >= 70 %}
-              progress-warning
-            {% else %}
-              progress-error
+            {% if job_fit %}
+              <div class="flex items-center gap-2">
+                {% if job_fit.score >= 85 %}
+                  <span class="badge badge-success">Ready</span>
+                {% elif job_fit.score >= 70 %}
+                  <span class="badge badge-warning">Near Ready</span>
+                {% else %}
+                  <span class="badge badge-error">Not Ready</span>
+                {% endif %}
+                <span class="text-sm font-semibold">{{ job_fit.score }}%</span>
+              </div>
             {% endif %}
-          "
-          value="{{ job_fit.score }}"
-          max="100">
-        </progress>
-      </div>
+          </div>
 
-      <!-- Explanation -->
-      <p class="text-sm text-base-content/70 mb-4">
-        {% if job_fit.score >= 85 %}
-          Employee fully meets the required skills for the current role.
-        {% elif job_fit.score >= 70 %}
-          Minor skill gaps identified. Targeted training is recommended.
-        {% else %}
-          Significant skill gaps detected. Development is required before progression.
-        {% endif %}
-      </p>
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-      {% if next_eligible_job %}
-        <div class="text-sm mb-4">
-          <span class="text-base-content/60">Next eligible role:</span>
-          <a href="{{ next_eligible_job.get_absolute_url }}"
-             class="ml-1 link link-hover font-medium">
-            {{ next_eligible_job.name }}
-          </a>
-        </div>
-      {% endif %}
+            <!-- ================= General ================= -->
+            <div class="card bg-base-200/40 border border-base-300 p-5">
+              <h4 class="font-semibold text-base mb-3">
+                General Information
+              </h4>
 
-      {% if training_recommendations_top %}
-        <div class="mt-5">
-          <h4 class="text-sm font-semibold mb-3 tracking-wide">
-            Priority Training Recommendations
-          </h4>
+              <ul class="space-y-3 text-sm">
+                <li class="flex items-start justify-between gap-3">
+                  <span class="text-base-content/60">Company</span>
+                  <span class="font-medium text-right">{{ employee.company.name }}</span>
+                </li>
 
-          <ul class="space-y-3 text-sm">
-            {% for rec in training_recommendations_top %}
-              <li class="flex flex-col gap-1">
-                <div class="flex items-center gap-2">
-                  <span class="h-2 w-2 rounded-full
-                    {% if rec.status == 'missing' %}
-                      bg-error
-                    {% else %}
-                      bg-warning
-                    {% endif %}
-                  "></span>
-
-                  <span class="font-medium">
-                    {{ rec.skill.name }}
-                    <span class="text-base-content/50">
-                      ({{ rec.status|capfirst }})
-                    </span>
+                <li class="flex items-start justify-between gap-3">
+                  <span class="text-base-content/60">Department</span>
+                  <span class="font-medium text-right">
+                    {{ employee.department.complete_name|default:"—" }}
                   </span>
+                </li>
+
+                <li class="flex items-start justify-between gap-3">
+                  <span class="text-base-content/60">Job Title</span>
+                  <span class="font-medium text-right">
+                    {{ employee.job.name|default:"—" }}
+                  </span>
+                </li>
+
+                <li class="flex items-start justify-between gap-3">
+                  <span class="text-base-content/60">Manager</span>
+                  <span class="font-medium text-right">
+                    {{ employee.manager.name|default:"—" }}
+                  </span>
+                </li>
+              </ul>
+            </div>
+
+            <!-- ================= Account ================= -->
+            <div class="card bg-base-200/40 border border-base-300 p-5">
+              <h4 class="font-semibold text-base mb-3">
+                Account Details
+              </h4>
+
+              <ul class="space-y-3 text-sm">
+                <li class="flex items-start justify-between gap-3">
+                  <span class="text-base-content/60">User</span>
+                  <span class="font-medium text-right truncate max-w-[70%]">
+                    {{ employee.user.email|default:"—" }}
+                  </span>
+                </li>
+
+                <li class="flex items-start justify-between gap-3">
+                  <span class="text-base-content/60">Barcode</span>
+                  <span class="font-mono text-right">
+                    {{ employee.barcode|default:"—" }}
+                  </span>
+                </li>
+
+                <li class="flex items-start justify-between gap-3">
+                  <span class="text-base-content/60">PIN</span>
+                  <span class="font-mono text-right">
+                    {{ employee.pin|default:"—" }}
+                  </span>
+                </li>
+              </ul>
+            </div>
+
+            <!-- ================= Classification ================= -->
+            <div class="card bg-base-200/40 border border-base-300 p-5">
+              <h4 class="font-semibold text-base mb-3">
+                Classification
+              </h4>
+
+              {% if employee.categories.exists %}
+                <div class="flex flex-wrap gap-2">
+                  {% for cat in employee.categories.all %}
+                    <span class="badge badge-outline text-xs">
+                      {{ cat.name }}
+                    </span>
+                  {% endfor %}
+                </div>
+              {% else %}
+                <p class="text-sm text-base-content/60">
+                  No classifications assigned.
+                </p>
+              {% endif %}
+            </div>
+
+          </div>
+        </section>
+
+        <!-- ===================================================== -->
+        <!-- Career Readiness (Primary Card) -->
+        <!-- ===================================================== -->
+        <section class="card bg-base-100 shadow-md border border-base-200 p-6">
+          <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-3 mb-4">
+            <div>
+              <h3 class="font-semibold text-lg">
+                Career Readiness Overview
+              </h3>
+              <p class="text-xs text-base-content/60 mt-1">
+                Readiness is based on current role skill requirements compared to the employee’s recorded skills.
+              </p>
+            </div>
+
+            {% if job_fit %}
+              {% if job_fit.score >= 85 %}
+                <span class="badge badge-success">Ready</span>
+              {% elif job_fit.score >= 70 %}
+                <span class="badge badge-warning">Near Ready</span>
+              {% else %}
+                <span class="badge badge-error">Not Ready</span>
+              {% endif %}
+            {% endif %}
+          </div>
+
+          {% if job_fit %}
+
+            <!-- Score -->
+            <div class="mb-5">
+              <div class="flex items-center justify-between text-sm mb-1">
+                <span class="text-base-content/60">Readiness Score</span>
+                <span class="font-semibold">{{ job_fit.score }}%</span>
+              </div>
+
+              <progress
+                class="progress
+                  {% if job_fit.score >= 85 %}
+                    progress-success
+                  {% elif job_fit.score >= 70 %}
+                    progress-warning
+                  {% else %}
+                    progress-error
+                  {% endif %}
+                "
+                value="{{ job_fit.score }}"
+                max="100">
+              </progress>
+            </div>
+
+            <!-- Explanation -->
+            <div class="text-sm text-base-content/70">
+              {% if job_fit.score >= 85 %}
+                Employee fully meets the required skills for the current role.
+              {% elif job_fit.score >= 70 %}
+                Minor skill gaps identified. Targeted training is recommended.
+              {% else %}
+                Significant skill gaps detected. Development is required before progression.
+              {% endif %}
+            </div>
+
+            <!-- Next eligible role -->
+            {% if next_eligible_job %}
+              <div class="mt-4 text-sm">
+                <span class="text-base-content/60">Next eligible role:</span>
+                <a href="{{ next_eligible_job.get_absolute_url }}"
+                   class="link link-hover font-medium ml-1">
+                  {{ next_eligible_job.name }}
+                </a>
+              </div>
+            {% endif %}
+
+            <!-- Training recommendations -->
+            {% if training_recommendations_top %}
+              <div class="mt-6">
+                <div class="flex items-center justify-between gap-3 mb-3">
+                  <h4 class="text-sm font-semibold">
+                    Priority Training Recommendations
+                  </h4>
+
+                  <label for="emp_tabs"
+                         class="link link-hover text-sm text-base-content/70"
+                         onclick="document.querySelector('input[aria-label=&quot;Skills&quot;]').click()">
+                    View full skill gap →
+                  </label>
                 </div>
 
-                <span class="ml-4 text-xs text-base-content/60">
-                  {% if rec.status == "missing" %}
-                    Critical requirement for the next eligible role.
-                  {% else %}
-                    Improvement recommended for career progression.
-                  {% endif %}
-                </span>
-              </li>
-            {% endfor %}
-          </ul>
+                <ul class="space-y-3 text-sm">
+                  {% for rec in training_recommendations_top %}
+                    <li class="flex items-start gap-3">
+                      <span class="mt-2 h-2 w-2 rounded-full
+                        {% if rec.status == 'missing' %}
+                          bg-error
+                        {% else %}
+                          bg-warning
+                        {% endif %}
+                      "></span>
 
-          <div class="mt-3">
-            <label for="emp_tabs"
-                   class="link link-hover text-sm text-base-content/70"
-                   onclick="document.querySelector('input[aria-label=&quot;Skills&quot;]').click()">
-              View full skill gap →
-            </label>
+                      <div class="min-w-0">
+                        <div class="font-medium">
+                          {{ rec.skill.name }}
+                          <span class="text-base-content/50">
+                            ({{ rec.status|capfirst }})
+                          </span>
+                        </div>
+
+                        <div class="text-xs text-base-content/60 mt-1">
+                          {% if rec.status == "missing" %}
+                            Critical requirement for the next eligible role.
+                          {% else %}
+                            Improvement recommended for career progression.
+                          {% endif %}
+                        </div>
+                      </div>
+                    </li>
+                  {% endfor %}
+                </ul>
+              </div>
+            {% endif %}
+
+          {% else %}
+            <p class="text-sm text-base-content/60">
+              Readiness data not available.
+            </p>
+          {% endif %}
+        </section>
+
+        <!-- ===================================================== -->
+        <!-- Next Role – Skill Readiness (Secondary Card) -->
+        <!-- ===================================================== -->
+        {% if next_role %}
+        <section class="card bg-base-200/30 border border-base-300 p-5">
+          <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-3 mb-3">
+            <div>
+              <h3 class="font-semibold text-lg">
+                Next Role – Skill Readiness
+              </h3>
+              <p class="text-xs text-base-content/60 mt-1">
+                Required skills for the next role compared against the employee’s current skill profile.
+              </p>
+            </div>
+
+            <div class="text-sm">
+              <span class="text-base-content/60">Target role:</span>
+              <span class="font-medium ml-1">{{ next_role.name }}</span>
+            </div>
           </div>
-        </div>
-      {% endif %}
 
-    {% else %}
-      <p class="text-sm text-base-content/60">
-        Readiness data not available.
-      </p>
-    {% endif %}
-  </div>
+          {% if next_role_missing_skills or next_role_gap_skills %}
 
-  <!-- ================= Next Role ================= -->
-  {% if next_role %}
-  <div class="card bg-base-100 shadow-sm border border-base-200 p-6">
-    <h3 class="font-semibold text-lg mb-2 tracking-wide">
-      Next Role – Skill Readiness
-    </h3>
+            {% if next_role_missing_skills %}
+              <div class="mb-4">
+                <p class="text-sm font-semibold text-error mb-2">
+                  Missing Skills
+                </p>
+                <ul class="list-disc list-inside text-sm text-base-content/80 space-y-1">
+                  {% for req in next_role_missing_skills %}
+                    <li>
+                      <span class="font-medium">{{ req.skill.name }}</span>
+                      <span class="text-base-content/60">
+                        ({{ req.min_level.name }})
+                      </span>
+                    </li>
+                  {% endfor %}
+                </ul>
+              </div>
+            {% endif %}
 
-    <p class="text-xs text-base-content/60 mb-3">
-      Skill requirements for the next role, compared against the employee’s current skill profile.
-    </p>
+            {% if next_role_gap_skills %}
+              <div>
+                <p class="text-sm font-semibold text-warning mb-2">
+                  Skills to Improve
+                </p>
+                <ul class="list-disc list-inside text-sm text-base-content/80 space-y-1">
+                  {% for item in next_role_gap_skills %}
+                    <li>
+                      <span class="font-medium">{{ item.skill.name }}</span>
+                      <span class="text-base-content/60">
+                        — {{ item.current.name }} → {{ item.required.name }}
+                      </span>
+                    </li>
+                  {% endfor %}
+                </ul>
+              </div>
+            {% endif %}
 
+          {% else %}
+            <p class="text-sm text-success">
+              All required skills for the next role are met.
+            </p>
+          {% endif %}
+        </section>
+        {% endif %}
 
-    <p class="text-sm text-base-content/60 mb-4">
-      Target role:
-      <span class="font-medium">{{ next_role.name }}</span>
-    </p>
+      </div>
 
-    {% if next_role_missing_skills or next_role_gap_skills %}
-
-      {% if next_role_missing_skills %}
-        <div class="mb-4">
-          <p class="text-sm font-semibold text-error mb-1">
-            Missing Skills
-          </p>
-          <ul class="list-disc list-inside text-sm text-base-content/80">
-            {% for req in next_role_missing_skills %}
-              <li>{{ req.skill.name }} ({{ req.min_level.name }})</li>
-            {% endfor %}
-          </ul>
-        </div>
-      {% endif %}
-
-      {% if next_role_gap_skills %}
-        <div>
-          <p class="text-sm font-semibold text-warning mb-1">
-            Skills to Improve
-          </p>
-          <ul class="list-disc list-inside text-sm text-base-content/80">
-            {% for item in next_role_gap_skills %}
-              <li>
-                {{ item.skill.name }} —
-                {{ item.current.name }} → {{ item.required.name }}
-              </li>
-            {% endfor %}
-          </ul>
-        </div>
-      {% endif %}
-
-    {% else %}
-      <p class="text-sm text-success">
-        All required skills for the next role are met.
-      </p>
-    {% endif %}
-  </div>
-  {% endif %}
-
-</div>
-
-
-
-</div>
-
-
-        <!-- ================= Skills ================= -->
-        <input type="radio" name="emp_tabs" class="tab" aria-label="Skills" />
-        <div class="tab-content bg-base-100 p-6 rounded-box mt-4">
-
-            <div class="flex items-center justify-between mb-4">
-                <h3 class="text-lg font-semibold">
-                  Current Role – Employee Skills
-                </h3>
-                <a href="{% url 'skills:employeeskill_create' %}?employee={{ employee.id }}"
-                   class="btn btn-sm btn-primary">
-                    + Add Skill
-                </a>
-            </div>
-
-            <div class="overflow-x-auto">
-                <table class="table table-zebra w-full text-sm">
-                    <thead>
-                        <tr>
-                            <th>Skill Type</th>
-                            <th>Skill</th>
-                            <th>Level</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for es in employee_skills %}
-                        <tr>
-                            <td>{{ es.skill_type.name }}</td>
-                            <td>{{ es.skill.name }}</td>
-                            <td>{{ es.skill_level.name|default:"—" }}</td>
-                        </tr>
-                        {% empty %}
-                        <tr>
-                            <td colspan="3" class="text-center opacity-70">
-                                No skills assigned to this employee
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-{% if skill_gap %}
-    <div class="mt-6">
-        <h4 class="font-semibold text-md mb-3 text-error">
-          Current Role – Skill Gap Analysis
-        </h4>
-
-        <div class="overflow-x-auto">
-            <table class="table table-zebra w-full text-sm">
-                <thead>
-                    <tr>
-                        <th>Required Skill</th>
-                        <th>Required Level</th>
-                        <th>Employee Level</th>
-                        <th>Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for row in skill_gap %}
-                    <tr>
-                      <td>{{ row.required_skill.name }}</td>
-                      <td>{{ row.required_level.name }} ({{ row.required_level.level_progress }}%)</td>
-                      <td>
-                        {% if row.employee_level %}
-                          {{ row.employee_level.name }} ({{ row.employee_level.level_progress }}%)
-                        {% else %}
-                          —
-                        {% endif %}
-                      </td>
-                      <td>
-                        {% if row.status == "ok" %}
-                          <span class="badge badge-success">OK</span>
-                        {% elif row.status == "gap" %}
-                          <span class="badge badge-warning">GAP</span>
-                        {% else %}
-                          <span class="badge badge-error">MISSING</span>
-                        {% endif %}
-                      </td>
-                    </tr>
-                    {% empty %}
-                    <tr><td colspan="4" class="text-center opacity-70">No requirements for this job.</td></tr>
-                    {% endfor %}
-
-                </tbody>
-            </table>
-        </div>
     </div>
-{% endif %}
 
-        </div>
 
 <!-- ================= Career Path ================= -->
 <input type="radio" name="emp_tabs" class="tab" aria-label="Career Path" />
 <div class="tab-content bg-base-100 p-6 rounded-box mt-4">
 
-  <h3 class="text-lg font-semibold mb-2">Career Path</h3>
-  <p class="text-sm text-base-content/60 mb-5">
-    Career progression analysis based on actual skill readiness, not scores.
-  </p>
+  <div class="space-y-6">
 
-  {% if career_path %}
-    <div class="overflow-x-auto">
+    <!-- ===================================================== -->
+    <!-- Header -->
+    <!-- ===================================================== -->
+    <section>
+      <h3 class="text-lg font-semibold">
+        Career Path & Promotion Readiness
+      </h3>
+      <p class="text-sm text-base-content/60 mt-1 max-w-3xl">
+        This section evaluates promotion eligibility based strictly on skill completeness
+        for each potential next role. Scores are not used—only actual skill readiness.
+      </p>
+    </section>
+
+    <!-- ===================================================== -->
+    <!-- Career Path Table -->
+    <!-- ===================================================== -->
+    {% if career_path %}
+    <section class="card bg-base-200/40 border border-base-300 p-5">
+
+      <div class="overflow-x-auto mt-2">
+        <table class="table table-zebra w-full text-sm">
+
+          <thead>
+            <tr>
+              <th>Target Role</th>
+              <th class="whitespace-nowrap">Promotion Status</th>
+              <th class="whitespace-nowrap text-center">Missing Skills</th>
+              <th class="whitespace-nowrap text-center">Skills to Improve</th>
+              <th class="whitespace-nowrap">Decision</th>
+            </tr>
+          </thead>
+
+          <tbody>
+
+            {% for row in career_path %}
+            <tr
+              {% if row.eligible %}
+                class="bg-success/10 border-l-4 border-success"
+              {% endif %}
+            >
+
+              <!-- Target Role (Primary Column) -->
+              <td class="font-medium">
+                {% if row.job %}
+                  <a href="{% url 'hr:job_detail' row.job.pk %}"
+                     class="link link-hover font-semibold">
+                    {{ row.job.name }}
+                  </a>
+                {% else %}
+                  —
+                {% endif %}
+              </td>
+
+              <!-- Promotion Status -->
+              <td>
+                {% if row.eligible %}
+                  <span class="badge badge-success badge-sm">
+                    Eligible for Promotion
+                  </span>
+                {% else %}
+                  <span class="badge badge-neutral badge-sm">
+                    Not Eligible
+                  </span>
+                {% endif %}
+              </td>
+
+              <!-- Missing Skills -->
+              <td class="text-center">
+                {% if row.missing_count > 0 %}
+                  <span class="text-error font-semibold">
+                    {{ row.missing_count }}
+                  </span>
+                {% else %}
+                  <span class="text-success">—</span>
+                {% endif %}
+              </td>
+
+              <!-- Skills to Improve -->
+              <td class="text-center">
+                {% if row.gap_count > 0 %}
+                  <span class="text-warning font-semibold">
+                    {{ row.gap_count }}
+                  </span>
+                {% else %}
+                  <span class="text-success">—</span>
+                {% endif %}
+              </td>
+
+              <!-- Decision (Human-readable) -->
+              <td class="text-sm">
+                {% if row.eligible %}
+                  <span class="text-success font-medium">
+                    Ready for promotion
+                  </span>
+                {% else %}
+                  <span class="text-base-content/60">
+                    Development required
+                  </span>
+                {% endif %}
+              </td>
+
+            </tr>
+            {% endfor %}
+
+          </tbody>
+
+        </table>
+      </div>
+
+      <!-- ===================================================== -->
+      <!-- Footer Note -->
+      <!-- ===================================================== -->
+      <div class="text-xs text-base-content/50 mt-3 max-w-3xl">
+        Promotion eligibility is granted only when all required skills are met.
+        Any missing or below-level skill automatically blocks promotion.
+      </div>
+
+    </section>
+
+    {% else %}
+      <div class="alert alert-info">
+        No career path is defined for the employee’s current role.
+      </div>
+    {% endif %}
+
+  </div>
+
+</div>
+
+
+<!-- ================= Skills ================= -->
+<input type="radio" name="emp_tabs" class="tab" aria-label="Skills" />
+<div class="tab-content bg-base-100 p-6 rounded-box mt-4 space-y-8">
+
+  <!-- ===================================================== -->
+  <!-- Current Role – Employee Skills -->
+  <!-- ===================================================== -->
+  <section class="card bg-base-200/40 border border-base-300 p-5">
+
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
+      <div>
+        <h3 class="text-lg font-semibold">
+          Current Role – Employee Skills
+        </h3>
+        <p class="text-xs text-base-content/60 mt-1">
+          The employee’s recorded skills and levels for the current role.
+        </p>
+      </div>
+
+      <a href="{% url 'skills:employeeskill_create' %}?employee={{ employee.id }}"
+         class="btn btn-sm btn-primary">
+        + Add Skill
+      </a>
+    </div>
+
+    <div class="overflow-x-auto mt-4">
       <table class="table table-zebra w-full text-sm">
         <thead>
           <tr>
-            <th>Target Role</th>
-            <th>Promotion Status</th>
-            <th>Missing Skills</th>
-            <th>Skills to Improve</th>
-            <th>Action</th>
+            <th class="whitespace-nowrap">Skill Type</th>
+            <th>Skill</th>
+            <th class="whitespace-nowrap">Level</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for es in employee_skills %}
+          <tr>
+            <td class="font-medium">{{ es.skill_type.name }}</td>
+            <td>{{ es.skill.name }}</td>
+            <td class="text-base-content/70">
+              {{ es.skill_level.name|default:"—" }}
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="3" class="text-center text-base-content/60">
+              No skills assigned to this employee.
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+  </section>
+
+  <!-- ===================================================== -->
+  <!-- Current Role – Skill Gap Analysis -->
+  <!-- ===================================================== -->
+  {% if skill_gap %}
+  <section class="card bg-base-200/30 border border-base-300 p-5">
+
+    <div class="flex flex-col gap-1 mb-4">
+      <h4 class="font-semibold text-md text-error">
+        Current Role – Skill Gap Analysis
+      </h4>
+      <p class="text-xs text-base-content/60">
+        Comparison between required skills for the current role and the employee’s actual skill levels.
+      </p>
+    </div>
+
+    <div class="overflow-x-auto mt-4">
+      <table class="table table-zebra w-full text-sm">
+        <thead>
+          <tr>
+            <th>Required Skill</th>
+            <th class="whitespace-nowrap">Required Level</th>
+            <th class="whitespace-nowrap">Employee Level</th>
+            <th class="whitespace-nowrap">Status</th>
           </tr>
         </thead>
         <tbody>
 
-          {% for row in career_path %}
-          <tr
-            {% if row.eligible %}
-              class="bg-success/10 border-l-4 border-success"
-            {% endif %}
-          >
+          {% for row in skill_gap %}
+          <tr>
 
-            <!-- Target Role -->
+            <!-- Primary column: Skill -->
             <td class="font-medium">
-              {% if row.job %}
-                <a href="{% url 'hr:job_detail' row.job.pk %}"
-                   class="link link-hover font-semibold">
-                  {{ row.job.name }}
-                </a>
+              {{ row.required_skill.name }}
+            </td>
+
+            <!-- Secondary: Required level -->
+            <td class="text-base-content/70">
+              {{ row.required_level.name }}
+              <span class="text-xs text-base-content/50">
+                ({{ row.required_level.level_progress }}%)
+              </span>
+            </td>
+
+            <!-- Secondary: Employee level -->
+            <td class="text-base-content/70">
+              {% if row.employee_level %}
+                {{ row.employee_level.name }}
+                <span class="text-xs text-base-content/50">
+                  ({{ row.employee_level.level_progress }}%)
+                </span>
               {% else %}
                 —
               {% endif %}
             </td>
 
-            <!-- Promotion Status -->
+            <!-- Status: unified badge -->
             <td>
-              {% if row.eligible %}
-                <span class="badge badge-success">Ready for Promotion</span>
-              {% else %}
-                <span class="badge badge-warning">Not Ready</span>
-              {% endif %}
+              <span class="badge badge-sm
+                {% if row.status == 'ok' %}
+                  badge-success
+                {% elif row.status == 'gap' %}
+                  badge-warning
+                {% else %}
+                  badge-error
+                {% endif %}
+              ">
+                {{ row.status|upper }}
+              </span>
             </td>
 
-            <!-- Missing Skills -->
-            <td>
-              {% if row.missing_count > 0 %}
-                <span class="text-error font-semibold">
-                  {{ row.missing_count }}
-                </span>
-              {% else %}
-                <span class="text-success">—</span>
-              {% endif %}
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="4" class="text-center text-base-content/60">
+              No skill requirements defined for this job.
             </td>
-
-            <!-- Skills to Improve -->
-            <td>
-              {% if row.gap_count > 0 %}
-                <span class="text-warning font-semibold">
-                  {{ row.gap_count }}
-                </span>
-              {% else %}
-                <span class="text-success">—</span>
-              {% endif %}
-            </td>
-
-            <!-- Action -->
-            <td class="text-sm">
-              {% if row.eligible %}
-                <span class="text-success font-medium">
-                  Eligible for promotion
-                </span>
-              {% else %}
-                <span class="text-base-content/60">
-                  Development required
-                </span>
-              {% endif %}
-            </td>
-
           </tr>
           {% endfor %}
 
@@ -525,391 +727,690 @@
       </table>
     </div>
 
-    <p class="text-xs text-base-content/50 mt-3">
-      Promotion eligibility is determined strictly by skill completeness (no missing or gap skills).
-    </p>
+    <div class="text-xs text-base-content/50 mt-3">
+      Status meanings: OK = meets requirement, GAP = below required level, MISSING = skill not recorded.
+    </div>
 
-  {% else %}
-    <p class="text-sm opacity-60">
-      No career path defined for this role.
-    </p>
+  </section>
   {% endif %}
 
 </div>
 
 
-
 <!-- ================= Assets ================= -->
 <input type="radio" name="emp_tabs" class="tab" aria-label="Assets" />
-
 <div class="tab-content bg-base-100 p-6 rounded-box mt-4 space-y-8">
 
-    <!-- ================= Current Assets ================= -->
-    <div>
-        <h3 class="text-lg font-semibold mb-4">
-            Current Assets
-        </h3>
+  <!-- ===================================================== -->
+  <!-- Header -->
+  <!-- ===================================================== -->
+  <section>
+    <h3 class="text-lg font-semibold">
+      Employee Assets & Equipment
+    </h3>
+    <p class="text-sm text-base-content/60 mt-1 max-w-3xl">
+      Track all assets currently assigned to the employee, including assignment history
+      and asset holding duration. Each asset can be assigned to only one employee at a time.
+    </p>
+  </section>
 
-      {% if can_assign_asset %}
-          <div class="mb-4">
-              <a href="{% url 'assets:asset_list' %}?assign_to={{ employee.id }}"
-                 class="btn btn-sm btn-primary">
-                  + Assign Asset
-              </a>
-          </div>
-      {% endif %}
+  <!-- ===================================================== -->
+  <!-- Current Assets -->
+  <!-- ===================================================== -->
+  <section class="card bg-base-200/40 border border-base-300 p-5">
 
-        {% if current_asset_assignments %}
-            <div class="overflow-x-auto">
-                <table class="table table-zebra w-full text-sm">
-                    <thead>
-                        <tr>
-                            <th>Asset</th>
-                            <th>Assigned From</th>
-                            <th>Holding Duration</th>
-                            <th>Status</th>
-                          <th class="text-right">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for asg in current_asset_assignments %}
-                        <tr class="bg-base-200">
-                            <td class="font-medium">
-                                <a href="{% url 'assets:asset_detail' asg.asset.id %}"
-                                   class="link link-primary">
-                                    {{ asg.asset.code }} — {{ asg.asset.name }}
-                                </a>
-                            </td>
+    <div class="flex items-center justify-between mb-4">
+      <h4 class="font-semibold text-md">
+        Current Assets
+      </h4>
 
-                            <td>
-                                {{ asg.date_from|date:"Y-m-d" }}
-                            </td>
-
-                            <td>
-                                {{ asg.date_from|timesince }} ago
-                            </td>
-
-                            <td>
-                                <span class="badge badge-success badge-sm">
-                                    Active
-                                </span>
-                            </td>
-                          <td class="text-right">
-                              <a href="{% url 'assets:asset_unassign' asg.asset.id %}"
-                                 class="btn btn-xs btn-warning">
-                                  Unassign
-                              </a>
-                          </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        {% else %}
-            <p class="text-sm opacity-60">
-                No active asset assignments.
-            </p>
-        {% endif %}
+      <a href="{% url 'assets:asset_list' %}?assign_to={{ employee.id }}"
+         class="btn btn-sm btn-primary">
+        + Assign Asset
+      </a>
     </div>
 
-    <!-- ================= Asset Assignment History ================= -->
-    <div>
-        <h3 class="text-lg font-semibold mb-4">
-            Asset Assignment History
-        </h3>
+    {% if current_asset_assignments %}
+      <div class="overflow-x-auto mt-3">
+        <table class="table table-zebra w-full text-sm">
 
-        {% if asset_assignments %}
-            <div class="overflow-x-auto">
-                <table class="table table-zebra w-full text-sm">
-                    <thead>
-                        <tr>
-                            <th>Asset</th>
-                            <th>From</th>
-                            <th>To</th>
-                            <th>Duration</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for asg in asset_assignments %}
-                        <tr>
-                            <td class="font-medium">
-                                <a href="{% url 'assets:asset_detail' asg.asset.id %}"
-                                   class="link link-hover">
-                                    {{ asg.asset.code }} — {{ asg.asset.name }}
-                                </a>
-                            </td>
+          <thead>
+            <tr>
+              <th>Asset</th>
+              <th class="whitespace-nowrap">Assigned From</th>
+              <th class="whitespace-nowrap">Holding Duration</th>
+              <th>Status</th>
+              <th class="text-right whitespace-nowrap">Actions</th>
+            </tr>
+          </thead>
 
-                            <td>
-                                {{ asg.date_from|date:"Y-m-d"|default:"—" }}
-                            </td>
+          <tbody>
+            {% for asg in current_asset_assignments %}
+            <tr>
 
-                            <td>
-                                {{ asg.date_to|date:"Y-m-d"|default:"—" }}
-                            </td>
+              <!-- Asset (Primary Column) -->
+              <td class="font-medium">
+                <a href="{% url 'assets:asset_detail' asg.asset.id %}"
+                   class="link link-hover font-semibold">
+                  {{ asg.asset.code }} — {{ asg.asset.name }}
+                </a>
+              </td>
 
-                            <td>
-                                {% if asg.date_to %}
-                                    {{ asg.date_from|timesince:asg.date_to }}
-                                {% else %}
-                                    —
-                                {% endif %}
-                            </td>
+              <!-- Assigned From -->
+              <td>
+                {{ asg.date_from|date:"Y-m-d" }}
+              </td>
 
-                            <td>
-                                {% if asg.date_to %}
-                                    <span class="badge badge-ghost badge-sm">
-                                        Closed
-                                    </span>
-                                {% else %}
-                                    <span class="badge badge-success badge-sm">
-                                        Active
-                                    </span>
-                                {% endif %}
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        {% else %}
-            <p class="text-sm opacity-60">
-                No asset assignment history available.
-            </p>
-        {% endif %}
-    </div>
+              <!-- Holding Duration -->
+              <td>
+                {{ asg.date_from|timesince }} ago
+              </td>
+
+              <!-- Status -->
+              <td>
+                <span class="badge badge-success badge-sm">
+                  Active
+                </span>
+              </td>
+
+              <!-- Actions -->
+              <td class="text-right">
+                <a href="{% url 'assets:asset_unassign' asg.asset.id %}"
+                   class="btn btn-xs btn-warning"
+                   onclick="return confirm('Unassign this asset from the employee?');">
+                  Unassign
+                </a>
+              </td>
+
+            </tr>
+            {% endfor %}
+          </tbody>
+
+        </table>
+      </div>
+    {% else %}
+      <p class="text-sm text-base-content/60 mt-2">
+        No assets are currently assigned to this employee.
+      </p>
+    {% endif %}
+
+  </section>
+
+  <!-- ===================================================== -->
+  <!-- Asset Assignment History -->
+  <!-- ===================================================== -->
+  <section class="card bg-base-200/30 border border-base-300 p-5">
+
+    <h4 class="font-semibold text-md mb-1">
+      Asset Assignment History
+    </h4>
+
+    <p class="text-xs text-base-content/60 mb-4">
+      Historical record of previously assigned assets, including return dates and usage duration.
+    </p>
+
+    {% if employee_assets_history %}
+      <div class="overflow-x-auto mt-3">
+        <table class="table table-zebra w-full text-sm">
+
+          <thead>
+            <tr>
+              <th>Asset</th>
+              <th class="whitespace-nowrap">Assigned From</th>
+              <th class="whitespace-nowrap">Returned On</th>
+              <th class="whitespace-nowrap">Holding Duration</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {% for asg in employee_assets_history %}
+              {% if asg.date_to %}
+              <tr>
+
+                <!-- Asset -->
+                <td class="font-medium">
+                  <a href="{% url 'assets:asset_detail' asg.asset.id %}"
+                     class="link link-hover font-semibold">
+                    {{ asg.asset.code }} — {{ asg.asset.name }}
+                  </a>
+                </td>
+
+                <!-- Assigned From -->
+                <td>
+                  {{ asg.date_from|date:"Y-m-d" }}
+                </td>
+
+                <!-- Returned On -->
+                <td>
+                  {{ asg.date_to|date:"Y-m-d" }}
+                </td>
+
+                <!-- Holding Duration -->
+                <td>
+                  {{ asg.date_from|timesince:asg.date_to }}
+                </td>
+
+                <!-- Status -->
+                <td>
+                  <span class="badge badge-ghost badge-sm">
+                    Returned
+                  </span>
+                </td>
+
+              </tr>
+              {% endif %}
+            {% endfor %}
+          </tbody>
+
+        </table>
+      </div>
+    {% else %}
+      <p class="text-sm text-base-content/60 mt-2">
+        No previous asset assignments found.
+      </p>
+    {% endif %}
+
+  </section>
 
 </div>
 
 
 
-        <!-- ================= Organization ================= -->
-        <input type="radio" name="emp_tabs" class="tab" aria-label="Organization" />
-        <div class="tab-content bg-base-100 p-6 rounded-box mt-4">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<!-- ================= Organization ================= -->
+<input type="radio" name="emp_tabs" class="tab" aria-label="Organization" />
+<div class="tab-content bg-base-100 p-6 rounded-box mt-4 space-y-8">
 
-                <div>
-                    <h3 class="font-semibold mb-2">Management Chain</h3>
-                    {% if manager_chain %}
-                        <ul class="list-disc ml-5 text-sm">
-                            {% for m in manager_chain %}
-                                <li>{{ m.name }}</li>
-                            {% endfor %}
-                        </ul>
-                    {% else %}
-                        <p class="opacity-60 text-sm">No managers above.</p>
-                    {% endif %}
-                </div>
+  <!-- ===================================================== -->
+  <!-- Header -->
+  <!-- ===================================================== -->
+  <section>
+    <h3 class="text-lg font-semibold">
+      Organizational Structure
+    </h3>
+    <p class="text-sm text-base-content/60 mt-1 max-w-3xl">
+      View the employee’s position within the organizational hierarchy,
+      including reporting lines and direct subordinates.
+    </p>
+  </section>
 
-                <div>
-                    <h3 class="font-semibold mb-2">Subordinates</h3>
-                    {% if subordinates %}
-                        <ul class="list-disc ml-5 text-sm">
-                            {% for s in subordinates %}
-                                <li>{{ s.name }}</li>
-                            {% endfor %}
-                        </ul>
-                    {% else %}
-                        <p class="opacity-60 text-sm">No subordinates.</p>
-                    {% endif %}
-                </div>
+  <!-- ===================================================== -->
+  <!-- Organization Grid -->
+  <!-- ===================================================== -->
+  <section class="grid grid-cols-1 md:grid-cols-2 gap-6">
 
-            </div>
-        </div>
+    <!-- ================= Management Chain ================= -->
+    <div class="card bg-base-200/40 border border-base-300 p-5">
 
-        <!-- ================= Status History ================= -->
-        <input type="radio" name="emp_tabs" class="tab" aria-label="Status History" />
-        <div class="tab-content bg-base-100 p-6 rounded-box mt-4">
+      <h4 class="font-semibold text-md mb-2">
+        Management Chain
+      </h4>
 
-            {% if status_history %}
-                <div class="overflow-x-auto">
-                    <table class="table table-zebra w-full text-sm">
-                        <thead>
-                            <tr>
-                                <th>Status</th>
-                                <th>Reason</th>
-                                <th>Note</th>
-                                <th>Changed By</th>
-                                <th>Changed At</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for h in status_history %}
-                                <tr>
-                                    <td>
-                                        <span class="badge
-                                            {% if h.status.is_active_flag %}
-                                                badge-success
-                                            {% elif h.status.code == 'suspended' %}
-                                                badge-warning
-                                            {% else %}
-                                                badge-error
-                                            {% endif %}
-                                        ">
-                                            {{ h.status.name }}
-                                        </span>
-                                    </td>
-                                    <td>{{ h.reason }}</td>
-                                    <td class="max-w-md truncate" title="{{ h.note }}">
-                                        {{ h.note|default:"—" }}
-                                    </td>
-                                    <td>
-                                        {{ h.changed_by|default:"—" }}
-                                    </td>
-                                    <td class="whitespace-nowrap">
-                                        {{ h.changed_at|date:"Y-m-d H:i" }}
-                                    </td>
-                                </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            {% else %}
-                <div class="alert alert-info">
-                    No status history available.
-                </div>
-            {% endif %}
+      <p class="text-xs text-base-content/60 mb-4">
+        Hierarchical reporting line from the employee up to top management.
+      </p>
 
-        </div>
+      {% if manager_chain %}
+        <ul class="space-y-2 text-sm">
+          {% for m in manager_chain %}
+            <li class="flex items-center gap-2">
+              <span class="h-1.5 w-1.5 rounded-full bg-base-content/40"></span>
+              <span class="font-medium">{{ m.name }}</span>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="text-sm text-base-content/60">
+          This employee does not report to any manager.
+        </p>
+      {% endif %}
+
+    </div>
+
+    <!-- ================= Subordinates ================= -->
+    <div class="card bg-base-200/40 border border-base-300 p-5">
+
+      <h4 class="font-semibold text-md mb-2">
+        Direct Subordinates
+      </h4>
+
+      <p class="text-xs text-base-content/60 mb-4">
+        Employees who directly report to this employee.
+      </p>
+
+      {% if subordinates %}
+        <ul class="space-y-2 text-sm">
+          {% for s in subordinates %}
+            <li class="flex items-center gap-2">
+              <span class="h-1.5 w-1.5 rounded-full bg-base-content/40"></span>
+              <span class="font-medium">{{ s.name }}</span>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="text-sm text-base-content/60">
+          This employee has no direct subordinates.
+        </p>
+      {% endif %}
+
+    </div>
+
+  </section>
+
+</div>
+
+
+<!-- ================= Status History ================= -->
+<input type="radio" name="emp_tabs" class="tab" aria-label="Status History" />
+<div class="tab-content bg-base-100 p-6 rounded-box mt-4 space-y-6">
+
+  <!-- ===================================================== -->
+  <!-- Header -->
+  <!-- ===================================================== -->
+  <section>
+    <h3 class="text-lg font-semibold">
+      Employee Status History
+    </h3>
+    <p class="text-sm text-base-content/60 mt-1 max-w-3xl">
+      Chronological record of all status changes applied to the employee,
+      including reasons, notes, and audit information.
+    </p>
+  </section>
+
+  <!-- ===================================================== -->
+  <!-- Status History Table -->
+  <!-- ===================================================== -->
+  {% if status_history %}
+    <section class="card bg-base-200/40 border border-base-300 p-5">
+
+      <div class="overflow-x-auto">
+        <table class="table table-zebra w-full text-sm">
+          <thead>
+            <tr>
+              <th>Status</th>
+              <th>Reason</th>
+              <th>Note</th>
+              <th>Changed By</th>
+              <th>Changed At</th>
+            </tr>
+          </thead>
+          <tbody>
+
+            {% for h in status_history %}
+            <tr>
+
+              <!-- Status -->
+              <td>
+                <span class="badge badge-sm
+                  {% if h.status.is_active_flag %}
+                    badge-success
+                  {% elif h.status.code == 'suspended' %}
+                    badge-warning
+                  {% else %}
+                    badge-error
+                  {% endif %}
+                ">
+                  {{ h.status.name }}
+                </span>
+              </td>
+
+              <!-- Reason -->
+              <td class="font-medium">
+                {{ h.reason|default:"—" }}
+              </td>
+
+              <!-- Note -->
+              <td class="max-w-md">
+                {% if h.note %}
+                  <span class="truncate block" title="{{ h.note }}">
+                    {{ h.note }}
+                  </span>
+                {% else %}
+                  <span class="text-base-content/50">—</span>
+                {% endif %}
+              </td>
+
+              <!-- Changed By -->
+              <td>
+                {{ h.changed_by|default:"—" }}
+              </td>
+
+              <!-- Changed At -->
+              <td class="whitespace-nowrap text-base-content/80">
+                {{ h.changed_at|date:"Y-m-d H:i" }}
+              </td>
+
+            </tr>
+            {% endfor %}
+
+          </tbody>
+        </table>
+      </div>
+
+    </section>
+
+  {% else %}
+    <!-- ===================================================== -->
+    <!-- Empty State -->
+    <!-- ===================================================== -->
+    <div class="alert alert-info">
+      <span class="font-medium">
+        No status history available.
+      </span>
+      <span class="text-sm opacity-70 ml-1">
+        This employee has not undergone any status changes yet.
+      </span>
+    </div>
+  {% endif %}
+
+</div>
+
 
 <!-- ================= Personal Info ================= -->
 <input type="radio" name="emp_tabs" class="tab" aria-label="Personal Info" />
+<div class="tab-content bg-base-100 p-6 rounded-box mt-4 space-y-8">
 
-<div class="tab-content bg-base-100 p-6 rounded-box mt-4">
+  <!-- ===================================================== -->
+  <!-- Header -->
+  <!-- ===================================================== -->
+  <section>
+    <h3 class="text-lg font-semibold">
+      Personal Information
+    </h3>
+    <p class="text-sm text-base-content/60 mt-1 max-w-3xl">
+      Confidential personal, identification, and emergency contact details
+      related to the employee.
+    </p>
+  </section>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+  <!-- ===================================================== -->
+  <!-- Content Grid -->
+  <!-- ===================================================== -->
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
 
-        <!-- ================= Personal Details ================= -->
-        <div class="card bg-base-100 shadow p-6">
-            <h3 class="font-semibold text-lg mb-4">Personal Details</h3>
-            <ul class="space-y-2 text-sm">
-                <li><span class="opacity-70">Private Phone:</span> {{ employee.private_phone|default:"—" }}</li>
-                <li><span class="opacity-70">Private Email:</span> {{ employee.private_email|default:"—" }}</li>
-                <li><span class="opacity-70">Birthday:</span> {{ employee.birthday|date:"Y-m-d"|default:"—" }}</li>
-                <li><span class="opacity-70">Place of Birth:</span> {{ employee.place_of_birth|default:"—" }}</li>
-                <li><span class="opacity-70">Gender:</span> {{ employee.get_gender_display|default:"—" }}</li>
-                <li><span class="opacity-70">Marital Status:</span> {{ employee.get_marital_status_display|default:"—" }}</li>
-                <li><span class="opacity-70">Children:</span> {{ employee.children }}</li>
-            </ul>
-        </div>
+    <!-- ===================================================== -->
+    <!-- Personal Details -->
+    <!-- ===================================================== -->
+    <section class="card bg-base-200/40 border border-base-300 p-5">
+      <h4 class="font-semibold text-md mb-4">
+        Personal Details
+      </h4>
 
-        <!-- ================= Identification ================= -->
-        <div class="card bg-base-100 shadow p-6">
-            <h3 class="font-semibold text-lg mb-4">Identification</h3>
-            <ul class="space-y-2 text-sm">
-                <li><span class="opacity-70">National ID:</span> {{ employee.identification_id|default:"—" }}</li>
-                <li><span class="opacity-70">Passport ID:</span> {{ employee.passport_id|default:"—" }}</li>
-                <li><span class="opacity-70">Bank Account:</span> {{ employee.bank_account|default:"—" }}</li>
-                <li><span class="opacity-70">Car:</span> {{ employee.car|default:"—" }}</li>
-            </ul>
-        </div>
+      <ul class="space-y-3 text-sm">
 
-        <!-- ================= Emergency Contact ================= -->
-        <div class="card bg-base-100 shadow p-6 md:col-span-2">
-            <h3 class="font-semibold text-lg mb-4">Emergency Contact</h3>
-            <ul class="space-y-2 text-sm">
-                <li><span class="opacity-70">Contact Name:</span> {{ employee.emergency_contact|default:"—" }}</li>
-                <li><span class="opacity-70">Phone:</span> {{ employee.emergency_phone|default:"—" }}</li>
-            </ul>
-        </div>
+        <li class="flex justify-between">
+          <span class="text-base-content/60">Private Phone</span>
+          <span class="font-medium">
+            {{ employee.private_phone|default:"—" }}
+          </span>
+        </li>
 
-    </div>
+        <li class="flex justify-between">
+          <span class="text-base-content/60">Private Email</span>
+          <span class="font-medium truncate max-w-[60%]">
+            {{ employee.private_email|default:"—" }}
+          </span>
+        </li>
+
+        <li class="flex justify-between">
+          <span class="text-base-content/60">Birthday</span>
+          <span class="font-medium">
+            {{ employee.birthday|date:"Y-m-d"|default:"—" }}
+          </span>
+        </li>
+
+        <li class="flex justify-between">
+          <span class="text-base-content/60">Place of Birth</span>
+          <span class="font-medium">
+            {{ employee.place_of_birth|default:"—" }}
+          </span>
+        </li>
+
+        <li class="flex justify-between">
+          <span class="text-base-content/60">Gender</span>
+          <span class="font-medium">
+            {{ employee.get_gender_display|default:"—" }}
+          </span>
+        </li>
+
+        <li class="flex justify-between">
+          <span class="text-base-content/60">Marital Status</span>
+          <span class="font-medium">
+            {{ employee.get_marital_status_display|default:"—" }}
+          </span>
+        </li>
+
+        <li class="flex justify-between">
+          <span class="text-base-content/60">Children</span>
+          <span class="font-medium">
+            {{ employee.children }}
+          </span>
+        </li>
+
+      </ul>
+    </section>
+
+    <!-- ===================================================== -->
+    <!-- Identification -->
+    <!-- ===================================================== -->
+    <section class="card bg-base-200/40 border border-base-300 p-5">
+      <h4 class="font-semibold text-md mb-4">
+        Identification
+      </h4>
+
+      <ul class="space-y-3 text-sm">
+
+        <li class="flex justify-between">
+          <span class="text-base-content/60">National ID</span>
+          <span class="font-mono">
+            {{ employee.identification_id|default:"—" }}
+          </span>
+        </li>
+
+        <li class="flex justify-between">
+          <span class="text-base-content/60">Passport ID</span>
+          <span class="font-mono">
+            {{ employee.passport_id|default:"—" }}
+          </span>
+        </li>
+
+        <li class="flex justify-between">
+          <span class="text-base-content/60">Bank Account</span>
+          <span class="font-mono truncate max-w-[60%]">
+            {{ employee.bank_account|default:"—" }}
+          </span>
+        </li>
+
+        <li class="flex justify-between">
+          <span class="text-base-content/60">Car</span>
+          <span class="font-medium">
+            {{ employee.car|default:"—" }}
+          </span>
+        </li>
+
+      </ul>
+    </section>
+
+    <!-- ===================================================== -->
+    <!-- Emergency Contact -->
+    <!-- ===================================================== -->
+    <section class="card bg-base-200/40 border border-base-300 p-5 md:col-span-2">
+      <h4 class="font-semibold text-md mb-4">
+        Emergency Contact
+      </h4>
+
+      <ul class="space-y-3 text-sm max-w-lg">
+
+        <li class="flex justify-between">
+          <span class="text-base-content/60">Contact Name</span>
+          <span class="font-medium">
+            {{ employee.emergency_contact|default:"—" }}
+          </span>
+        </li>
+
+        <li class="flex justify-between">
+          <span class="text-base-content/60">Phone</span>
+          <span class="font-medium">
+            {{ employee.emergency_phone|default:"—" }}
+          </span>
+        </li>
+
+      </ul>
+    </section>
+
+  </div>
 
 </div>
+
 
 
 <!-- ================= Education ================= -->
 <input type="radio" name="emp_tabs" class="tab" aria-label="Education" />
+<div class="tab-content bg-base-100 p-6 rounded-box mt-4 space-y-6">
 
-<div class="tab-content bg-base-100 p-6 rounded-box mt-4">
-
-    <!-- Header -->
-    <div class="flex items-center justify-between mb-4">
-        <h3 class="text-lg font-semibold">Education</h3>
-
-        <button type="button"
-                class="btn btn-primary btn-sm"
-                onclick="document.getElementById('add-education-modal').showModal()">
-            + Add Education
-        </button>
+  <!-- ===================================================== -->
+  <!-- Header -->
+  <!-- ===================================================== -->
+  <section class="flex items-start justify-between gap-4">
+    <div>
+      <h3 class="text-lg font-semibold">
+        Education & Qualifications
+      </h3>
+      <p class="text-sm text-base-content/60 mt-1 max-w-3xl">
+        Academic background and professional qualifications recorded for the employee.
+      </p>
     </div>
 
-    {% if education_records %}
-        <div class="overflow-x-auto">
-            <table class="table table-zebra w-full text-sm">
-                <thead>
-                    <tr>
-                        <th>Certificate</th>
-                        <th>Field of Study</th>
-                        <th>Institution</th>
-                        <th>Years</th>
-                        <th>Notes</th>
-                        <th class="text-right">Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for ed in education_records %}
-                    <tr>
-                        <td>{{ ed.certificate|default:"—" }}</td>
-                        <td>{{ ed.field_of_study|default:"—" }}</td>
-                        <td>{{ ed.institution|default:"—" }}</td>
-                        <td>
-                            {{ ed.start_year }}
-                            {% if ed.end_year %} – {{ ed.end_year }}{% endif %}
-                        </td>
-                        <td>{{ ed.notes|default:"—" }}</td>
+    <button type="button"
+            class="btn btn-sm btn-primary"
+            onclick="document.getElementById('add-education-modal').showModal()">
+      + Add Education
+    </button>
+  </section>
 
-                        <td class="text-right">
-                            <div class="flex justify-end gap-1">
+  <!-- ===================================================== -->
+  <!-- Education Records -->
+  <!-- ===================================================== -->
+  {% if education_records %}
+    <section class="card bg-base-200/40 border border-base-300 p-5">
 
-                                <!-- Edit -->
-                                <button type="button"
-                                        class="btn btn-ghost btn-xs"
-                                        onclick="
-                                            document.getElementById('edit-education-form').action =
-                                            '{% url 'hr:education_edit' ed.id %}';
+      <div class="overflow-x-auto">
+        <table class="table table-zebra w-full text-sm">
+          <thead>
+            <tr>
+              <th>Certificate</th>
+              <th>Field of Study</th>
+              <th>Institution</th>
+              <th>Period</th>
+              <th>Notes</th>
+              <th class="text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
 
-                                            document.getElementById('edit_certificate').value = '{{ ed.certificate|escapejs }}';
-                                            document.getElementById('edit_field').value = '{{ ed.field_of_study|escapejs }}';
-                                            document.getElementById('edit_institution').value = '{{ ed.institution|escapejs }}';
-                                            document.getElementById('edit_start_year').value = '{{ ed.start_year }}';
-                                            document.getElementById('edit_end_year').value = '{{ ed.end_year|default_if_none:'' }}';
-                                            document.getElementById('edit_notes').value = '{{ ed.notes|escapejs }}';
+            {% for ed in education_records %}
+            <tr>
 
-                                            document.getElementById('edit-education-modal').showModal();
-                                        ">
-                                    Edit
-                                </button>
+              <!-- Certificate -->
+              <td class="font-medium">
+                {{ ed.certificate|default:"—" }}
+              </td>
 
-                                <!-- Delete -->
-                                <a href="{% url 'hr:education_delete' ed.id %}"
-                                   class="btn btn-ghost btn-xs text-error">
-                                    Delete
-                                </a>
+              <!-- Field of Study -->
+              <td>
+                {{ ed.field_of_study|default:"—" }}
+              </td>
 
-                            </div>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    {% else %}
-        <div class="alert alert-info">
-            No education records added yet.
-        </div>
-    {% endif %}
+              <!-- Institution -->
+              <td>
+                {{ ed.institution|default:"—" }}
+              </td>
+
+              <!-- Period -->
+              <td class="whitespace-nowrap">
+                {{ ed.start_year }}
+                {% if ed.end_year %}
+                  – {{ ed.end_year }}
+                {% else %}
+                  <span class="text-base-content/50">– Present</span>
+                {% endif %}
+              </td>
+
+              <!-- Notes -->
+              <td class="max-w-md">
+                {% if ed.notes %}
+                  <span class="truncate block" title="{{ ed.notes }}">
+                    {{ ed.notes }}
+                  </span>
+                {% else %}
+                  <span class="text-base-content/50">—</span>
+                {% endif %}
+              </td>
+
+              <!-- Actions -->
+              <td class="text-right">
+                <div class="flex justify-end gap-1">
+
+                  <!-- Edit -->
+                  <button type="button"
+                          class="btn btn-ghost btn-xs"
+                          onclick="
+                            document.getElementById('edit-education-form').action =
+                            '{% url 'hr:education_edit' ed.id %}';
+
+                            document.getElementById('edit_certificate').value = '{{ ed.certificate|escapejs }}';
+                            document.getElementById('edit_field').value = '{{ ed.field_of_study|escapejs }}';
+                            document.getElementById('edit_institution').value = '{{ ed.institution|escapejs }}';
+                            document.getElementById('edit_start_year').value = '{{ ed.start_year }}';
+                            document.getElementById('edit_end_year').value = '{{ ed.end_year|default_if_none:'' }}';
+                            document.getElementById('edit_notes').value = '{{ ed.notes|escapejs }}';
+
+                            document.getElementById('edit-education-modal').showModal();
+                          ">
+                    Edit
+                  </button>
+
+                  <!-- Delete -->
+                  <a href="{% url 'hr:education_delete' ed.id %}"
+                     class="btn btn-ghost btn-xs text-error"
+                     onclick="return confirm('Are you sure you want to delete this education record?');">
+                    Delete
+                  </a>
+
+                </div>
+              </td>
+
+            </tr>
+            {% endfor %}
+
+          </tbody>
+        </table>
+      </div>
+
+    </section>
+
+  {% else %}
+    <!-- ===================================================== -->
+    <!-- Empty State -->
+    <!-- ===================================================== -->
+    <div class="alert alert-info">
+      <span class="font-medium">
+        No education records added yet.
+      </span>
+      <span class="text-sm opacity-70 ml-1">
+        Use “Add Education” to record academic or professional qualifications.
+      </span>
+    </div>
+  {% endif %}
 
 </div>
 
 
-
     </div>
 
 </div>
 
 
-{% if can_edit %}
 <!-- ===================================================== -->
 <!-- Change Status Modal (DaisyUI v4 - dialog based) -->
 <!-- ===================================================== -->
@@ -984,7 +1485,7 @@
 
     </div>
 </dialog>
-{% endif %}
+
 
 <!-- ===================================================== -->
 <!-- Add Education Modal -->

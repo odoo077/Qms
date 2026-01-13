@@ -1,11 +1,8 @@
 @import "tailwindcss";
 
-/**
- * تفعيل DaisyUI مع الثيمات التي نريدها
- * - corporate هو الافتراضي (Light)
- * - business للوضع الداكن الاحترافي
- * - cyberpunk كثيم جذاب (يمكن استخدامه لاحقاً إذا أحببت)
- */
+/* =========================================================
+ * DaisyUI plugin + Themes
+ * =======================================================*/
 @plugin "daisyui" {
   themes:
     corporate --default,
@@ -19,74 +16,263 @@
     night;
 }
 
-/**
- * ملفات القوالب والـ Python والـ JS التي تحتوي كلاسات Tailwind
- */
+/* Scan templates & code that include Tailwind classes */
 @source "../../../**/*.{html,py,js}";
 
-
 /* =========================================================
- * Base layer
+ * DESIGN TOKENS (Central, stable, enterprise defaults)
+ * - Works with DaisyUI component variables
  * =======================================================*/
 @layer base {
+  :root {
+    /* Typography */
+    --ui-font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial,
+      "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";
+    --ui-font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+      "Courier New", monospace;
+
+    /* Rhythm */
+    --ui-radius-sm: 0.625rem;   /* 10px */
+    --ui-radius-md: 0.875rem;   /* 14px */
+    --ui-radius-lg: 1.125rem;   /* 18px */
+
+    /* Elevation (subtle, enterprise) */
+    --ui-shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06), 0 1px 1px rgba(15, 23, 42, 0.04);
+    --ui-shadow-md: 0 10px 25px rgba(15, 23, 42, 0.08), 0 4px 10px rgba(15, 23, 42, 0.06);
+
+    /* Focus */
+    --ui-focus-ring: 0 0 0 3px color-mix(in oklab, oklch(var(--p)) 35%, transparent);
+
+    /* DaisyUI component shape tokens (supported by DaisyUI) */
+    --rounded-box: var(--ui-radius-md);
+    --rounded-btn: var(--ui-radius-sm);
+    --rounded-badge: 9999px;
+    --tab-radius: var(--ui-radius-sm);
+
+    /* DaisyUI sizing tokens */
+    --btn-text-case: none;
+    --btn-focus-scale: 1;
+  }
+
   html {
     @apply scroll-smooth;
+    font-family: var(--ui-font-sans);
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   body {
-    @apply min-h-screen font-sans antialiased bg-base-100 text-base-content;
+    @apply min-h-screen bg-base-100 text-base-content;
+    line-height: 1.55;
   }
 
+  /* Links: enterprise clean (no heavy underline everywhere) */
   a {
-    @apply underline-offset-4;
+    text-decoration: none;
   }
-
   a:hover {
-    @apply underline;
+    text-decoration: none;
   }
 
-  /* تحسين المظهر في الثيم الداكن (business) */
-  [data-theme="business"] body {
-    @apply text-gray-100 bg-base-100;
+  /* Better selection */
+  ::selection {
+    background: color-mix(in oklab, oklch(var(--p)) 22%, transparent);
   }
 
-  [data-theme="business"] h1,
-  [data-theme="business"] h2,
-  [data-theme="business"] h3,
-  [data-theme="business"] th {
-    @apply text-white;
+  /* Consistent monospaced areas */
+  code, pre, kbd, samp {
+    font-family: var(--ui-font-mono);
   }
 
-    /* ================================
-   * Fix <select> dropdown colors
-   * ================================ */
-
-  select {
-    @apply bg-base-100 text-base-content;
-  }
-
+  /* Inputs & selects: fix dark theme dropdown contrast */
+  select,
   option {
     @apply bg-base-100 text-base-content;
   }
 
-  /* Dark theme (business) override */
-  [data-theme="business"] select {
-    @apply bg-base-100 text-base-content;
+  /* Accessibility: unified focus */
+  :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+    outline: none;
+    box-shadow: var(--ui-focus-ring);
+    border-radius: var(--ui-radius-sm);
   }
 
-  [data-theme="business"] option {
+  /* Reduce motion for users who request it */
+  @media (prefers-reduced-motion: reduce) {
+    * {
+      scroll-behavior: auto !important;
+      transition: none !important;
+      animation: none !important;
+    }
+  }
+
+  /* Dark theme refinements (business) */
+  [data-theme="business"] body {
     @apply bg-base-100 text-base-content;
   }
 }
 
-
 /* =========================================================
- * Components layer
- *  مكوّنات بسيطة نستخدمها في صفحات الـ Auth
- *  ملاحظة مهمّة: لا نستخدم @apply مع كلاس من DaisyUI مثل btn أو input
+ * COMPONENTS – enterprise consistency for DaisyUI building blocks
  * =======================================================*/
 @layer components {
-  /* زر أساسي أكبر قليلاً للـ Auth (يمكن استخدامه لاحقاً) */
+  /* ---------------------------
+   * Cards (consistent & official)
+   * ---------------------------*/
+  .card {
+    border-radius: var(--ui-radius-md);
+  }
+
+  /* Main content cards */
+  .card.bg-base-100 {
+    border: 1px solid color-mix(in oklab, oklch(var(--bc)) 12%, transparent);
+    box-shadow: var(--ui-shadow-sm);
+  }
+
+  /* Soft section cards */
+  .card.bg-base-200\/40 {
+    border: 1px solid color-mix(in oklab, oklch(var(--bc)) 18%, transparent);
+    box-shadow: none;
+  }
+
+  /* ---------------------------
+   * Buttons (unify feel across pages)
+   * ---------------------------*/
+  .btn {
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    border-width: 1px;
+    border-radius: var(--ui-radius-sm);
+    transition: transform 120ms ease, filter 120ms ease, background-color 120ms ease,
+      border-color 120ms ease;
+  }
+
+  /* Enforce small as default in CRUD pages visually (you still choose btn-sm in templates) */
+  .btn.btn-sm {
+    min-height: 2.25rem;
+    height: 2.25rem;
+    padding-inline: 0.875rem;
+  }
+
+  .btn.btn-xs {
+    min-height: 1.75rem;
+    height: 1.75rem;
+    padding-inline: 0.625rem;
+    font-weight: 600;
+  }
+
+  .btn:active {
+    transform: translateY(0.5px);
+    filter: saturate(1.02);
+  }
+
+  /* Improve outline buttons clarity */
+  .btn-outline {
+    border-color: color-mix(in oklab, oklch(var(--bc)) 18%, transparent);
+  }
+
+  /* Destructive outline: consistent */
+  .btn-outline.btn-error {
+    border-color: color-mix(in oklab, oklch(var(--er)) 55%, transparent);
+  }
+
+  /* ---------------------------
+   * Tables (enterprise readable)
+   * ---------------------------*/
+  .table {
+    border-radius: var(--ui-radius-md);
+  }
+
+  .table thead th {
+    @apply text-xs font-semibold uppercase tracking-wide;
+    background: color-mix(in oklab, oklch(var(--b2)) 92%, transparent);
+    color: color-mix(in oklab, oklch(var(--bc)) 70%, transparent);
+  }
+
+  /* Zebra rows: reduce fatigue */
+  .table.table-zebra tbody tr:nth-child(even) {
+    background: color-mix(in oklab, oklch(var(--b2)) 30%, transparent);
+  }
+
+  .table tbody tr:hover {
+    background: color-mix(in oklab, oklch(var(--b2)) 55%, transparent);
+  }
+
+  /* Keep action columns visually aligned */
+  .table td:last-child,
+  .table th:last-child {
+    text-align: right;
+  }
+
+  /* Truncation helper (use on long cells) */
+  .cell-truncate {
+    max-width: 22rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* ---------------------------
+   * Badges (uniform)
+   * ---------------------------*/
+  .badge.badge-sm {
+    font-weight: 700;
+    letter-spacing: 0.01em;
+  }
+
+  /* ---------------------------
+   * Forms (clean labels, consistent spacing)
+   * ---------------------------*/
+  .label-text {
+    letter-spacing: 0.01em;
+  }
+
+  /* Inputs focus (without relying on Daisy classes) */
+  .input:focus,
+  .select:focus,
+  .textarea:focus {
+    outline: none;
+    box-shadow: var(--ui-focus-ring);
+    border-color: color-mix(in oklab, oklch(var(--p)) 55%, transparent);
+  }
+}
+
+/* =========================================================
+ * UTILITIES
+ * =======================================================*/
+@layer utilities {
+  /* Soft border utility used across the system */
+  .soft-border {
+    border: 1px solid color-mix(in oklab, oklch(var(--bc)) 14%, transparent);
+  }
+
+  /* Professional surfaces (glass-ish but subtle, not gimmicky) */
+  .ui-surface {
+    background: color-mix(in oklab, oklch(var(--b1)) 88%, transparent);
+    backdrop-filter: blur(10px);
+    border: 1px solid color-mix(in oklab, oklch(var(--bc)) 12%, transparent);
+    box-shadow: var(--ui-shadow-sm);
+    border-radius: var(--ui-radius-lg);
+  }
+
+  /* Optional: sticky headers inside overflow tables */
+  .table-sticky thead th {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+
+  /* Calm dividers */
+  .ui-divider {
+    border-top: 1px solid color-mix(in oklab, oklch(var(--bc)) 12%, transparent);
+  }
+}
+
+/* =========================================================
+ * Auth-specific components (kept from your original file)
+ * =======================================================*/
+@layer components {
   .btn-auth-primary {
     @apply w-full rounded-xl px-4 py-2.5 text-sm font-semibold
            bg-primary text-primary-content
@@ -94,14 +280,12 @@
            transition-colors duration-150;
   }
 
-  /* بطاقة مخصّصة لصفحات الـ Auth (تُستخدم في auth_base.html) */
   .card-auth {
     @apply bg-base-100/80 backdrop-blur
            border border-base-200/70
            shadow-2xl rounded-2xl;
   }
 
-  /* حقل إدخال قياسي للفورمات (نستخدمه مع widget_tweaks: input-auth) */
   .input-auth {
     @apply w-full rounded-xl
            border border-base-300/70
@@ -113,62 +297,30 @@
   }
 }
 
-
-/* =========================================================
- * Utilities إضافية بسيطة
- * =======================================================*/
 @layer utilities {
-  /* حدود ناعمة للبطاقات */
-  .soft-border {
-    @apply border border-base-300/70;
-  }
-
-  /* خلفية متدرجة ناعمة يمكن استخدامها في الـ Auth layout */
   .bg-auth-gradient {
     @apply bg-gradient-to-tr from-primary/15 via-secondary/15 to-accent/15;
   }
 }
 
 /* =========================================================
- * Animated background utilities (auth pages)
+ * Animated background utilities (auth pages) – kept
  * =======================================================*/
 @layer utilities {
   @keyframes float-orbit {
-    0% {
-      transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
-      opacity: 0.9;
-    }
-    25% {
-      transform: translate3d(20px, -30px, 0) rotate(3deg) scale(1.03);
-      opacity: 1;
-    }
-    50% {
-      transform: translate3d(-10px, 40px, 0) rotate(-2deg) scale(0.98);
-      opacity: 0.85;
-    }
-    75% {
-      transform: translate3d(-30px, -20px, 0) rotate(2deg) scale(1.04);
-      opacity: 0.95;
-    }
-    100% {
-      transform: translate3d(10px, 10px, 0) rotate(-3deg) scale(1);
-      opacity: 0.9;
-    }
+    0% { transform: translate3d(0, 0, 0) rotate(0deg) scale(1); opacity: 0.9; }
+    25% { transform: translate3d(20px, -30px, 0) rotate(3deg) scale(1.03); opacity: 1; }
+    50% { transform: translate3d(-10px, 40px, 0) rotate(-2deg) scale(0.98); opacity: 0.85; }
+    75% { transform: translate3d(-30px, -20px, 0) rotate(2deg) scale(1.04); opacity: 0.95; }
+    100% { transform: translate3d(10px, 10px, 0) rotate(-3deg) scale(1); opacity: 0.9; }
   }
 
-  .animate-orbit-slow {
-    animation: float-orbit 26s ease-in-out infinite alternate;
-  }
-
-  .animate-orbit-medium {
-    animation: float-orbit 20s ease-in-out infinite alternate-reverse;
-  }
-
-  .animate-orbit-fast {
-    animation: float-orbit 14s ease-in-out infinite alternate;
-  }
+  .animate-orbit-slow { animation: float-orbit 26s ease-in-out infinite alternate; }
+  .animate-orbit-medium { animation: float-orbit 20s ease-in-out infinite alternate-reverse; }
+  .animate-orbit-fast { animation: float-orbit 14s ease-in-out infinite alternate; }
 
   .glass-surface {
-    @apply bg-base-100/80 backdrop-blur-xl border border-base-200/70 shadow-[0_24px_80px_rgba(15,23,42,0.45)] rounded-3xl;
+    @apply bg-base-100/80 backdrop-blur-xl border border-base-200/70 rounded-3xl;
+    box-shadow: var(--ui-shadow-md);
   }
 }

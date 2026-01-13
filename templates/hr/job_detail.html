@@ -1,73 +1,176 @@
 {% extends "base.html" %}
 
-{% block content %}
-<div class=" mx-auto space-y-8">
+{% block title %}
+Job · {{ object.name }}
+{% endblock %}
 
-  <!-- Header -->
-  <div class="flex justify-between items-start">
+{% block content %}
+<div class="w-full px-6 py-6 space-y-6">
+
+  <!-- ===================================================== -->
+  <!-- PAGE HEADER -->
+  <!-- ===================================================== -->
+  <section class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+
     <div>
-      <h1 class="text-2xl font-semibold">{{ object.name }}</h1>
-      <p class="text-sm opacity-60">
-        {{ object.employee_count }} Employees
+      <h1 class="text-3xl font-bold tracking-tight">
+        {{ object.name }}
+      </h1>
+      <p class="text-sm text-base-content/60">
+        {{ object.employee_count }} Employees assigned to this job
       </p>
     </div>
 
-    {% if can_edit %}
+    <div class="flex gap-2">
+      <a href="{% url 'hr:job_list' %}"
+         class="btn btn-ghost btn-sm">
+        Back
+      </a>
+
       <a href="{% url 'hr:job_edit' object.pk %}"
-         class="btn btn-sm btn-primary">
+         class="btn btn-outline btn-sm">
         Edit Job
       </a>
-    {% endif %}
-  </div>
+    </div>
 
-  <!-- Employees -->
-  <div class="card bg-base-100 shadow-sm">
-    <div class="card-body">
+  </section>
 
-      <h2 class="text-lg font-semibold mb-4">
-        Employees
+  <!-- ===================================================== -->
+  <!-- JOB OVERVIEW -->
+  <!-- ===================================================== -->
+  <section class="card bg-base-100 border border-base-200 shadow-sm">
+    <div class="p-6 space-y-6">
+
+      <h2 class="text-base font-semibold tracking-wide">
+        Job Overview
       </h2>
+
+      <dl class="grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-4 text-sm">
+
+        <!-- Job Name -->
+        <div class="text-base-content/60">
+          Job Title
+        </div>
+        <div class="font-medium md:col-span-2">
+          {{ object.name }}
+        </div>
+
+        <!-- Company -->
+        <div class="text-base-content/60">
+          Company
+        </div>
+        <div class="md:col-span-2">
+          {{ object.company|default:"—" }}
+        </div>
+
+        <!-- Department -->
+        <div class="text-base-content/60">
+          Department
+        </div>
+        <div class="md:col-span-2">
+          {{ object.department|default:"—" }}
+        </div>
+
+        <!-- Contract Type -->
+        <div class="text-base-content/60">
+          Contract Type
+        </div>
+        <div class="md:col-span-2">
+          {{ object.contract_type|default:"—" }}
+        </div>
+
+        <!-- Planned Recruitment -->
+        <div class="text-base-content/60">
+          Planned Recruitment
+        </div>
+        <div class="md:col-span-2">
+          {{ object.no_of_recruitment|default:"0" }}
+        </div>
+
+        <!-- Status -->
+        <div class="text-base-content/60">
+          Status
+        </div>
+        <div class="md:col-span-2">
+          {% if object.active %}
+            <span class="badge badge-success badge-sm">
+              Active
+            </span>
+          {% else %}
+            <span class="badge badge-ghost badge-sm">
+              Archived
+            </span>
+          {% endif %}
+        </div>
+
+      </dl>
+
+    </div>
+  </section>
+
+  <!-- ===================================================== -->
+  <!-- EMPLOYEES -->
+  <!-- ===================================================== -->
+  <section class="card bg-base-100 border border-base-200 shadow-sm">
+
+    <div class="p-6 space-y-4">
+
+      <div class="flex items-center justify-between">
+        <h2 class="text-base font-semibold tracking-wide">
+          Assigned Employees
+        </h2>
+      </div>
 
       {% if employees %}
         <div class="overflow-x-auto">
-          <table class="table table-sm">
-            <thead>
+          <table class="table table-zebra w-full text-sm">
+
+            <thead class="bg-base-200">
               <tr>
                 <th>Name</th>
                 <th>Department</th>
                 <th>Manager</th>
-                {% if can_manage_employees %}
-                  <th></th>
-                {% endif %}
+                <th class="text-right">Actions</th>
               </tr>
             </thead>
+
             <tbody>
               {% for emp in employees %}
-                <tr>
-                  <td>{{ emp.name }}</td>
-                  <td>{{ emp.department }}</td>
-                  <td>{{ emp.manager|default:"—" }}</td>
-                  {% if can_manage_employees %}
-                    <td class="text-right">
-                      <a href="{% url 'hr:employee_change_job' emp.pk %}"
-                         class="btn btn-xs btn-outline">
-                        Change Job
-                      </a>
-                    </td>
-                  {% endif %}
-                </tr>
+              <tr>
+
+                <td class="font-medium">
+                  {{ emp.name }}
+                </td>
+
+                <td class="text-base-content/70">
+                  {{ emp.department|default:"—" }}
+                </td>
+
+                <td class="text-base-content/70">
+                  {{ emp.manager|default:"—" }}
+                </td>
+
+                <td class="text-right">
+                  <a href="{% url 'hr:employee_change_job' emp.pk %}"
+                     class="btn btn-xs btn-outline">
+                    Change Job
+                  </a>
+                </td>
+
+              </tr>
               {% endfor %}
             </tbody>
+
           </table>
         </div>
       {% else %}
-        <p class="text-sm opacity-60">
-          No employees assigned to this job.
+        <p class="text-sm text-base-content/60">
+          No employees are currently assigned to this job.
         </p>
       {% endif %}
 
     </div>
-  </div>
+  </section>
 
 </div>
 {% endblock %}

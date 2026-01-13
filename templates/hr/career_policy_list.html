@@ -2,73 +2,123 @@
 
 {% block title %}Career Policies{% endblock %}
 
-{% block page_actions %}
-<a href="{% url 'hr:career_policy_create' %}"
-   class="btn btn-primary btn-sm">
-  + New Policy
-</a>
-{% endblock %}
-
 {% block content %}
-<div class="w-full px-4 py-6">
+<div class="w-full px-6 py-6 space-y-6">
 
-  <div class="card bg-base-100 shadow border border-base-200">
-    <div class="card-body p-0">
+  <!-- ===================================================== -->
+  <!-- PAGE HEADER -->
+  <!-- ===================================================== -->
+  <section class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+    <div>
+      <h1 class="text-3xl font-bold tracking-tight">
+        Career Policies
+      </h1>
+      <p class="text-sm text-base-content/60">
+        Define readiness thresholds and career evaluation rules per company.
+      </p>
+    </div>
 
-      <table class="table table-zebra w-full text-sm">
-        <thead>
-          <tr>
-            <th>Company</th>
-            <th>Name</th>
-            <th>Ready</th>
-            <th>Near Ready</th>
-            <th>Status</th>
-            <th class="text-right">Actions</th>
-          </tr>
-        </thead>
+    <div class="flex gap-2">
+      <a href="{% url 'hr:career_policy_create' %}"
+         class="btn btn-primary btn-sm">
+        + New Policy
+      </a>
+    </div>
+  </section>
 
-        <tbody>
-          {% for p in policies %}
-          <tr>
-            <td>{{ p.company.name }}</td>
-            <td class="font-medium">{{ p.name }}</td>
-            <td>{{ p.min_ready_score }}%</td>
-            <td>{{ p.min_near_ready_score }}%</td>
+  <!-- ===================================================== -->
+  <!-- POLICIES TABLE -->
+  <!-- ===================================================== -->
+  <section class="card bg-base-100 border border-base-200 shadow-sm overflow-x-auto">
 
-            <td>
-              {% if p.active %}
-                <span class="badge badge-success">Active</span>
-              {% else %}
-                <span class="badge badge-ghost">Inactive</span>
-              {% endif %}
-            </td>
+    <table class="table table-zebra w-full text-sm">
+      <thead class="bg-base-200">
+        <tr>
+          <th>Company</th>
+          <th>Policy Name</th>
+          <th>Ready ≥</th>
+          <th>Near Ready ≥</th>
+          <th>Status</th>
+          <th class="text-right">Actions</th>
+        </tr>
+      </thead>
 
-            <td class="text-right space-x-1">
+      <tbody>
+        {% for p in policies %}
+        <tr>
+
+          <!-- Company -->
+          <td class="text-base-content/80">
+            {{ p.company.name }}
+          </td>
+
+          <!-- Name -->
+          <td class="font-medium">
+            {{ p.name }}
+          </td>
+
+          <!-- Ready -->
+          <td class="font-mono">
+            {{ p.min_ready_score }}%
+          </td>
+
+          <!-- Near Ready -->
+          <td class="font-mono">
+            {{ p.min_near_ready_score }}%
+          </td>
+
+          <!-- Status -->
+          <td>
+            {% if p.active %}
+              <span class="badge badge-success badge-sm">
+                Active
+              </span>
+            {% else %}
+              <span class="badge badge-ghost badge-sm">
+                Inactive
+              </span>
+            {% endif %}
+          </td>
+
+          <!-- Actions -->
+          <td class="text-right">
+            <div class="inline-flex gap-1">
+
               <a href="{% url 'hr:career_policy_edit' p.id %}"
-                 class="btn btn-ghost btn-xs">
+                 class="btn btn-xs btn-outline">
                 Edit
               </a>
 
               <a href="{% url 'hr:career_policy_delete' p.id %}"
-                 class="btn btn-ghost btn-xs text-error">
+                 class="btn btn-xs btn-outline btn-error">
                 Delete
               </a>
-            </td>
-          </tr>
-          {% empty %}
-          <tr>
-            <td colspan="6"
-                class="text-center opacity-60 py-6">
-              No career policies defined.
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
 
-      </table>
+            </div>
+          </td>
 
-    </div>
-  </div>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="6" class="py-16 text-center">
+            <p class="text-base font-medium text-base-content/70">
+              No career policies defined
+            </p>
+            <p class="text-sm text-base-content/50 mt-1">
+              Create a policy to control readiness evaluation logic.
+            </p>
+            <a href="{% url 'hr:career_policy_create' %}"
+               class="btn btn-primary btn-sm mt-4">
+              + Create Policy
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+
+    </table>
+
+  </section>
 
 </div>
 {% endblock %}

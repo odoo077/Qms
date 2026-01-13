@@ -12,7 +12,6 @@ from base.company_context import get_company_id, get_allowed_company_ids
 from django.utils.translation import gettext_lazy as _
 from django.contrib.auth.base_user import BaseUserManager
 from django.apps import apps
-from base.acl import ACLManager
 
 
 # الربط مع كيانات المشروع الجديد
@@ -63,15 +62,6 @@ class CompanyScopeManager(models.Manager.from_queryset(CompanyScopeQuerySet)):
     def all_companies(self):
         return super().get_queryset()
 
-class ScopedACLManager(ACLManager):
-    def get_queryset(self):
-        qs = super().get_queryset()
-        # طبّق سكوب الشركة هنا أيضًا
-        if any(getattr(f, "name", None) == "company" for f in qs.model._meta.get_fields()):
-            from base.company_context import get_allowed_company_ids
-            active_ids = get_allowed_company_ids()
-            qs = qs.filter(company_id__in=active_ids) if active_ids else qs.none()
-        return qs
 
 # ------------ Mixins --------------
 
@@ -104,6 +94,7 @@ class AddressMixin(models.Model):
 
     class Meta:
         abstract = True
+
 
 # ---------- تتبّع المستخدم (create_uid/write_uid على طريقة Odoo) ----------
 class UserStampedMixin(models.Model):
@@ -246,7 +237,8 @@ class Company(UserStampedMixin,TimeStampedMixin, ActivableMixin):
     # Partner is the single source of truth for identity/address fields.
     # Keep only fields truly owned by Company (e.g., name). Colors/logo remain Company-owned.
 
-    objects = ACLManager()
+    # احذف هذا السطر فقط
+    # objects = ACLManager()
 
     SYNCED_WITH_PARTNER_FIELDS = ("name",)
 
@@ -526,8 +518,14 @@ class User(TimeStampedMixin, ActivableMixin, AbstractUser):
     last_session_key = models.CharField(max_length=40, null=True, blank=True)
 
     # علاقات مشروعك
-    partner = models.OneToOneField("base.Partner", on_delete=models.PROTECT,
-                                   related_name="user", null=True, blank=True)
+    partner = models.OneToOneField(
+        "base.Partner",
+        on_delete=models.PROTECT,
+        related_name="user",
+        null=True,
+        blank=True,
+    )
+
     # استخدمنا PROTECT بدل SET_NULL لأن حذف الشركة يجب أن يمنع حذفها إذا كانت مرتبطة بمستخدم (مثل Odoo بالضبط).
     company = models.ForeignKey(
         "Company",
@@ -560,41 +558,30 @@ class User(TimeStampedMixin, ActivableMixin, AbstractUser):
         m2m = list(self.companies.values_list("id", flat=True))
         return list(set(primary + m2m))
 
-
     # مدير
     objects = UserManager()
-    acl_objects = ACLManager()
-    scoped_objects = ScopedACLManager()
 
     # تسجيل الدخول بالبريد
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = ["username"]  # AbstractUser يتطلب username كحقل موجود
 
     class Meta:
-        db_table = "user"  # لا نغيّر الاسم لتجنّب ترحيلات ثقيلة (Odoo يستخدم res_users لكن المنطق نفسه)
+        db_table = "user"
         ordering = ("-date_joined",)
 
-        # فهارس عملية للبحث والتقارير (PostgreSQL)
         indexes = [
-            models.Index(Lower("email"), name="user_email_ci_idx"),  # بحث/فلترة بالبريد بحساسية حروف = صفر
-            models.Index(fields=["company"], name="user_company_idx"),  # شائع في multi-company
+            models.Index(Lower("email"), name="user_email_ci_idx"),
+            models.Index(fields=["company"], name="user_company_idx"),
             models.Index(fields=["is_active", "date_joined"], name="user_active_joined_idx"),
             models.Index(fields=["last_login"], name="user_last_login_idx"),
-            models.Index(fields=["username"], name="user_username_idx"),  # إبقائه إن كان يُستخدم داخليًا
+            models.Index(fields=["username"], name="user_username_idx"),
         ]
 
-        # قيود تكامل (Odoo-like: login/email فريد وغير فارغ)
         constraints = [
             models.UniqueConstraint(Lower("email"), name="uniq_user_email_ci"),
             models.CheckConstraint(check=~Q(email=""), name="user_email_not_empty"),
         ]
 
-        # صلاحيات مخصّصة يمكن التوسّع بها لاحقًا
-        permissions = [
-            ("share_user", "Can share user object"),
-        ]
-
-    # عرض مناسب
     @property
     def display_name(self) -> str:
         full = self.get_full_name().strip()
@@ -608,69 +595,44 @@ class User(TimeStampedMixin, ActivableMixin, AbstractUser):
         return self.display_name
 
     def clean(self):
-        """
-        سلوك Odoo-like:
-          - فرض وجود شركة افتراضية للمستخدم (company) وعدم تركها فارغة.
-          - إن لم تُحدَّد، نملؤها تلقائيًا بأول شركة موجودة (الشركة الرئيسية).
-          - تنسيق البريد الإلكتروني إلى lower + strip.
-          - لا نمنع الحفظ إذا لم تكن الشركة الافتراضية ضمن المسموح بها؛
-            لأن تحديث الـ m2m (allowed companies) يتم بعد الحفظ وتتكفّل به الإشارات.
-        """
         super().clean()
 
-        # تنسيق البريد الإلكتروني
         if self.email:
             self.email = self.__class__.objects.normalize_email(self.email).lower().strip()
 
-        # إلزام وجود شركة افتراضية: إن لم تُحدد نختار أول شركة (كما يفعل Odoo)
         if not self.company_id:
             from base.models import Company
             main_company = Company.objects.order_by("id").first()
             if main_company is not None:
                 self.company = main_company
             else:
-                # لا توجد شركات في النظام بعد — اطلب من المستخدم إنشاء شركة أولًا
                 from django.core.exceptions import ValidationError
                 raise ValidationError({"company": "A default company is required. Please create a company first."})
 
-        # ملاحظة مهمة:
-        # لا نرمي ValidationError إذا لم تكن الشركة الافتراضية ضمن المسموح بها هنا،
-        # لأن m2m تُحفظ بعد الحفظ. إشارات m2m (ensure_default_in_allowed)
-        # ستضمن إضافة الشركة الافتراضية تلقائيًا إلى allowed companies.
-        # إذا أردت تحذيرًا فقط (بدون منع الحفظ)، يمكن لاحقًا إضافته في الفورم/الأدمن.
-
     def save(self, *args, **kwargs):
-        # 1) منع تعطيل آخر superuser فعّال (كما في كودك الحالي)
         if self.pk and not self.is_active and self.is_superuser:
             qs = type(self).objects.filter(is_superuser=True, is_active=True).exclude(pk=self.pk)
             if not qs.exists():
                 from django.core.exceptions import ValidationError
                 raise ValidationError("Cannot deactivate the last active superuser.")
 
-        # 2) تطبيع البريد قبل الحفظ
         if self.email:
             self.email = self.email.strip().lower()
 
-        # 3) احفظ المستخدم أولاً
         super().save(*args, **kwargs)
 
-        # 4) Odoo-like: تأكد أن الشركة الافتراضية ضمن المسموح بها
         if getattr(self, "company_id", None) and not self.companies.filter(pk=self.company_id).exists():
             self.companies.add(self.company_id)
 
-        # 5) Odoo-like: عكس الافتراضي إلى UserSettings (إن وجدت)
         settings = None
         try:
-            settings = self.settings  # OneToOne related_name="settings"
+            settings = self.settings
         except Exception:
             settings = None
         if settings and getattr(settings, "default_company_id", None) != self.company_id:
             settings.default_company_id = self.company_id
             settings.save(update_fields=["default_company"])
 
-        # 6) NEW: مزامنة Partner الشخص مع الشركة الافتراضية
-        #    - partner.company = user.company
-        #    - partner.parent  = user.company.partner (لو موجود)
         if getattr(self, "partner_id", None) and getattr(self, "company_id", None):
             p = self.partner
             desired_company_id = self.company_id
@@ -680,7 +642,6 @@ class User(TimeStampedMixin, ActivableMixin, AbstractUser):
             if getattr(p, "company_id", None) != desired_company_id:
                 p.company_id = desired_company_id
                 updates.append("company")
-            # للشخص فقط (is_company=False): اربط parent ببطاقة شركة المستخدم
             if getattr(p, "is_company", False) is not True:
                 if getattr(p, "parent_id", None) != desired_parent_partner_id:
                     p.parent_id = desired_parent_partner_id
@@ -690,7 +651,6 @@ class User(TimeStampedMixin, ActivableMixin, AbstractUser):
                 p.save(update_fields=updates)
 
     def anonymize_and_deactivate(self):
-        """إخفاء بيانات المستخدم وتعطيله (بديل الحذف النهائي)."""
         ts = timezone.now().strftime("%Y%m%d%H%M%S")
         self.email = f"deleted+{self.pk}.{ts}@example.invalid"
         self.username = f"deleted_{self.pk}_{ts}"
@@ -699,8 +659,11 @@ class User(TimeStampedMixin, ActivableMixin, AbstractUser):
         self.is_active = False
         self.active = False
         self.set_unusable_password()
-        self.save(update_fields=["email", "username", "first_name", "last_name",
-                                 "is_active", "active", "password"])
+        self.save(update_fields=[
+            "email", "username", "first_name", "last_name",
+            "is_active", "active", "password"
+        ])
+
 
 
 class UserSettings(TimeStampedMixin, models.Model):
@@ -710,15 +673,20 @@ class UserSettings(TimeStampedMixin, models.Model):
     - إعدادات واجهة عامة
     """
 
-    objects = ACLManager()
-
     user = models.OneToOneField("base.User", on_delete=models.CASCADE, related_name="settings")
-    default_company = models.ForeignKey("base.Company", null=True, blank=True,
-                                        on_delete=models.SET_NULL, related_name="defaulted_users")
+    default_company = models.ForeignKey(
+        "base.Company",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="defaulted_users",
+    )
     tz = models.CharField(max_length=64, default="Asia/Baghdad")
     lang = models.CharField(max_length=8, default="en_US")
     notification_type = models.CharField(
-        max_length=16, choices=[("email", "Email"), ("inbox", "Inbox")], default="email"
+        max_length=16,
+        choices=[("email", "Email"), ("inbox", "Inbox")],
+        default="email",
     )
     signature = models.TextField(blank=True)
     theme = models.CharField(max_length=16, default="system")  # system/light/dark
@@ -748,6 +716,7 @@ class UserSettings(TimeStampedMixin, models.Model):
 
     def __str__(self):
         return f"Settings({self.user_id})"
+
 
 
 # ------ Partner models --------
@@ -801,7 +770,6 @@ class Partner(CompanyOwnedMixin, UserStampedMixin, TimeStampedMixin, ActivableMi
     - commercial_partner (computed-like property)
     """
 
-    objects = ScopedACLManager()
 
     TYPE_CHOICES = [
         ("contact", "Contact"),

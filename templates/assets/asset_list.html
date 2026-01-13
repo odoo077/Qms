@@ -3,296 +3,253 @@
 {% block title %}Assets{% endblock %}
 
 {% block content %}
-<div class="w-full px-6 py-8 space-y-8">
+<div class="w-full px-6 py-6 space-y-6">
 
-    <!-- ===================================================== -->
-    <!-- Header -->
-    <!-- ===================================================== -->
-    <div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+  <!-- ===================================================== -->
+  <!-- PAGE HEADER -->
+  <!-- ===================================================== -->
+  <section class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+    <div>
+      <h1 class="text-3xl font-bold tracking-tight">
+        Assets
+      </h1>
+      <p class="text-sm text-base-content/60">
+        Manage company assets, lifecycle, and assignment workflow.
+      </p>
+    </div>
 
-        <div class="space-y-1">
-            <h1 class="text-3xl font-bold tracking-tight">
-                Assets
-            </h1>
-            <p class="text-sm opacity-70">
-                Manage company assets and assignment workflow
-            </p>
+    <a href="{% url 'assets:asset_create' %}"
+       class="btn btn-primary btn-sm">
+      + New Asset
+    </a>
+  </section>
+
+  <!-- ===================================================== -->
+  <!-- ASSIGNMENT CONTEXT -->
+  <!-- ===================================================== -->
+  {% if assign_mode and assign_to_employee %}
+  <section class="card bg-base-100 border border-base-300 shadow-sm">
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 p-5">
+
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center">
+          <svg xmlns="http://www.w3.org/2000/svg"
+               class="w-4 h-4 text-primary"
+               fill="none"
+               viewBox="0 0 24 24"
+               stroke="currentColor">
+            <path stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M5.121 17.804A13.937 13.937 0 0112 16
+                     c2.5 0 4.847.655 6.879 1.804
+                     M15 10a3 3 0 11-6 0 3 3 0 016 0z"/>
+          </svg>
         </div>
 
         <div>
-            <a href="{% url 'assets:asset_create' %}"
-               class="btn btn-primary btn-sm">
-                + New Asset
-            </a>
+          <p class="text-xs uppercase tracking-wide text-base-content/50">
+            Assignment Mode
+          </p>
+          <p class="text-sm font-semibold">
+            Assign asset to
+            <span class="text-primary">
+              {{ assign_to_employee.name }}
+            </span>
+          </p>
         </div>
+      </div>
+
+      <a href="{% url 'hr:employee_detail' assign_to_employee.id %}"
+         class="btn btn-outline btn-sm">
+        Cancel
+      </a>
 
     </div>
+  </section>
+  {% endif %}
 
-{% if assign_mode and assign_to_employee %}
-<!-- ===================================================== -->
-<!-- Assign Context Bar -->
-<!-- ===================================================== -->
-<div class="mb-6">
-    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4
-                bg-base-100 border border-base-300 rounded-lg px-6 py-4 shadow-sm">
-
-        <!-- Left: Context Info -->
-        <div class="flex items-center gap-4">
-            <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                <svg xmlns="http://www.w3.org/2000/svg"
-                     class="w-5 h-5 text-primary"
-                     fill="none"
-                     viewBox="0 0 24 24"
-                     stroke="currentColor">
-                    <path stroke-linecap="round"
-                          stroke-linejoin="round"
-                          stroke-width="2"
-                          d="M5.121 17.804A13.937 13.937 0 0112 16
-                             c2.5 0 4.847.655 6.879 1.804
-                             M15 10a3 3 0 11-6 0 3 3 0 016 0z"/>
-                </svg>
-            </div>
-
-            <div>
-                <p class="text-sm uppercase tracking-wide opacity-60">
-                    Assignment Mode
-                </p>
-                <p class="text-base font-semibold">
-                    Assign asset to
-                    <span class="text-primary">
-                        {{ assign_to_employee.name }}
-                    </span>
-                </p>
-            </div>
-        </div>
-
-        <!-- Right: Actions -->
-        <div class="flex items-center gap-2">
-            <a href="{% url 'hr:employee_detail' assign_to_employee.id %}"
-               class="btn btn-sm btn-outline">
-                Cancel
-            </a>
-        </div>
-
-    </div>
-</div>
-{% endif %}
-
-    <!-- ===================================================== -->
-    <!-- Filters -->
-    <!-- ===================================================== -->
-    <form method="get"
-          class="card bg-base-100 shadow p-6 grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+  <!-- ===================================================== -->
+  <!-- FILTERS -->
+  <!-- ===================================================== -->
+  <section class="card bg-base-100 border border-base-200 shadow-sm p-6">
+    <form method="get">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-end">
 
         <!-- Search -->
-        <div>
-            <label class="label text-sm font-medium">
-                Search
-            </label>
-            <input type="text"
-                   name="q"
-                   value="{{ request.GET.q|default:'' }}"
-                   placeholder="Asset code or name"
-                   class="input input-bordered w-full">
+        <div class="lg:col-span-4">
+          <label class="label p-0 mb-1">
+            <span class="label-text text-xs font-medium text-base-content/60">
+              Search
+            </span>
+          </label>
+          <input type="text"
+                 name="q"
+                 value="{{ request.GET.q|default:'' }}"
+                 placeholder="Asset code or name"
+                 class="input input-bordered w-full">
         </div>
 
         <!-- Status -->
-        <div>
-            <label class="label text-sm font-medium">
-                Status
-            </label>
-            <select name="status" class="select select-bordered w-full">
-                <option value="">All</option>
-                <option value="available" {% if request.GET.status == "available" %}selected{% endif %}>
-                    Available
-                </option>
-                <option value="assigned" {% if request.GET.status == "assigned" %}selected{% endif %}>
-                    Assigned
-                </option>
-                <option value="maintenance" {% if request.GET.status == "maintenance" %}selected{% endif %}>
-                    Maintenance
-                </option>
-                <option value="retired" {% if request.GET.status == "retired" %}selected{% endif %}>
-                    Retired
-                </option>
-            </select>
+        <div class="lg:col-span-3">
+          <label class="label p-0 mb-1">
+            <span class="label-text text-xs text-base-content/60">
+              Asset Status
+            </span>
+          </label>
+          <select name="status" class="select select-bordered w-full">
+            <option value="">All</option>
+            <option value="available" {% if request.GET.status == "available" %}selected{% endif %}>Available</option>
+            <option value="assigned" {% if request.GET.status == "assigned" %}selected{% endif %}>Assigned</option>
+            <option value="maintenance" {% if request.GET.status == "maintenance" %}selected{% endif %}>Maintenance</option>
+            <option value="retired" {% if request.GET.status == "retired" %}selected{% endif %}>Retired</option>
+          </select>
         </div>
 
-        <!-- Activity -->
-        <div>
-            <label class="label text-sm font-medium">
-                Activity
-            </label>
-            <select name="active" class="select select-bordered w-full">
-                <option value="">All</option>
-                <option value="1" {% if request.GET.active == "1" %}selected{% endif %}>
-                    Active
-                </option>
-                <option value="0" {% if request.GET.active == "0" %}selected{% endif %}>
-                    Archived
-                </option>
-            </select>
+        <!-- Record -->
+        <div class="lg:col-span-3">
+          <label class="label p-0 mb-1">
+            <span class="label-text text-xs text-base-content/60">
+              Record
+            </span>
+          </label>
+          <select name="active" class="select select-bordered w-full">
+            <option value="">All</option>
+            <option value="1" {% if request.GET.active == "1" %}selected{% endif %}>Active</option>
+            <option value="0" {% if request.GET.active == "0" %}selected{% endif %}>Archived</option>
+          </select>
         </div>
 
         <!-- Actions -->
-        <div class="flex gap-2">
-            <button type="submit"
-                    class="btn btn-primary btn-sm">
-                Apply
-            </button>
-            <a href="{% url 'assets:asset_list' %}"
-               class="btn btn-ghost btn-sm">
-                Reset
-            </a>
+        <div class="lg:col-span-2 flex justify-end gap-2">
+          <button type="submit" class="btn btn-primary btn-sm">
+            Apply
+          </button>
+          <a href="{% url 'assets:asset_list' %}"
+             class="btn btn-ghost btn-sm">
+            Reset
+          </a>
         </div>
 
+      </div>
     </form>
+  </section>
 
-    <!-- ===================================================== -->
-    <!-- Table -->
-    <!-- ===================================================== -->
-    <div class="card bg-base-100 shadow overflow-x-auto">
+  <!-- ===================================================== -->
+  <!-- TABLE -->
+  <!-- ===================================================== -->
+  <section class="card bg-base-100 border border-base-200 shadow-sm overflow-x-auto">
+    <table class="table table-zebra w-full text-sm">
+      <thead class="bg-base-200">
+        <tr>
+          <th>Code</th>
+          <th>Name</th>
+          <th>Category</th>
+          <th>Holder</th>
+          <th>Status</th>
+          <th class="text-right">Actions</th>
+        </tr>
+      </thead>
 
-        <table class="table w-full text-sm">
+      <tbody>
+        {% for obj in object_list %}
+        <tr>
 
-            <thead class="bg-base-200">
-                <tr>
-                    <th>Code</th>
-                    <th>Name</th>
-                    <th>Category</th>
-                    <th>Holder</th>
-                    <th>Status</th>
-                    <th class="text-right">Actions</th>
-                </tr>
-            </thead>
+          <td class="font-mono text-xs text-base-content/70">
+            {{ obj.code|default:"—" }}
+          </td>
 
-            <tbody>
+          <td class="font-medium">
+            <a href="{% url 'assets:asset_detail' obj.id %}"
+               class="link link-hover">
+              {{ obj.name }}
+            </a>
+          </td>
 
-                {% for obj in object_list %}
-                <tr
-                    class="
-                        {% cycle 'bg-base-100' 'bg-base-200/40' %}
-                        hover:bg-base-300/30
-                    "
-                >
+          <td class="text-base-content/70">
+            {{ obj.category|default:"—" }}
+          </td>
 
-                    <!-- Code -->
-                    <td class="font-mono opacity-80">
-                        {{ obj.code|default:"—" }}
-                    </td>
+          <td class="text-base-content/70">
+            {{ obj.holder|default:"—" }}
+          </td>
 
-                    <!-- Name -->
-                    <td>
-                        <a href="{% url 'assets:asset_detail' obj.id %}"
-                           class="font-medium link link-primary">
-                            {{ obj.name }}
-                        </a>
-                    </td>
+          <td>
+            {% if obj.status == "available" %}
+              <span class="badge badge-success badge-sm">Available</span>
+            {% elif obj.status == "assigned" %}
+              <span class="badge badge-primary badge-sm">Assigned</span>
+            {% elif obj.status == "maintenance" %}
+              <span class="badge badge-warning badge-sm">Maintenance</span>
+            {% else %}
+              <span class="badge badge-ghost badge-sm">Retired</span>
+            {% endif %}
+          </td>
 
-                    <!-- Category -->
-                    <td class="opacity-80">
-                        {{ obj.category|default:"—" }}
-                    </td>
+          <td class="text-right">
+            <div class="inline-flex gap-1">
 
-                    <!-- Holder -->
-                    <td class="opacity-80">
-                        {{ obj.holder|default:"—" }}
-                    </td>
+              <a href="{% url 'assets:asset_detail' obj.id %}"
+                 class="btn btn-xs btn-outline">
+                View
+              </a>
 
-                    <!-- Status -->
-                    <td>
-                        {% if obj.status == "available" %}
-                            <span class="badge badge-success badge-sm">
-                                Available
-                            </span>
-                        {% elif obj.status == "assigned" %}
-                            <span class="badge badge-primary badge-sm">
-                                Assigned
-                            </span>
-                        {% elif obj.status == "maintenance" %}
-                            <span class="badge badge-warning badge-sm">
-                                Maintenance
-                            </span>
-                        {% else %}
-                            <span class="badge badge-ghost badge-sm">
-                                Retired
-                            </span>
-                        {% endif %}
-                    </td>
+              <a href="{% url 'assets:asset_edit' obj.id %}"
+                 class="btn btn-xs btn-outline">
+                Edit
+              </a>
 
-<!-- Actions -->
-<td class="text-right">
-  <div class="inline-flex gap-2">
+              {% if obj.active and obj.status == "available" %}
+                <a href="{% url 'assets:asset_assign' obj.id %}{% if assign_mode and assign_to_employee %}?assign_to={{ assign_to_employee.id }}{% endif %}"
+                   class="btn btn-xs btn-outline btn-primary">
+                  {% if assign_mode %}
+                    Assign to {{ assign_to_employee.name }}
+                  {% else %}
+                    Assign
+                  {% endif %}
+                </a>
+              {% endif %}
 
-    <a href="{% url 'assets:asset_detail' obj.id %}"
-       class="btn btn-xs btn-outline">
-      View
-    </a>
+              {% if obj.status == "assigned" %}
+                <a href="{% url 'assets:asset_unassign' obj.id %}"
+                   class="btn btn-xs btn-outline btn-warning">
+                  Unassign
+                </a>
+              {% endif %}
 
-    <a href="{% url 'assets:asset_edit' obj.id %}"
-       class="btn btn-xs btn-outline btn-primary">
-      Edit
-    </a>
+              <a href="{% url 'assets:asset_delete' obj.id %}"
+                 class="btn btn-xs btn-outline btn-error">
+                Delete
+              </a>
 
-    {% if obj.active and obj.status == "available" %}
-      <a href="{% url 'assets:asset_assign' obj.id %}{% if assign_mode and assign_to_employee %}?assign_to={{ assign_to_employee.id }}{% endif %}"
-         class="btn btn-xs btn-outline btn-primary">
+            </div>
+          </td>
 
-        {% if assign_mode and assign_to_employee %}
-          Assign to {{ assign_to_employee.name }}
-        {% else %}
-          Assign
-        {% endif %}
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="6" class="py-16 text-center">
+            <p class="text-base font-medium text-base-content/70">
+              No assets found
+            </p>
+            <p class="text-sm text-base-content/50 mt-1">
+              Create assets to start managing assignments.
+            </p>
+            <a href="{% url 'assets:asset_create' %}"
+               class="btn btn-primary btn-sm mt-4">
+              + Add Asset
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
 
-      </a>
-    {% endif %}
-
-    {% if obj.status == "assigned" %}
-      <a href="{% url 'assets:asset_unassign' obj.id %}"
-         class="btn btn-xs btn-outline btn-warning">
-        Unassign
-      </a>
-    {% endif %}
-
-    <a href="{% url 'assets:asset_delete' obj.id %}"
-       class="btn btn-xs btn-outline btn-error">
-      Delete
-    </a>
-
-  </div>
-</td>
-
-
-                </tr>
-
-                {% empty %}
-                <tr>
-                    <td colspan="6" class="text-center py-16">
-                        <p class="text-lg font-medium opacity-70">
-                            No assets found
-                        </p>
-                        <p class="text-sm opacity-50 mt-1">
-                            Create assets to start managing assignments
-                        </p>
-                        <a href="{% url 'assets:asset_create' %}"
-                           class="btn btn-primary btn-sm mt-4">
-                            + Add Asset
-                        </a>
-                    </td>
-                </tr>
-
-                {% endfor %}
-
-            </tbody>
-
-        </table>
-
-    </div>
-
-    <!-- ===================================================== -->
-    <!-- Pagination -->
-    <!-- ===================================================== -->
-    {% include "partials/paginator.html" %}
+  <!-- ===================================================== -->
+  <!-- PAGINATION -->
+  <!-- ===================================================== -->
+  {% include "partials/paginator.html" %}
 
 </div>
 {% endblock %}

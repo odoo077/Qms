@@ -1,62 +1,137 @@
 {% extends "base.html" %}
 
 {% block title %}
-{% if object %}Edit Career Path{% else %}New Career Path{% endif %}
+  {% if object %}Edit Career Path{% else %}Create Career Path{% endif %}
 {% endblock %}
 
 {% block content %}
-<div class="max-w-3xl mx-auto px-6 py-8">
+<div class="w-full px-6 py-6 space-y-6">
 
-  <div class="card bg-base-100 shadow border border-base-200">
-    <div class="card-body">
+  <!-- ===================================================== -->
+  <!-- PAGE HEADER -->
+  <!-- ===================================================== -->
+  <section class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
 
-      <h2 class="text-xl font-semibold mb-6">
-        {% if object %}Edit Career Path{% else %}Create Career Path{% endif %}
-      </h2>
-
-      <form method="post">
-        {% csrf_token %}
-
-        <div class="grid grid-cols-1 gap-5">
-
-          <div>
-            <label class="label">From Job</label>
-            {{ form.from_job }}
-          </div>
-
-          <div>
-            <label class="label">To Job</label>
-            {{ form.to_job }}
-          </div>
-
-          <div>
-            <label class="label">Sequence</label>
-            {{ form.sequence }}
-          </div>
-
-          <div class="flex items-center gap-2">
-            {{ form.active }}
-            <span class="text-sm">Active</span>
-          </div>
-
-        </div>
-
-        <div class="mt-8 flex justify-between">
-          <a href="{% url 'hr:jobcareerpath_list' %}"
-             class="btn btn-ghost">
-            Cancel
-          </a>
-
-          <button type="submit"
-                  class="btn btn-primary">
-            Save
-          </button>
-        </div>
-
-      </form>
-
+    <div>
+      <h1 class="text-3xl font-bold tracking-tight">
+        {% if object %}
+          Edit Career Path
+        {% else %}
+          Create Career Path
+        {% endif %}
+      </h1>
+      <p class="text-sm text-base-content/60">
+        Define progression from one job role to another
+      </p>
     </div>
-  </div>
+
+    <div class="flex gap-2">
+      <a href="{% url 'hr:jobcareerpath_list' %}"
+         class="btn btn-ghost btn-sm">
+        Back
+      </a>
+    </div>
+
+  </section>
+
+  <!-- ===================================================== -->
+  <!-- FORM CARD -->
+  <!-- ===================================================== -->
+  <section class="card bg-base-100 border border-base-200 shadow-sm">
+    <form method="post" class="p-6 space-y-8">
+      {% csrf_token %}
+
+      <!-- ================================================= -->
+      <!-- NON FIELD ERRORS -->
+      <!-- ================================================= -->
+      {% if form.non_field_errors %}
+        <div class="alert alert-error text-sm">
+          {{ form.non_field_errors }}
+        </div>
+      {% endif %}
+
+      <!-- ================================================= -->
+      <!-- FIELDS -->
+      <!-- ================================================= -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+
+        <!-- From Job -->
+        <div class="form-control w-full">
+          <label class="label p-0 mb-1">
+            <span class="label-text text-sm font-medium">
+              {{ form.from_job.label }}
+            </span>
+          </label>
+          {{ form.from_job }}
+          {% for error in form.from_job.errors %}
+            <p class="text-error text-xs mt-1">{{ error }}</p>
+          {% endfor %}
+        </div>
+
+        <!-- To Job -->
+        <div class="form-control w-full">
+          <label class="label p-0 mb-1">
+            <span class="label-text text-sm font-medium">
+              {{ form.to_job.label }}
+            </span>
+          </label>
+          {{ form.to_job }}
+          {% for error in form.to_job.errors %}
+            <p class="text-error text-xs mt-1">{{ error }}</p>
+          {% endfor %}
+        </div>
+
+        <!-- Sequence -->
+        <div class="form-control w-full">
+          <label class="label p-0 mb-1">
+            <span class="label-text text-sm font-medium">
+              {{ form.sequence.label }}
+            </span>
+          </label>
+          {{ form.sequence }}
+          {% for error in form.sequence.errors %}
+            <p class="text-error text-xs mt-1">{{ error }}</p>
+          {% endfor %}
+        </div>
+
+        <!-- Active -->
+        <div class="form-control w-full md:col-span-3">
+          <label class="label cursor-pointer justify-start gap-3">
+            {{ form.active }}
+            <span class="label-text font-medium">
+              {{ form.active.label }}
+            </span>
+          </label>
+          {% for error in form.active.errors %}
+            <p class="text-error text-xs mt-1">{{ error }}</p>
+          {% endfor %}
+        </div>
+
+      </div>
+
+      <!-- ================================================= -->
+      <!-- ACTIONS -->
+      <!-- ================================================= -->
+      <div class="flex justify-end gap-2 pt-6 border-t border-base-200">
+
+        <a href="{% url 'hr:jobcareerpath_list' %}"
+           class="btn btn-ghost btn-sm">
+          Cancel
+        </a>
+
+        <button type="submit"
+                class="btn btn-primary btn-sm">
+          {% if object %}
+            Save Changes
+          {% else %}
+            Create Career Path
+          {% endif %}
+        </button>
+
+      </div>
+
+    </form>
+  </section>
 
 </div>
 {% endblock %}

@@ -6,7 +6,7 @@
 <div class="w-full px-6 py-8 space-y-8">
 
   <!-- ===================================================== -->
-  <!-- Page Header (List Standard) -->
+  <!-- Page Header -->
   <!-- ===================================================== -->
   <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
     <div class="space-y-1">
@@ -14,52 +14,52 @@
         Skill Types
       </h1>
       <p class="text-sm text-base-content/60">
-        Manage all skill categories used across the system
+        Manage skill categories used for evaluations, career paths, and certifications
       </p>
     </div>
 
-    <div class="flex items-center gap-2">
-      <a href="{% url 'skills:skilltype_create' %}"
-         class="btn btn-primary btn-sm gap-2 shadow-sm">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4"
-             fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round"
-                stroke-width="2" d="M12 4v16m8-8H4"/>
-        </svg>
-        New Skill Type
-      </a>
-    </div>
+    <a href="{% url 'skills:skilltype_create' %}"
+       class="btn btn-primary btn-sm gap-2">
+      <svg xmlns="http://www.w3.org/2000/svg"
+           class="h-4 w-4"
+           fill="none"
+           viewBox="0 0 24 24"
+           stroke="currentColor">
+        <path stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M12 4v16m8-8H4" />
+      </svg>
+      New Skill Type
+    </a>
   </div>
 
   <!-- ===================================================== -->
-  <!-- Filters (List Standard) -->
+  <!-- Filters -->
   <!-- ===================================================== -->
   <form method="get"
-        class="card bg-base-100 border border-base-200 shadow-sm">
-    <div class="card-body p-5 space-y-4">
+        class="card bg-base-100">
+
+    <div class="card-body space-y-4">
 
       <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
 
         <!-- Search -->
         <div class="md:col-span-2">
           <label class="label pb-1">
-            <span class="label-text text-xs text-base-content/60">
-              Search
-            </span>
+            <span class="label-text text-xs opacity-60">Search</span>
           </label>
           <input type="text"
                  name="q"
                  value="{{ current_params.q }}"
-                 placeholder="Search by name"
-                 class="input input-bordered w-full" />
+                 placeholder="Search by skill type name"
+                 class="input input-bordered w-full">
         </div>
 
         <!-- Status -->
         <div>
           <label class="label pb-1">
-            <span class="label-text text-xs text-base-content/60">
-              Status
-            </span>
+            <span class="label-text text-xs opacity-60">Status</span>
           </label>
           <select name="active"
                   class="select select-bordered w-full">
@@ -76,9 +76,7 @@
         <!-- Certification -->
         <div>
           <label class="label pb-1">
-            <span class="label-text text-xs text-base-content/60">
-              Certification
-            </span>
+            <span class="label-text text-xs opacity-60">Certification</span>
           </label>
           <select name="is_certification"
                   class="select select-bordered w-full">
@@ -94,14 +92,14 @@
 
       </div>
 
-      <!-- Actions -->
+      <!-- Filter Actions -->
       <div class="flex justify-end gap-2 pt-2">
         <button type="submit"
                 class="btn btn-primary btn-sm">
           Apply Filters
         </button>
         <a href="?reset=1"
-           class="btn btn-ghost btn-sm text-base-content/60">
+           class="btn btn-ghost btn-sm opacity-70">
           Reset
         </a>
       </div>
@@ -110,13 +108,13 @@
   </form>
 
   <!-- ===================================================== -->
-  <!-- Active Filters (Chips Standard) -->
+  <!-- Active Filters -->
   <!-- ===================================================== -->
   {% if active_filters %}
     <div class="flex flex-wrap gap-2">
       {% for f in active_filters %}
-        <span class="badge badge-outline gap-1 text-xs">
-          <span class="text-base-content/60">{{ f.label }}:</span>
+        <span class="badge badge-outline text-xs gap-1">
+          <span class="opacity-60">{{ f.label }}:</span>
           <span class="font-medium">{{ f.value }}</span>
         </span>
       {% endfor %}
@@ -124,25 +122,25 @@
   {% endif %}
 
   <!-- ===================================================== -->
-  <!-- Table (List Standard) -->
+  <!-- Table -->
   <!-- ===================================================== -->
-  <div class="card bg-base-100 border border-base-200 shadow-sm overflow-x-auto">
+  <div class="card bg-base-100 overflow-x-auto">
 
-    <table class="table w-full text-sm">
-      <thead class="bg-base-200/60">
+    <table class="table w-full text-sm table-sticky">
+      <thead>
         <tr>
-          <th class="font-semibold">Name</th>
-          <th class="font-semibold w-24">Sequence</th>
-          <th class="font-semibold w-36">Certification</th>
-          <th class="font-semibold w-28">Levels</th>
-          <th class="font-semibold w-24">Status</th>
-          <th class="font-semibold w-40 text-right">Actions</th>
+          <th>Name</th>
+          <th class="w-24">Sequence</th>
+          <th class="w-36">Certification</th>
+          <th class="w-28">Levels</th>
+          <th class="w-24">Status</th>
+          <th class="w-40">Actions</th>
         </tr>
       </thead>
 
-      <tbody class="[&>tr]:border-base-200">
+      <tbody>
         {% for obj in object_list %}
-          <tr class="hover">
+          <tr>
 
             <td class="font-medium">
               {{ obj.name }}
@@ -154,13 +152,9 @@
 
             <td>
               {% if obj.is_certification %}
-                <span class="badge badge-info badge-sm">
-                  Yes
-                </span>
+                <span class="badge badge-info badge-sm">Yes</span>
               {% else %}
-                <span class="badge badge-ghost badge-sm">
-                  No
-                </span>
+                <span class="badge badge-ghost badge-sm">No</span>
               {% endif %}
             </td>
 
@@ -170,18 +164,14 @@
 
             <td>
               {% if obj.active %}
-                <span class="badge badge-success badge-sm">
-                  Active
-                </span>
+                <span class="badge badge-success badge-sm">Active</span>
               {% else %}
-                <span class="badge badge-ghost badge-sm">
-                  Inactive
-                </span>
+                <span class="badge badge-ghost badge-sm">Inactive</span>
               {% endif %}
             </td>
 
-            <td class="text-right">
-              <div class="flex justify-end gap-1">
+            <td>
+              <div class="inline-flex gap-1">
                 <a href="{% url 'skills:skilltype_update' obj.id %}"
                    class="btn btn-ghost btn-xs">
                   Edit
@@ -196,13 +186,11 @@
           </tr>
         {% empty %}
           <tr>
-            <td colspan="6" class="py-16">
-              <div class="flex flex-col items-center text-center gap-2 text-base-content/70">
-                <p class="font-medium">
-                  No Skill Types found
-                </p>
-                <p class="text-sm text-base-content/60 max-w-md">
-                  Create skill types to standardize skills and keep evaluations consistent across the organization.
+            <td colspan="6" class="py-16 text-center">
+              <div class="flex flex-col items-center gap-2 opacity-70">
+                <p class="font-medium">No Skill Types found</p>
+                <p class="text-sm max-w-md">
+                  Create skill types to standardize evaluations and career progression.
                 </p>
                 <a href="{% url 'skills:skilltype_create' %}"
                    class="btn btn-primary btn-sm mt-3">
@@ -213,7 +201,6 @@
           </tr>
         {% endfor %}
       </tbody>
-
     </table>
 
   </div>

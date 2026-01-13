@@ -5,7 +5,6 @@ Signals — Payroll app
 
 Responsibilities:
 - Recompute Payslip totals after any PayslipLine change (create/update/delete).
-- Apply default ACL (base.apply_default_acl) for newly created payroll objects.
 
 Notes:
 - Recompute is allowed ONLY while Payslip is in draft (models.py enforces this).
@@ -18,7 +17,6 @@ from django.core.exceptions import ValidationError
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 
-from base.acl_service import apply_default_acl
 from . import models as m
 
 # ✅ Important: keep explicit import to avoid "Unresolved reference" in some IDEs
@@ -62,26 +60,3 @@ def _recompute_after_line_save(sender, instance: PayslipLine, **kwargs):
 def _recompute_after_line_delete(sender, instance: PayslipLine, **kwargs):
     slip = getattr(instance, "payslip", None)
     _safe_recompute_payslip(slip)
-
-
-# ==========================================================
-# Default ACLs for payroll objects
-# ==========================================================
-
-@receiver(post_save, sender=m.PayrollPeriod)
-@receiver(post_save, sender=m.Payslip)
-@receiver(post_save, sender=m.PayslipLine)
-@receiver(post_save, sender=m.EmployeeSalary)
-@receiver(post_save, sender=m.PayrollStructure)
-@receiver(post_save, sender=m.SalaryRuleCategory)
-@receiver(post_save, sender=m.RuleParameter)
-@receiver(post_save, sender=m.SalaryRule)
-@receiver(post_save, sender=m.InputType)
-@receiver(post_save, sender=m.PayslipInput)
-def _apply_default_acl_payroll(sender, instance, created, **kwargs):
-    """
-    Apply base default ACL only on creation.
-    This keeps payroll models consistent with the global ACL system.
-    """
-    if created:
-        apply_default_acl(instance)

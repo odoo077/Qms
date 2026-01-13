@@ -2,7 +2,6 @@
 # ============================================================
 # Services for Skills app (Odoo-like)
 # - طبقة خدمات للتعامل مع SkillType/SkillLevel/Skill/EmployeeSkill/ResumeLine
-# - متوافقة مع signals (guardian) + منطق الحقول في models.py
 # - تعليقات عربية، وكود إنجليزي
 # ============================================================
 
@@ -11,13 +10,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 from typing import Iterable, List, Optional, Sequence, Tuple
-from .models import EmployeeSkill, JobSkill
 from django.apps import apps
 from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.db import transaction
 from django.db.models import Q
 from datetime import timedelta
-from django.utils import timezone
 # ------------------------------------------------------------
 # Dynamic model getters (تجنب دورات الاستيراد المباشر)
 # ------------------------------------------------------------
@@ -118,7 +115,6 @@ def add_employee_skill(data: EmployeeSkillInput) -> EmployeeSkill:
     إنشاء سجل مهارة للموظف (Strict Create).
     - يفشل إذا وُجد سجل بنفس (employee, skill) طبقًا لقيد Unique.
     - يمرّ عبر full_clean() لاحترام جميع قيود models.py.
-    - signals ستمنح صلاحيات guardian تلقائيًا للـ created_by والـ employee.user.
     """
     # 1) تحقق التواريخ/الاتساق
     valid_from, valid_to = _normalize_period(data.valid_from, data.valid_to)
@@ -220,7 +216,6 @@ def update_employee_skill(
 def delete_employee_skill(employeeskill_id: int) -> None:
     """
     حذف سجل مهارة موظف.
-    - صلاحيات الكائن تُدار عبر Guardian/Signals خارج هذه الدالة.
     """
     EmployeeSkill.objects.filter(pk=employeeskill_id).delete()
 
@@ -249,7 +244,6 @@ def add_resume_line(data: ResumeLineInput) -> ResumeLine:
     """
     إنشاء سطر سيرة ذاتية لموظف.
     - يمر عبر full_clean() لاحترام قيود التاريخ وملء company من employee.
-    - signals تمنح صلاحيات العرض/التعديل للـ created_by + عرض للموظف.user.
     """
     date_start, date_end = _normalize_resume_period(data.date_start, data.date_end)
 
@@ -340,7 +334,6 @@ def list_employee_skills_for_company(
     search: Optional[str] = None,
 ):
     """
-    قائمة مهارات ضمن شركة محددة (Odoo-like scoping).
     """
     qs = EmployeeSkill.objects.filter(company_id=company_id)
     if only_active and hasattr(EmployeeSkill, "active"):

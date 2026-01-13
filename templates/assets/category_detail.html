@@ -7,131 +7,133 @@ Asset Category · {{ object.name }}
 {% block content %}
 <div class="w-full px-6 py-6 space-y-6">
 
-    <!-- ===================================================== -->
-    <!-- Header -->
-    <!-- ===================================================== -->
-    <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-
-        <div>
-            <h1 class="text-3xl font-bold">
-                {{ object.name }}
-            </h1>
-            <p class="text-sm opacity-70 mt-1">
-                Asset Category Details
-            </p>
-        </div>
-
-        <div class="flex gap-2 flex-wrap">
-            <a href="{% url 'assets:category_list' %}"
-               class="btn btn-ghost btn-sm">
-                ← Back
-            </a>
-
-            <a href="{% url 'assets:category_edit' object.id %}"
-               class="btn btn-outline btn-sm">
-                Edit
-            </a>
-
-            <a href="{% url 'assets:category_delete' object.id %}"
-               class="btn btn-error btn-sm">
-                Delete
-            </a>
-        </div>
-
+  <!-- ===================================================== -->
+  <!-- PAGE HEADER -->
+  <!-- ===================================================== -->
+  <section class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+    <div>
+      <h1 class="text-3xl font-bold tracking-tight">
+        {{ object.name }}
+      </h1>
+      <p class="text-sm text-base-content/60">
+        Asset category definition and hierarchy
+      </p>
     </div>
 
-    <!-- ===================================================== -->
-    <!-- Status / Meta -->
-    <!-- ===================================================== -->
-    <div class="flex items-center gap-3">
+    <div class="flex gap-2">
+      <a href="{% url 'assets:category_list' %}"
+         class="btn btn-ghost btn-sm">
+        Back
+      </a>
 
-        {% if object.active %}
-            <span class="badge badge-success badge-lg">
-                Active
-            </span>
-        {% else %}
-            <span class="badge badge-ghost badge-lg">
-                Archived
-            </span>
-        {% endif %}
+      <a href="{% url 'assets:category_edit' object.id %}"
+         class="btn btn-outline btn-sm">
+        Edit
+      </a>
 
-        {% if object.parent %}
-            <span class="badge badge-outline">
-                Child Category
-            </span>
-        {% else %}
-            <span class="badge badge-outline">
-                Root Category
-            </span>
-        {% endif %}
-
+      <a href="{% url 'assets:category_delete' object.id %}"
+         class="btn btn-outline btn-error btn-sm">
+        Delete
+      </a>
     </div>
+  </section>
 
-    <!-- ===================================================== -->
-    <!-- Details Card -->
-    <!-- ===================================================== -->
-    <div class="card bg-base-100 shadow max-w-4xl">
-        <div class="card-body">
+  <!-- ===================================================== -->
+  <!-- STATUS INDICATORS -->
+  <!-- ===================================================== -->
+  <section class="flex flex-wrap gap-2">
+    {% if object.active %}
+      <span class="badge badge-success badge-sm">
+        Active
+      </span>
+    {% else %}
+      <span class="badge badge-ghost badge-sm">
+        Archived
+      </span>
+    {% endif %}
 
-            <h2 class="card-title text-lg mb-4">
-                Category Information
-            </h2>
+    {% if object.parent %}
+      <span class="badge badge-ghost badge-sm">
+        Child Category
+      </span>
+    {% else %}
+      <span class="badge badge-ghost badge-sm">
+        Root Category
+      </span>
+    {% endif %}
+  </section>
 
-            <dl class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4 text-sm">
+  <!-- ===================================================== -->
+  <!-- DETAILS CARD -->
+  <!-- ===================================================== -->
+  <section class="card bg-base-100 border border-base-200 shadow-sm">
+    <div class="p-6 space-y-6">
 
-                <!-- Name -->
-                <div class="opacity-70">Name</div>
-                <div class="font-medium">
-                    {{ object.name|default:"—" }}
-                </div>
+      <h2 class="text-base font-semibold tracking-wide">
+        Category Information
+      </h2>
 
-                <!-- Company -->
-                <div class="opacity-70">Company</div>
-                <div>
-                    {{ object.company|default:"—" }}
-                </div>
+      <dl class="grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-4 text-sm">
 
-                <!-- Parent -->
-                <div class="opacity-70">Parent Category</div>
-                <div>
-                    {% if object.parent %}
-                        <a href="{% url 'assets:category_detail' object.parent.id %}"
-                           class="link link-primary">
-                            {{ object.parent }}
-                        </a>
-                    {% else %}
-                        —
-                    {% endif %}
-                </div>
-
-                <!-- Parent Path -->
-                <div class="opacity-70">Hierarchy Path</div>
-                <div class="break-all text-xs opacity-80">
-                    {% if object.parent_path %}
-                        {{ object.parent_path }}
-                    {% else %}
-                        —
-                    {% endif %}
-                </div>
-
-                <!-- Status -->
-                <div class="opacity-70">Status</div>
-                <div>
-                    {% if object.active %}
-                        <span class="badge badge-success badge-sm">
-                            Active
-                        </span>
-                    {% else %}
-                        <span class="badge badge-ghost badge-sm">
-                            Archived
-                        </span>
-                    {% endif %}
-                </div>
-
-            </dl>
-
+        <!-- Name -->
+        <div class="text-base-content/60">
+          Name
         </div>
+        <div class="font-medium md:col-span-2">
+          {{ object.name|default:"—" }}
+        </div>
+
+        <!-- Company -->
+        <div class="text-base-content/60">
+          Company
+        </div>
+        <div class="md:col-span-2">
+          {{ object.company|default:"—" }}
+        </div>
+
+        <!-- Parent -->
+        <div class="text-base-content/60">
+          Parent Category
+        </div>
+        <div class="md:col-span-2">
+          {% if object.parent %}
+            <a href="{% url 'assets:category_detail' object.parent.id %}"
+               class="link link-hover font-medium">
+              {{ object.parent }}
+            </a>
+          {% else %}
+            —
+          {% endif %}
+        </div>
+
+        <!-- Hierarchy -->
+        <div class="text-base-content/60">
+          Hierarchy Path
+        </div>
+        <div class="md:col-span-2 text-xs text-base-content/70 break-all">
+          {{ object.parent_path|default:"—" }}
+        </div>
+
+        <!-- Status -->
+        <div class="text-base-content/60">
+          Status
+        </div>
+        <div class="md:col-span-2">
+          {% if object.active %}
+            <span class="badge badge-success badge-sm">
+              Active
+            </span>
+          {% else %}
+            <span class="badge badge-ghost badge-sm">
+              Archived
+            </span>
+          {% endif %}
+        </div>
+
+      </dl>
+
     </div>
+  </section>
 
 </div>
 {% endblock %}

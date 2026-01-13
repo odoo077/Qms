@@ -24,7 +24,6 @@ from __future__ import annotations
 from django.contrib.auth.models import Group
 from django.apps import apps
 
-from base.acl_service import grant_access
 from hr.access import can_view_employee, can_edit_employee
 
 # Lazy model loading (no hard dependency at import time)

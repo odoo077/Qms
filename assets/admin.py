@@ -1,18 +1,16 @@
 # assets/admin.py
 """
 صفحات الإدارة لتطبيق الأصول (assets)
-- تعتمد على base.admin_mixins.AppAdmin الذي:
-  * يعرض كل السجلات بدون سكوبات شركات (UnscopedAdminMixin)
-  * يُخفي حقول الأثر (HideAuditFieldsMixin)
-  * يستثني صفحة الإدارة من صلاحيات Guardian على مستوى الكائن
+
+- تعتمد على AppAdmin كـ base admin موحد.
+- تعرض جميع السجلات بدون أي قيود صلاحيات.
 - الكود منسق ومبسّط لأقصى أداء.
 """
 
 from django.contrib import admin, messages
 from django.utils.translation import gettext_lazy as _
 
-from base.admin import ObjectACLInline
-from base.admin_mixins import AppAdmin  # ✅ الميكسن النهائي للاستثناء من صلاحيات الكائن
+from base.admin_mixins import AppAdmin
 from . import models as m
 
 
@@ -24,14 +22,22 @@ from . import models as m
 def action_activate(modeladmin, request, queryset):
     """تفعيل السجلات المحددة بدون المرور بـ save()."""
     updated = queryset.update(active=True)
-    modeladmin.message_user(request, f"Activated {updated} record(s).", level=messages.SUCCESS)
+    modeladmin.message_user(
+        request,
+        f"Activated {updated} record(s).",
+        level=messages.SUCCESS,
+    )
 
 
 @admin.action(description=_("Deactivate selected"))
 def action_deactivate(modeladmin, request, queryset):
     """تعطيل السجلات المحددة بدون المرور بـ save()."""
     updated = queryset.update(active=False)
-    modeladmin.message_user(request, f"Deactivated {updated} record(s).", level=messages.SUCCESS)
+    modeladmin.message_user(
+        request,
+        f"Deactivated {updated} record(s).",
+        level=messages.SUCCESS,
+    )
 
 
 # ============================================================
@@ -52,32 +58,47 @@ class AssetCategoryAdmin(AppAdmin):
     autocomplete_fields = ("company", "parent")
     actions = (action_activate, action_deactivate)
 
-    inlines = [ObjectACLInline]
-
 
 # ============================================================
 # Asset
 # ============================================================
 
-
 @admin.register(m.Asset)
 class AssetAdmin(AppAdmin):
-
-    inlines = [ObjectACLInline]
-
     """
     إدارة الأصول (assets.asset)
-    - مستثنى من صلاحيات Guardian على مستوى الكائن.
     """
     list_display = (
-        "code", "name", "company", "category", "department",
-        "holder", "status", "active",
+        "code",
+        "name",
+        "company",
+        "category",
+        "department",
+        "holder",
+        "status",
+        "active",
     )
     list_filter = ("company", "status", "active", "category")
-    search_fields = ("code", "name", "serial", "holder__name", "department__name")
-    list_select_related = ("company", "category", "department", "holder")
+    search_fields = (
+        "code",
+        "name",
+        "serial",
+        "holder__name",
+        "department__name",
+    )
+    list_select_related = (
+        "company",
+        "category",
+        "department",
+        "holder",
+    )
     ordering = ("company", "code", "name")
-    autocomplete_fields = ("company", "category", "department", "holder")
+    autocomplete_fields = (
+        "company",
+        "category",
+        "department",
+        "holder",
+    )
     readonly_fields = ("created_by", "created_at", "updated_at")
     actions = (action_activate, action_deactivate)
 
@@ -100,8 +121,6 @@ class AssetAssignmentAdmin(AppAdmin):
     - يعرض السجل التاريخي الكامل
     """
 
-    inlines = [ObjectACLInline]
-
     list_display = (
         "asset",
         "employee",
@@ -110,9 +129,7 @@ class AssetAssignmentAdmin(AppAdmin):
         "date_to",
     )
 
-    list_filter = (
-        "company",
-    )
+    list_filter = ("company",)
 
     search_fields = (
         "asset__code",
@@ -134,11 +151,8 @@ class AssetAssignmentAdmin(AppAdmin):
         "company",
     )
 
-    readonly_fields = (
-        "company",
-    )
+    readonly_fields = ("company",)
 
-    # ❌ تم حذف actions لأن:
-    # - active لم يعد موجودًا
-    # - التفعيل/التعطيل لا معنى له في سجل تاريخي
-
+    # لا actions:
+    # - active غير موجود
+    # - السجل تاريخي فقط

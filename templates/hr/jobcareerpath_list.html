@@ -1,72 +1,119 @@
 {% extends "base.html" %}
 
-{% block title %}Career Paths{% endblock %}
-
-{% block page_actions %}
-<a href="{% url 'hr:jobcareerpath_create' %}"
-   class="btn btn-primary btn-sm">
-  + New Career Path
-</a>
+{% block title %}
+Career Paths
 {% endblock %}
 
 {% block content %}
-<div class="w-full px-4 py-6">
+<div class="w-full px-6 py-6 space-y-6">
 
-  <div class="card bg-base-100 shadow border border-base-200">
-    <div class="card-body p-0">
+  <!-- ===================================================== -->
+  <!-- PAGE HEADER -->
+  <!-- ===================================================== -->
+  <section class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
 
-      <table class="table table-zebra w-full text-sm">
-        <thead>
-          <tr>
-            <th>From Job</th>
-            <th>To Job</th>
-            <th>Sequence</th>
-            <th>Status</th>
-            <th class="text-right">Actions</th>
-          </tr>
-        </thead>
+    <div>
+      <h1 class="text-3xl font-bold tracking-tight">
+        Career Paths
+      </h1>
+      <p class="text-sm text-base-content/60">
+        Define job-to-job career progression paths
+      </p>
+    </div>
 
-        <tbody>
-          {% for obj in object_list %}
-          <tr>
-            <td>{{ obj.from_job.name }}</td>
-            <td class="font-medium">{{ obj.to_job.name }}</td>
-            <td>{{ obj.sequence }}</td>
+    <div class="flex gap-2">
+      <a href="{% url 'hr:jobcareerpath_create' %}"
+         class="btn btn-primary btn-sm">
+        + New Career Path
+      </a>
+    </div>
 
-            <td>
-              {% if obj.active %}
-                <span class="badge badge-success">Active</span>
-              {% else %}
-                <span class="badge badge-ghost">Inactive</span>
-              {% endif %}
-            </td>
+  </section>
 
-            <td class="text-right space-x-1">
+  <!-- ===================================================== -->
+  <!-- TABLE CARD -->
+  <!-- ===================================================== -->
+  <section class="card bg-base-100 border border-base-200 shadow-sm overflow-x-auto">
+
+    <table class="table table-zebra w-full text-sm">
+
+      <thead class="bg-base-200">
+        <tr>
+          <th>From Job</th>
+          <th>To Job</th>
+          <th>Sequence</th>
+          <th>Status</th>
+          <th class="text-right">Actions</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        {% for obj in object_list %}
+        <tr>
+
+          <td class="text-base-content/80">
+            {{ obj.from_job.name }}
+          </td>
+
+          <td class="font-medium">
+            {{ obj.to_job.name }}
+          </td>
+
+          <td class="text-base-content/70">
+            {{ obj.sequence }}
+          </td>
+
+          <td>
+            {% if obj.active %}
+              <span class="badge badge-success badge-sm">
+                Active
+              </span>
+            {% else %}
+              <span class="badge badge-ghost badge-sm">
+                Inactive
+              </span>
+            {% endif %}
+          </td>
+
+          <!-- ACTIONS -->
+          <td class="text-right">
+            <div class="inline-flex gap-1">
+
               <a href="{% url 'hr:jobcareerpath_update' obj.id %}"
-                 class="btn btn-ghost btn-xs">
+                 class="btn btn-xs btn-outline">
                 Edit
               </a>
 
               <a href="{% url 'hr:jobcareerpath_delete' obj.id %}"
-                 class="btn btn-ghost btn-xs text-error">
+                 class="btn btn-xs btn-outline btn-error">
                 Delete
               </a>
-            </td>
-          </tr>
-          {% empty %}
-          <tr>
-            <td colspan="5"
-                class="text-center opacity-60 py-6">
-              No career paths defined.
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
 
-      </table>
+            </div>
+          </td>
 
-    </div>
-  </div>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="5" class="py-16 text-center">
+            <p class="text-base font-medium text-base-content/70">
+              No career paths defined
+            </p>
+            <p class="text-sm text-base-content/50 mt-1">
+              Create career paths to model employee progression
+            </p>
+            <a href="{% url 'hr:jobcareerpath_create' %}"
+               class="btn btn-primary btn-sm mt-4">
+              + Add Career Path
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+
+    </table>
+
+  </section>
 
 </div>
 {% endblock %}

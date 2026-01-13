@@ -1,5 +1,5 @@
 # performance/views.py
-from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.decorators import login_required
 from django.urls import reverse_lazy
 from django.shortcuts import get_object_or_404, redirect, render
@@ -14,27 +14,20 @@ from base.views import (
     ConfirmDeleteMixin,
     apply_search_filters,
 )
-from base.acl_service import has_perm
+
 from . import models as m
 from . import forms as f
 from . import services as svc
 from django import forms
-from django.contrib import messages
-from django.contrib.auth.decorators import login_required, permission_required
 from base.company_context import get_current_company_object
 from base.models import Company
 from hr.models import Employee
 from django.db.models import Q
-from base.models import Company
-from hr.models import Employee
-
-
 
 
 # ============================================================
 # Evaluation Parameters
 # ============================================================
-
 
 class EvaluationParameterListView(LoginRequiredMixin, BaseScopedListView):
     model = m.EvaluationParameter
@@ -53,23 +46,19 @@ class EvaluationParameterListView(LoginRequiredMixin, BaseScopedListView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx["can_add_parameter"] = self.request.user.has_perm(
-            "performance.add_evaluationparameter"
-        )
+        # بدون نظام صلاحيات: السماح بالزر طالما المستخدم مسجّل
+        ctx["can_add_parameter"] = True
         return ctx
-
 
 
 class EvaluationParameterCreateView(
     LoginRequiredMixin,
-    PermissionRequiredMixin,
     BaseScopedCreateView,
 ):
     model = m.EvaluationParameter
     form_class = f.EvaluationParameterForm
     template_name = "performance/evaluationparameter_form.html"
     success_url = reverse_lazy("performance:parameter_list")
-    permission_required = "performance.add_evaluationparameter"
 
 
 class EvaluationParameterUpdateView(
@@ -88,23 +77,30 @@ class EvaluationParameterDetailView(LoginRequiredMixin, BaseScopedDetailView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        obj = ctx.get("object")
-        ctx["can_edit_object"] = bool(
-            obj and has_perm(obj, self.request.user, "change")
-        )
+        # بدون صلاحيات: السماح دائمًا بعرض زر التعديل
+        ctx["can_edit_object"] = True
         return ctx
 
 
 class EvaluationParameterDeleteView(
     LoginRequiredMixin,
-    PermissionRequiredMixin,
     ConfirmDeleteMixin,
     BaseScopedDeleteView,
 ):
     model = m.EvaluationParameter
-    permission_required = "performance.delete_evaluationparameter"
     back_url_name = "performance:parameter_list"
     object_label_field = "name"
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -115,7 +111,6 @@ class EvaluationParameterDeleteView(
 class EvaluationTypeListView(LoginRequiredMixin, BaseScopedListView):
     """
     قائمة أنواع التقييم (Monthly / Quarterly ... إلخ)
-    مخصّصة عادة للـ HR Manager / System Admin.
     """
     model = m.EvaluationType
     template_name = "performance/evaluationtype_list.html"
@@ -150,7 +145,6 @@ class EvaluationTypeDetailView(LoginRequiredMixin, BaseScopedDetailView):
 
 class EvaluationTypeCreateView(
     LoginRequiredMixin,
-    PermissionRequiredMixin,
     BaseScopedCreateView,
 ):
     """
@@ -159,13 +153,11 @@ class EvaluationTypeCreateView(
     model = m.EvaluationType
     form_class = f.EvaluationTypeForm
     template_name = "performance/evaluationtype_form.html"
-    permission_required = "performance.add_evaluationtype"
     success_url = reverse_lazy("performance:evaluation_type_list")
 
 
 class EvaluationTypeUpdateView(
     LoginRequiredMixin,
-    PermissionRequiredMixin,
     BaseScopedUpdateView,
 ):
     """
@@ -174,13 +166,11 @@ class EvaluationTypeUpdateView(
     model = m.EvaluationType
     form_class = f.EvaluationTypeForm
     template_name = "performance/evaluationtype_form.html"
-    permission_required = "performance.change_evaluationtype"
     success_url = reverse_lazy("performance:evaluation_type_list")
 
 
 class EvaluationTypeDeleteView(
     LoginRequiredMixin,
-    PermissionRequiredMixin,
     ConfirmDeleteMixin,
     BaseScopedDeleteView,
 ):
@@ -188,16 +178,12 @@ class EvaluationTypeDeleteView(
     حذف نوع تقييم.
     """
     model = m.EvaluationType
-    permission_required = "performance.delete_evaluationtype"
     back_url_name = "performance:evaluation_type_list"
     object_label_field = "name"
 
 
-
-
 class EvaluationApprovalStepCreateView(
     LoginRequiredMixin,
-    PermissionRequiredMixin,
     BaseScopedCreateView,
 ):
     """
@@ -207,10 +193,11 @@ class EvaluationApprovalStepCreateView(
     model = m.EvaluationApprovalStep
     form_class = f.EvaluationApprovalStepForm
     template_name = "performance/evaluationapprovalstep_form.html"
-    permission_required = "performance.add_evaluationapprovalstep"
 
     def dispatch(self, request, *args, **kwargs):
-        self.evaluation_type = get_object_or_404(m.EvaluationType, pk=kwargs.get("type_pk"))
+        self.evaluation_type = get_object_or_404(
+            m.EvaluationType, pk=kwargs.get("type_pk")
+        )
         return super().dispatch(request, *args, **kwargs)
 
     def get_initial(self):
@@ -249,9 +236,27 @@ class EvaluationApprovalStepCreateView(
         )
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 class EvaluationApprovalStepUpdateView(
     LoginRequiredMixin,
-    PermissionRequiredMixin,
     BaseScopedUpdateView,
 ):
     """
@@ -260,7 +265,6 @@ class EvaluationApprovalStepUpdateView(
     model = m.EvaluationApprovalStep
     form_class = f.EvaluationApprovalStepForm
     template_name = "performance/evaluationapprovalstep_form.html"
-    permission_required = "performance.change_evaluationapprovalstep"
 
     def dispatch(self, request, *args, **kwargs):
         # نحصل على النوع من خلال الكائن نفسه لضمان التوافق
@@ -297,7 +301,6 @@ class EvaluationApprovalStepUpdateView(
 
 class EvaluationApprovalStepDeleteView(
     LoginRequiredMixin,
-    PermissionRequiredMixin,
     BaseScopedDeleteView,
 ):
     """
@@ -306,7 +309,6 @@ class EvaluationApprovalStepDeleteView(
     """
     model = m.EvaluationApprovalStep
     template_name = "partials/confirm_delete.html"
-    permission_required = "performance.delete_evaluationapprovalstep"
 
     def get_queryset(self):
         # نضمن أن الخطوة مرتبطة بنفس النوع الممرَّر في URL
@@ -331,7 +333,6 @@ class EvaluationApprovalStepDeleteView(
             "performance:evaluation_type_detail",
             kwargs={"pk": etype_id},
         )
-
 
 
 # ------------------------------------------------------------
@@ -377,7 +378,7 @@ class EvaluationBulkCreateForm(forms.Form):
 
     def __init__(self, *args, **kwargs):
         """
-        - تقييد الشركات حسب الـ ACL.
+        - تقييد الشركات حسب الشركة الحالية فقط.
         - عند اختيار الشركة نقيّد:
           - EvaluationType
           - EvaluationTemplate
@@ -386,13 +387,12 @@ class EvaluationBulkCreateForm(forms.Form):
         self.request = kwargs.pop("request", None)
         super().__init__(*args, **kwargs)
 
-        # الشركات المتاحة للمستخدم
-        allowed_companies = Company.objects.with_acl("view")
-        self.fields["company"].queryset = allowed_companies
+        # جميع الشركات (بدون ACL)
+        self.fields["company"].queryset = Company.objects.all()
 
-        # اختيار الشركة الحالية إن كانت ضمن المسموح
+        # اختيار الشركة الحالية إن وُجدت
         current = get_current_company_object()
-        if current and allowed_companies.filter(pk=current.pk).exists():
+        if current:
             self.fields["company"].initial = current
 
         # تحديد الشركة المستخدمة لتصفية باقي الحقول
@@ -420,10 +420,26 @@ class EvaluationBulkCreateForm(forms.Form):
             self.fields["template"].queryset = m.EvaluationTemplate.objects.none()
             self.fields["employees"].queryset = Employee.objects.none()
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # ============================================================
 # Evaluation Templates
 # ============================================================
-
 
 class EvaluationTemplateListView(LoginRequiredMixin, BaseScopedListView):
     model = m.EvaluationTemplate
@@ -446,25 +462,19 @@ class EvaluationTemplateListView(LoginRequiredMixin, BaseScopedListView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx["can_add_template"] = self.request.user.has_perm(
-            "performance.add_evaluationtemplate"
-        )
-        # لا نستخدم acl_objects هنا لأن الموديل لا يدعمها
+        # زر الإضافة متاح للجميع (بدون صلاحيات)
+        ctx["can_add_template"] = True
         return ctx
-
-
 
 
 class EvaluationTemplateCreateView(
     LoginRequiredMixin,
-    PermissionRequiredMixin,
     BaseScopedCreateView,
 ):
     model = m.EvaluationTemplate
     form_class = f.EvaluationTemplateForm
     template_name = "performance/evaluationtemplate_form.html"
     success_url = reverse_lazy("performance:template_list")
-    permission_required = "performance.add_evaluationtemplate"
 
 
 class EvaluationTemplateUpdateView(
@@ -487,29 +497,47 @@ class EvaluationTemplateDetailView(LoginRequiredMixin, BaseScopedDetailView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        obj = ctx.get("object")
-        ctx["can_edit_object"] = bool(
-            obj and has_perm(obj, self.request.user, "change")
-        )
+        # السماح دائمًا بالتعديل (بدون ACL)
+        ctx["can_edit_object"] = True
         return ctx
 
 
 class EvaluationTemplateDeleteView(
     LoginRequiredMixin,
-    PermissionRequiredMixin,
     ConfirmDeleteMixin,
     BaseScopedDeleteView,
 ):
     model = m.EvaluationTemplate
-    permission_required = "performance.delete_evaluationtemplate"
     back_url_name = "performance:template_list"
     object_label_field = "name"
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 # ============================================================
 # Evaluations
 # ============================================================
-
 
 class EvaluationListView(LoginRequiredMixin, BaseScopedListView):
     """
@@ -572,7 +600,8 @@ class EvaluationListView(LoginRequiredMixin, BaseScopedListView):
         to_date = request.GET.get("to_date") or ""
         q = request.GET.get("q") or ""
 
-        companies = Company.objects.with_acl("view")
+        # بدون ACL: نعرض كل الشركات المتاحة عبر الـ scope
+        companies = Company.objects.all()
 
         employees_qs = Employee.objects.filter(active=True)
         eval_types_qs = m.EvaluationType.objects.filter(active=True)
@@ -604,17 +633,14 @@ class EvaluationListView(LoginRequiredMixin, BaseScopedListView):
         return ctx
 
 
-
 class EvaluationCreateView(
     LoginRequiredMixin,
-    PermissionRequiredMixin,
     BaseScopedCreateView,
 ):
     model = m.Evaluation
     form_class = f.EvaluationForm
     template_name = "performance/evaluation_form.html"
     success_url = reverse_lazy("performance:evaluation_list")
-    permission_required = "performance.add_evaluation"
 
 
 class EvaluationUpdateView(LoginRequiredMixin, BaseScopedUpdateView):
@@ -626,7 +652,6 @@ class EvaluationUpdateView(LoginRequiredMixin, BaseScopedUpdateView):
     def get_queryset(self):
         base_qs = super().get_queryset()
         return base_qs.select_related("company", "employee", "template")
-
 
 
 class EvaluationDetailView(LoginRequiredMixin, BaseScopedDetailView):
@@ -647,15 +672,10 @@ class EvaluationDetailView(LoginRequiredMixin, BaseScopedDetailView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         obj = ctx.get("object")
-        user = self.request.user
 
-        # صلاحيات أساسية
-        ctx["can_edit_object"] = bool(
-            obj and has_perm(obj, user, "change")
-        )
-        ctx["can_delete_object"] = bool(
-            obj and has_perm(obj, user, "delete")
-        )
+        # السماح دائمًا بالتعديل والحذف (بدون صلاحيات)
+        ctx["can_edit_object"] = True
+        ctx["can_delete_object"] = True
 
         # خطوات الـ Workflow
         steps = []
@@ -668,32 +688,37 @@ class EvaluationDetailView(LoginRequiredMixin, BaseScopedDetailView):
         ctx["current_step"] = obj.current_step if obj else 0
         ctx["current_approver"] = obj.current_approver if obj else None
 
-        # هل يمكن تقديم التقييم؟
-        ctx["can_submit"] = bool(
-            obj
-            and obj.state == "draft"
-            and has_perm(obj, user, "change")
-        )
+        # يمكن تقديم التقييم دائمًا ما دام في draft
+        ctx["can_submit"] = bool(obj and obj.state == "draft")
 
-        # هل المستخدم الحالي يستطيع اعتماد أو رفض الخطوة الحالية؟
-        can_approve_step = bool(obj and svc.user_can_approve_step(user, obj))
-        ctx["can_approve_step"] = can_approve_step
-        ctx["can_reject_step"] = can_approve_step
+        # الموافقة/الرفض متاحة دائمًا (بدون صلاحيات)
+        ctx["can_approve_step"] = True
+        ctx["can_reject_step"] = True
 
         return ctx
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
 class EvaluationDeleteView(
     LoginRequiredMixin,
-    PermissionRequiredMixin,
     ConfirmDeleteMixin,
     BaseScopedDeleteView,
 ):
     model = m.Evaluation
-    permission_required = "performance.delete_evaluation"
     back_url_name = "performance:evaluation_list"
     object_label_field = "display_name"
-
 
 
 # ------------------------------------------------------------
@@ -726,10 +751,7 @@ class MyEvaluationListView(LoginRequiredMixin, BaseScopedListView):
             # لا يوجد Employee مرتبط → لا توجد تقييمات
             return qs.none()
 
-        return (
-            qs.filter(employee=employee)
-            .order_by("-date_end", "-id")
-        )
+        return qs.filter(employee=employee).order_by("-date_end", "-id")
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -746,13 +768,8 @@ def evaluation_submit_view(request, pk):
     """
     تقديم التقييم لأول مرة:
     - مسموح فقط إذا كان التقييم في حالة draft
-    - ويملك المستخدم صلاحية change على الكائن
     """
     evaluation = get_object_or_404(m.Evaluation, pk=pk)
-
-    if not has_perm(evaluation, request.user, "change"):
-        messages.error(request, "ليست لديك صلاحية لتقديم هذا التقييم.")
-        return redirect("performance:evaluation_detail", pk=pk)
 
     if evaluation.state != "draft":
         messages.warning(request, "لا يمكن تقديم هذا التقييم لأنه ليس في حالة مسودة.")
@@ -766,14 +783,9 @@ def evaluation_submit_view(request, pk):
 @login_required
 def evaluation_approve_step_view(request, pk):
     """
-    اعتماد الخطوة الحالية في الـ Workflow:
-    - يتحقق من صلاحية المستخدم على الخطوة (فرد / مجموعة)
+    اعتماد الخطوة الحالية في الـ Workflow.
     """
     evaluation = get_object_or_404(m.Evaluation, pk=pk)
-
-    if not svc.user_can_approve_step(request.user, evaluation):
-        messages.error(request, "ليست لديك صلاحية لاعتماد هذه الخطوة.")
-        return redirect("performance:evaluation_detail", pk=pk)
 
     ok = svc.approve_step(evaluation, request.user)
     if not ok:
@@ -796,10 +808,6 @@ def evaluation_reject_step_view(request, pk):
     """
     evaluation = get_object_or_404(m.Evaluation, pk=pk)
 
-    if not svc.user_can_approve_step(request.user, evaluation):
-        messages.error(request, "ليست لديك صلاحية لرفض هذه الخطوة.")
-        return redirect("performance:evaluation_detail", pk=pk)
-
     ok = svc.reject_step(evaluation, request.user)
     if not ok:
         messages.error(request, "تعذر رفض هذه الخطوة.")
@@ -809,11 +817,25 @@ def evaluation_reject_step_view(request, pk):
     return redirect("performance:evaluation_detail", pk=pk)
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 # ------------------------------------------------------------
 # Bulk Evaluation Creation View
 # ------------------------------------------------------------
 @login_required
-@permission_required("performance.add_evaluation", raise_exception=True)
 def evaluation_bulk_create_view(request):
     """
     إنشاء تقييمات جماعية لمجموعة موظفين لنفس الفترة ونفس النوع/القالب.
@@ -874,12 +896,9 @@ def evaluation_bulk_create_view(request):
     )
 
 
-
-
 # ============================================================
 # Objectives
 # ============================================================
-
 
 class ObjectiveListView(LoginRequiredMixin, BaseScopedListView):
     model = m.Objective
@@ -907,22 +926,18 @@ class ObjectiveListView(LoginRequiredMixin, BaseScopedListView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx["can_add_objective"] = self.request.user.has_perm(
-            "performance.add_objective"
-        )
+        ctx["can_add_objective"] = True
         return ctx
 
 
 class ObjectiveCreateView(
     LoginRequiredMixin,
-    PermissionRequiredMixin,
     BaseScopedCreateView,
 ):
     model = m.Objective
     form_class = f.ObjectiveForm
     template_name = "performance/objective_form.html"
     success_url = reverse_lazy("performance:objective_list")
-    permission_required = "performance.add_objective"
 
 
 class ObjectiveUpdateView(LoginRequiredMixin, BaseScopedUpdateView):
@@ -938,21 +953,16 @@ class ObjectiveDetailView(LoginRequiredMixin, BaseScopedDetailView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        obj = ctx.get("object")
-        ctx["can_edit_object"] = bool(
-            obj and has_perm(obj, self.request.user, "change")
-        )
+        ctx["can_edit_object"] = True
         return ctx
 
 
 class ObjectiveDeleteView(
     LoginRequiredMixin,
-    PermissionRequiredMixin,
     ConfirmDeleteMixin,
     BaseScopedDeleteView,
 ):
     model = m.Objective
-    permission_required = "performance.delete_objective"
     back_url_name = "performance:objective_list"
     object_label_field = "title"
 
@@ -960,7 +970,6 @@ class ObjectiveDeleteView(
 # ============================================================
 # KPIs
 # ============================================================
-
 
 class KPIListView(LoginRequiredMixin, BaseScopedListView):
     model = m.KPI
@@ -979,21 +988,20 @@ class KPIListView(LoginRequiredMixin, BaseScopedListView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx["can_add_kpi"] = self.request.user.has_perm("performance.add_kpi")
+        ctx["can_add_kpi"] = True
         return ctx
+
 
 
 
 class KPICreateView(
     LoginRequiredMixin,
-    PermissionRequiredMixin,
     BaseScopedCreateView,
 ):
     model = m.KPI
     form_class = f.KPIForm
     template_name = "performance/kpi_form.html"
     success_url = reverse_lazy("performance:kpi_list")
-    permission_required = "performance.add_kpi"
 
 
 class KPIUpdateView(LoginRequiredMixin, BaseScopedUpdateView):
@@ -1009,21 +1017,16 @@ class KPIDetailView(LoginRequiredMixin, BaseScopedDetailView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        obj = ctx.get("object")
-        ctx["can_edit_object"] = bool(
-            obj and has_perm(obj, self.request.user, "change")
-        )
+        ctx["can_edit_object"] = True
         return ctx
 
 
 class KPIDeleteView(
     LoginRequiredMixin,
-    PermissionRequiredMixin,
     ConfirmDeleteMixin,
     BaseScopedDeleteView,
 ):
     model = m.KPI
-    permission_required = "performance.delete_kpi"
     back_url_name = "performance:kpi_list"
     object_label_field = "name"
 
@@ -1059,23 +1062,18 @@ class TaskListView(LoginRequiredMixin, BaseScopedListView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx["can_add_task"] = self.request.user.has_perm(
-            "performance.add_task"
-        )
+        ctx["can_add_task"] = True
         return ctx
-
 
 
 class TaskCreateView(
     LoginRequiredMixin,
-    PermissionRequiredMixin,
     BaseScopedCreateView,
 ):
     model = m.Task
     form_class = f.TaskForm
     template_name = "performance/task_form.html"
     success_url = reverse_lazy("performance:task_list")
-    permission_required = "performance.add_task"
 
 
 class TaskUpdateView(LoginRequiredMixin, BaseScopedUpdateView):
@@ -1091,20 +1089,15 @@ class TaskDetailView(LoginRequiredMixin, BaseScopedDetailView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        obj = ctx.get("object")
-        ctx["can_edit_object"] = bool(
-            obj and has_perm(obj, self.request.user, "change")
-        )
+        ctx["can_edit_object"] = True
         return ctx
 
 
 class TaskDeleteView(
     LoginRequiredMixin,
-    PermissionRequiredMixin,
     ConfirmDeleteMixin,
     BaseScopedDeleteView,
 ):
     model = m.Task
-    permission_required = "performance.delete_task"
     back_url_name = "performance:task_list"
     object_label_field = "title"

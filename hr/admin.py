@@ -1,42 +1,41 @@
 # hr/admin.py
 # ============================================================
 # Django Admin (HR) — عرض غير مقيّد داخل لوحة الإدارة (Odoo-like)
-#
-# - نستخدم Mixin لإلغاء سكوب الشركات داخل الأدمن فقط.
-# - جميع قوائم FK/M2M تعرض كل الخيارات (غير مقيّدة).
-# - لا يؤثر هذا على منطق السكوب خارج الأدمن.
 # ============================================================
 
 from __future__ import annotations
 
 from django.urls import reverse
 from django.utils.html import format_html
-from base.admin_mixins import AppAdmin, UnscopedAdminMixin
+
+from base.admin_mixins import AppAdmin
 from . import models
 from xfields.admin import XValueInline
-from base.admin import ObjectACLInline
 from django import forms
 from django.contrib import admin
 from django.core.exceptions import ValidationError
 
-from .models import EmployeeStatus, EmployeeStatusHistory, EmployeeEducation, JobCareerPath, CareerPolicy, \
-    CareerPolicyAuditLog, EmployeeReadinessSnapshot
+from .models import (
+    EmployeeStatus,
+    EmployeeStatusHistory,
+    EmployeeEducation,
+    JobCareerPath,
+    CareerPolicy,
+    CareerPolicyAuditLog,
+    EmployeeReadinessSnapshot,
+)
 
 
 # ------------------------------------------------------------
 # ContractType
 # ------------------------------------------------------------
 @admin.register(models.ContractType)
-class ContractTypeAdmin(AppAdmin):
+class ContractTypeAdmin(admin.ModelAdmin):
     list_display = ("name", "code", "sequence")
     search_fields = ("name", "code")
     ordering = ("sequence",)
 
-    # لا تظهر في الفورم
     exclude = ("created_by", "updated_by", "created_at", "updated_at",)
-
-    # إن فضلت عرضها للقراءة فقط بدل إخفائها:
-    # readonly_fields = ("created_by", "updated_by", "created_at", "updated_at",)
 
 
 # ------------------------------------------------------------
@@ -44,14 +43,6 @@ class ContractTypeAdmin(AppAdmin):
 # ------------------------------------------------------------
 @admin.register(models.Department)
 class DepartmentAdmin(admin.ModelAdmin):
-    """
-    Odoo-like Admin behavior for Departments.
-
-    Principles:
-    - complete_name & parent_path are SYSTEM fields
-    - Visible for transparency
-    - Read-only to prevent manual corruption
-    """
 
     list_display = (
         "complete_name",
@@ -86,7 +77,7 @@ class DepartmentAdmin(admin.ModelAdmin):
 # WorkLocation
 # ------------------------------------------------------------
 @admin.register(models.WorkLocation)
-class WorkLocationAdmin(AppAdmin):
+class WorkLocationAdmin(admin.ModelAdmin):
     list_display = ("name", "company", "location_type", "address", "active")
     list_filter = ("company", "location_type", "active")
     search_fields = ("name", "address__name", "address__email", "address__phone")
@@ -94,6 +85,13 @@ class WorkLocationAdmin(AppAdmin):
     ordering = ("company", "name")
 
     autocomplete_fields = ("company", "address")
+
+
+
+
+
+
+
 
 
 # ============================================================
@@ -119,15 +117,18 @@ class WorkShiftForm(forms.ModelForm):
             if self.instance.pk:
                 qs = qs.exclude(pk=self.instance.pk)
             if qs.exists():
-                raise ValidationError({"name": "A work shift with this name already exists in this company."})
+                raise ValidationError(
+                    {"name": "A work shift with this name already exists in this company."}
+                )
         return cleaned
 
+
 @admin.register(models.WorkShift)
-class WorkShiftAdmin(UnscopedAdminMixin, admin.ModelAdmin):
-    form = WorkShiftForm
+class WorkShiftAdmin(admin.ModelAdmin):
     """
     شاشة الشفتات على مستوى الشركة فقط (لا قسم).
     """
+    form = WorkShiftForm
     list_display = ("name", "company", "timezone", "hours_per_day", "active", "rules_count")
     list_filter  = ("company", "active", "timezone")
     search_fields = ("name", "code")
@@ -138,6 +139,7 @@ class WorkShiftAdmin(UnscopedAdminMixin, admin.ModelAdmin):
     def rules_count(self, obj):
         return obj.rules.count()
     rules_count.short_description = "Rules"
+
 
 class WorkShiftRuleInline(admin.TabularInline):
     """
@@ -152,6 +154,7 @@ class WorkShiftRuleInline(admin.TabularInline):
     readonly_fields = ("net_minutes",)
     ordering = ("weekday", "start_time")
 
+
 WorkShiftAdmin.inlines = [WorkShiftRuleInline]
 
 
@@ -165,7 +168,7 @@ class EmployeeScheduleInlineForm(forms.ModelForm):
     """
     weekly_off_days = forms.TypedMultipleChoiceField(
         choices=models.EmployeeSchedule.WEEKDAY_CHOICES,
-        coerce=int,  # مهم: تأكد أن القيم int وليست strings
+        coerce=int,
         widget=forms.CheckboxSelectMultiple,
         required=True,
         label="Weekly off days (Mon..Sun)",
@@ -174,39 +177,44 @@ class EmployeeScheduleInlineForm(forms.ModelForm):
 
     class Meta:
         model  = models.EmployeeSchedule
-        fields = ("active", "shift", "date_from", "date_to", "weekly_off_days")  # لا نظهر weekly_off_mask نفسه
+        fields = ("active", "shift", "date_from", "date_to", "weekly_off_days")
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if self.instance and self.instance.pk:
-            self.fields["weekly_off_days"].initial = models.EmployeeSchedule.weekday_list_from_mask(
-                self.instance.weekly_off_mask
+            self.fields["weekly_off_days"].initial = (
+                models.EmployeeSchedule.weekday_list_from_mask(
+                    self.instance.weekly_off_mask
+                )
             )
 
     def clean(self):
         cleaned = super().clean()
         days = cleaned.get("weekly_off_days") or []
-        # days بالفعل int بسبب coerce=int. لو أردت أماناً إضافياً:
-        # days = [int(d) for d in days]
 
-        # انسخ الاختيارات إلى الحقل الفعلي قبل model.clean()
-        self.instance.weekly_off_mask = models.EmployeeSchedule.mask_from_weekday_list(days)
+        self.instance.weekly_off_mask = (
+            models.EmployeeSchedule.mask_from_weekday_list(days)
+        )
 
-        # تحقق واجهة المستخدم (1 أو 2 يوم)
         if len(days) not in (1, 2):
-            self.add_error("weekly_off_days", "Weekly off must be 1 day or 2 days.")
+            self.add_error(
+                "weekly_off_days",
+                "Weekly off must be 1 day or 2 days."
+            )
         return cleaned
 
     def save(self, commit=True):
         inst = super().save(commit=False)
         days = self.cleaned_data.get("weekly_off_days") or []
-        inst.weekly_off_mask = models.EmployeeSchedule.mask_from_weekday_list(days)
+        inst.weekly_off_mask = (
+            models.EmployeeSchedule.mask_from_weekday_list(days)
+        )
         if commit:
             inst.save()
         return inst
 
 
-class EmployeeScheduleInline(UnscopedAdminMixin, admin.TabularInline):
+class EmployeeScheduleInline(admin.TabularInline):
     """
     Inline تخص ربط الموظف بالشفت (بفترات) + اختيار العطلة الأسبوعية ضمن نفس السجل.
     """
@@ -215,21 +223,28 @@ class EmployeeScheduleInline(UnscopedAdminMixin, admin.TabularInline):
     extra = 0
     fields = ("active", "shift", "date_from", "date_to", "weekly_off_days")
     ordering = ("-date_from",)
-    # (اختياري) إخفاء حقول التتبع إن أردت
     exclude = ("created_by", "updated_by",)
 
-    # نفس منطق حقن queryset للشفتات (لا تغيّر)
     def _compute_shift_queryset(self, request, obj=None):
         from hr.models import WorkShift, Employee
-        qs = WorkShift._base_manager.all().filter(active=True)
+        qs = WorkShift._base_manager.filter(active=True)
         if obj and getattr(obj, "company_id", None):
             return qs.filter(company_id=obj.company_id)
-        object_id = getattr(getattr(request, "resolver_match", None), "kwargs", {}).get("object_id")
+
+        object_id = getattr(
+            getattr(request, "resolver_match", None),
+            "kwargs",
+            {}
+        ).get("object_id")
+
         if object_id:
-            emp = Employee._base_manager.only("id", "company_id").filter(pk=object_id).first()
+            emp = Employee._base_manager.only(
+                "id", "company_id"
+            ).filter(pk=object_id).first()
             if emp and emp.company_id:
                 return qs.filter(company_id=emp.company_id)
             return qs
+
         company_id = request.POST.get("company") or request.GET.get("company")
         if company_id:
             return qs.filter(company_id=company_id)
@@ -257,51 +272,47 @@ class EmployeeScheduleInline(UnscopedAdminMixin, admin.TabularInline):
                     form.fields["shift"].queryset = allowed_shifts
                 return form
 
-            # NEW: تحقق عدم التداخل على مستوى الفورم-سِت (قبل الحفظ)
             def clean(self):
                 super().clean()
-                # اجمع السجلات التي لن تُحذف
                 periods = []
+
                 for form in self.forms:
                     if not hasattr(form, "cleaned_data"):
                         continue
                     cd = form.cleaned_data
-                    if cd.get("DELETE"):
-                        continue
-                    if not cd.get("active", True):
+                    if cd.get("DELETE") or not cd.get("active", True):
                         continue
                     df = cd.get("date_from")
                     dt = cd.get("date_to")
                     if not df:
-                        # يوجد تحقق آخر يجبر وجود date_from
                         continue
-                    # اعتبر المفتوح حتى "لانهاية" لغرض المقارنة
+
                     from datetime import date
-                    if dt is None:
-                        dt_cmp = date(9999, 12, 31)
-                    else:
-                        dt_cmp = dt
+                    dt_cmp = dt or date(9999, 12, 31)
                     periods.append((df, dt_cmp, form))
 
-                # رتّب بالفترة من الأقدم للأحدث
                 periods.sort(key=lambda t: t[0])
 
-                # تحقق عدم التداخل: نهاية السابق < بداية اللاحق
                 prev_end = None
                 prev_form = None
                 for df, dt, form in periods:
                     if prev_end is not None and df <= prev_end:
-                        # خطأ على النموذج الحالي + السابق لتوضيح السبب
                         msg = "Employee already has an overlapping active schedule."
                         form.add_error(None, msg)
                         if prev_form:
                             prev_form.add_error(None, msg)
-                    # حدّث المؤشر
                     if prev_end is None or dt > prev_end:
                         prev_end = dt
                         prev_form = form
 
         return FixedFormSet
+
+
+
+
+
+
+
 
 
 
@@ -350,7 +361,7 @@ class EmployeeWeeklyOffPeriodForm(forms.ModelForm):
         return inst
 
 
-class EmployeeWeeklyOffPeriodInline(UnscopedAdminMixin, admin.TabularInline):
+class EmployeeWeeklyOffPeriodInline(admin.TabularInline):
     """
     إدارة العطلة الأسبوعية الثابتة كسجل واحد لكل فترة (مع Checkboxes للأيام).
     - يدعم فترات تاريخية (من/إلى).
@@ -431,6 +442,7 @@ class JobAdmin(AppAdmin):
     def expected_employees_display(self, obj):
         return self.no_of_employee_display(obj) + (obj.no_of_recruitment or 0)
 
+
 @admin.register(JobCareerPath)
 class JobCareerPathAdmin(admin.ModelAdmin):
     list_display = (
@@ -459,7 +471,6 @@ class JobCareerPathAdmin(admin.ModelAdmin):
         "created_by",
         "updated_by",
     )
-
 
 
 # ============================================================
@@ -596,6 +607,7 @@ class CareerPolicyAdmin(admin.ModelAdmin):
                     changed_fields=changed_fields,
                 )
 
+
 @admin.register(EmployeeReadinessSnapshot)
 class EmployeeReadinessSnapshotAdmin(admin.ModelAdmin):
     list_display = (
@@ -640,6 +652,13 @@ class EmployeeReadinessSnapshotAdmin(admin.ModelAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return False
+
+
+
+
+
+
+
 
 # ------------------------------------------------------------
 # EmployeeCategory
@@ -791,7 +810,7 @@ class EmployeeAdmin(AppAdmin):
     form = EmployeeAdminForm
 
     readonly_fields = ("work_contact_display",)
-    inlines = (EmployeeScheduleInline, EmployeeWeeklyOffPeriodInline, ObjectACLInline, XValueInline)
+    inlines = (EmployeeScheduleInline, EmployeeWeeklyOffPeriodInline, XValueInline)
 
     # روابط سريعة
     def user_link(self, obj):

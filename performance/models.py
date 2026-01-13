@@ -8,7 +8,6 @@
 
 from django.db import models, transaction
 from django.core.exceptions import ValidationError
-from base.acl import AccessControlledMixin, ACLManager
 from django.utils import timezone
 
 # مكسينات أساسية موحّدة في المشروع
@@ -16,7 +15,7 @@ from base.models import (
     CompanyOwnedMixin,  # يضيف company + company اتساق
     ActivableMixin,  # active
     TimeStampedMixin,  # created_at / updated_at
-    UserStampedMixin, CompanyScopeManager, ScopedACLManager,  # created_by / updated_by
+    UserStampedMixin, CompanyScopeManager,  # created_by / updated_by
 )
 
 
@@ -123,7 +122,7 @@ class TaskProgressPolicy(ActivableMixin, TimeStampedMixin, UserStampedMixin, mod
 # TaskRecurringDefinition
 # ------------------------------------------------------------
 class TaskRecurringDefinition(
-    AccessControlledMixin,
+    
     CompanyOwnedMixin,
     TimeStampedMixin,
     UserStampedMixin,
@@ -242,7 +241,7 @@ class TaskRecurringDefinition(
 # TaskWatcher
 # ------------------------------------------------------------
 class TaskWatcher(
-    AccessControlledMixin,
+    
     CompanyOwnedMixin,
     TimeStampedMixin,
     UserStampedMixin,
@@ -285,7 +284,6 @@ class TaskWatcher(
 # TaskDependency
 # ------------------------------------------------------------
 class TaskDependency(
-    AccessControlledMixin,
     CompanyOwnedMixin,
     TimeStampedMixin,
     UserStampedMixin,
@@ -329,7 +327,7 @@ class TaskDependency(
 # Task (الدعم الكامل بعد المرحلة الثانية)
 # ------------------------------------------------------------
 
-class Task( AccessControlledMixin,TimeStampedMixin, UserStampedMixin, ActivableMixin, models.Model ):
+class Task( TimeStampedMixin, UserStampedMixin, ActivableMixin, models.Model ):
     """
     مهمة تنفيذية داخل Objective، مع دعم SLA، Subtasks،
     السياسات الديناميكية، التقدم، الجودة، الكفاءة، والمراجعين.
@@ -658,7 +656,7 @@ class KPICalculationMethod(ActivableMixin, TimeStampedMixin, UserStampedMixin, m
         return self.name
 
 
-class KPI(AccessControlledMixin, TimeStampedMixin, UserStampedMixin, ActivableMixin):
+class KPI( TimeStampedMixin, UserStampedMixin, ActivableMixin):
     """
     مؤشر أداء رئيسي داخل Objective، مع تخزين نتائج attainment/score.
     """
@@ -740,8 +738,6 @@ class KPI(AccessControlledMixin, TimeStampedMixin, UserStampedMixin, ActivableMi
     attainment_pct = models.PositiveIntegerField(default=0, help_text="0..100% of target achieved", db_index=True)
     score_pct      = models.PositiveIntegerField(default=0, help_text="0..100 normalized score")
 
-    objects = ACLManager()
-    acl_objects = ScopedACLManager()
 
     class Meta:
         db_table = "perf_kpi"
@@ -911,7 +907,7 @@ class ObjectiveCategory(ActivableMixin, TimeStampedMixin, UserStampedMixin, mode
     def __str__(self):
         return self.name
 
-class Objective( AccessControlledMixin, CompanyOwnedMixin, TimeStampedMixin, UserStampedMixin, ActivableMixin, models.Model):
+class Objective(  CompanyOwnedMixin, TimeStampedMixin, UserStampedMixin, ActivableMixin, models.Model):
     """
     الهدف: وعاء KPIs/Tasks + تجميع progress/score + مشاركين + Rollup.
     """
@@ -1065,8 +1061,7 @@ class Objective( AccessControlledMixin, CompanyOwnedMixin, TimeStampedMixin, Use
         help_text="Aggregated KPI score (0..100)",
     )
 
-    objects = ACLManager()
-    acl_objects = ScopedACLManager()
+
 
     class Meta:
         db_table = "perf_objective"
@@ -1867,7 +1862,7 @@ class EvaluationApprovalStep(CompanyOwnedMixin, ActivableMixin, TimeStampedMixin
 # ------------------------------------------------------------
 # Evaluation Template / Parameters / Results
 # ------------------------------------------------------------
-class EvaluationTemplate(AccessControlledMixin, TimeStampedMixin, UserStampedMixin, ActivableMixin):
+class EvaluationTemplate( TimeStampedMixin, UserStampedMixin, ActivableMixin):
     """
     قالب تقييم رسمي (مثال: Call Center Q1 Form) يُستَخدم لبناء تقييمات لموظفين.
     يدعم:
@@ -1948,8 +1943,7 @@ class EvaluationTemplate(AccessControlledMixin, TimeStampedMixin, UserStampedMix
                     }
                 )
 
-    objects = ACLManager()
-    acl_objects = ScopedACLManager()
+
 
     class Meta:
         db_table = "perf_evaluation_template"
@@ -1965,14 +1959,12 @@ class EvaluationTemplate(AccessControlledMixin, TimeStampedMixin, UserStampedMix
         return f"{self.name} (v{self.version})"
 
 
-class EvaluationParameter(AccessControlledMixin, TimeStampedMixin, UserStampedMixin):
+class EvaluationParameter( TimeStampedMixin, UserStampedMixin):
     """
     صف/معامل داخل القالب.
     يدعم مصادر متعددة: Objective/KPI/Tasks/External/Manual.
     """
 
-    objects = ACLManager()
-    acl_objects = ScopedACLManager()
 
     class SourceKind(models.TextChoices):
         OBJECTIVE_SCORE   = "objective_score", "Objective Score (score_pct)"
@@ -2064,14 +2056,14 @@ class EvaluationParameter(AccessControlledMixin, TimeStampedMixin, UserStampedMi
         return f"{self.template.name}: {self.name} ({self.weight_pct}%)"
 
 
-class EvaluationParameterResult(AccessControlledMixin, TimeStampedMixin, UserStampedMixin):
+class EvaluationParameterResult( TimeStampedMixin, UserStampedMixin):
     """
     نتيجة مُحتسبة لمعامل واحد ضمن تقييم معيّن.
     - raw_value: قيمة المصدر (رقم/JSON)
     - score_pct: قيمة 0..100 بعد القصّ
     """
 
-    objects = ACLManager()
+    
 
     evaluation = models.ForeignKey("performance.Evaluation",        on_delete=models.CASCADE, related_name="parameter_results")
     parameter  = models.ForeignKey("performance.EvaluationParameter", on_delete=models.CASCADE, related_name="results")
@@ -2206,7 +2198,7 @@ class EvaluationFeedback(TimeStampedMixin, UserStampedMixin, CompanyOwnedMixin, 
         return f"{self.evaluation} – {self.role} – {self.overall_score_pct}%"
 
 
-class Evaluation(AccessControlledMixin, CompanyOwnedMixin, TimeStampedMixin, UserStampedMixin, ActivableMixin):
+class Evaluation( CompanyOwnedMixin, TimeStampedMixin, UserStampedMixin, ActivableMixin):
     """
     تقييم نهاية فترة لموظّف، مرتبط بقالب، ويُنتج نتائج معاملات ودرجة نهائية.
     - الآن يدعم Workflow كامل مبني على EvaluationType + EvaluationApprovalStep
@@ -2313,8 +2305,6 @@ class Evaluation(AccessControlledMixin, CompanyOwnedMixin, TimeStampedMixin, Use
     def is_locked(self) -> bool:
         return self.state in ("approved", "locked") or bool(self.locked_at)
 
-    objects = ACLManager()
-    acl_objects = ScopedACLManager()
 
     class Meta:
         db_table = "perf_evaluation"

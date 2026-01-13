@@ -10,8 +10,6 @@ from django.contrib.contenttypes.models import ContentType
 from django.db import transaction
 from django.db.models import QuerySet
 from .models import XField, XValue
-from base.acl_service import has_perm as acl_has_perm
-
 
 # ------------------------------------------------------------
 # Helpers
@@ -37,8 +35,6 @@ def set_value(obj, code: str, value, *, user, company_id: int | None = None) -> 
     """
     يكتب قيمة الحقل (ينشئ أو يحدث) بشرط امتلاك المستخدم change على الكائن الهدف.
     """
-    if not user or not acl_has_perm(obj, user, "change"):
-        raise PermissionError("You don't have permission to modify this object.")
 
     ct = _ct_for(obj)
     xf = _get_field(ct, code, company_id)
@@ -57,8 +53,6 @@ def get_value(obj, code: str, *, user, default=None, company_id: int | None = No
     """
     يقرأ قيمة الحقل بشرط امتلاك المستخدم view على الكائن الهدف.
     """
-    if not user or not acl_has_perm(obj, user, "view"):
-        return default
 
     ct = _ct_for(obj)
     xf = _get_field(ct, code, company_id)

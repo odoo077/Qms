@@ -4,6 +4,7 @@ from __future__ import annotations
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import ValidationError
+from django.db import models
 from django.db.models import Prefetch
 from django.http import HttpResponseRedirect
 from django.shortcuts import get_object_or_404
@@ -16,6 +17,7 @@ from django.views.generic import (
     DeleteView,
     FormView,
 )
+from django.apps import apps
 
 from . import models as m
 from .forms import (
@@ -25,8 +27,7 @@ from .forms import (
     AssetUnassignForm,
 )
 from .services import assign_asset, unassign_asset
-from django.db import models
-from django.apps import apps
+
 
 # ============================================================
 # Base mixin to inject request into forms
@@ -65,10 +66,12 @@ class AssetCategoryListView(LoginRequiredMixin, ListView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
+
         base = m.AssetCategory.objects.all()
         ctx["active_count"] = base.filter(active=True).count()
         ctx["archived_count"] = base.filter(active=False).count()
         ctx["company_count"] = base.values("company_id").distinct().count()
+
         return ctx
 
 
@@ -101,7 +104,6 @@ class AssetCategoryDeleteView(LoginRequiredMixin, DeleteView):
 # Assets
 # ============================================================
 
-
 class AssetListView(LoginRequiredMixin, ListView):
     model = m.Asset
     template_name = "assets/asset_list.html"
@@ -112,16 +114,24 @@ class AssetListView(LoginRequiredMixin, ListView):
         qs = (
             super()
             .get_queryset()
-            .select_related("company", "category", "department", "holder", "parent")
+            .select_related(
+                "company",
+                "category",
+                "department",
+                "holder",
+                "parent",
+            )
         )
 
-        # -------- Filters (GET) --------
         q = (self.request.GET.get("q") or "").strip()
         status = (self.request.GET.get("status") or "").strip()
         active = (self.request.GET.get("active") or "").strip()
 
         if q:
-            qs = qs.filter(models.Q(code__icontains=q) | models.Q(name__icontains=q))
+            qs = qs.filter(
+                models.Q(code__icontains=q)
+                | models.Q(name__icontains=q)
+            )
 
         if status in {
             m.Asset.Status.AVAILABLE,
@@ -134,12 +144,12 @@ class AssetListView(LoginRequiredMixin, ListView):
         if active in {"0", "1"}:
             qs = qs.filter(active=(active == "1"))
 
-        # ✅ NEW: Assign-from-Employee context
+        # Assign-from-Employee context
         assign_to = self.request.GET.get("assign_to")
         if assign_to:
             qs = qs.filter(
                 active=True,
-                status=m.Asset.Status.AVAILABLE,  # فقط الأصول القابلة للإسناد
+                status=m.Asset.Status.AVAILABLE,
             )
 
         return qs
@@ -152,13 +162,10 @@ class AssetListView(LoginRequiredMixin, ListView):
         ctx["available_count"] = base.filter(status=m.Asset.Status.AVAILABLE).count()
         ctx["issue_count"] = base.filter(status=m.Asset.Status.MAINTENANCE).count()
 
-        # ✅ Assign-from-Employee context
         assign_to = self.request.GET.get("assign_to")
         if assign_to:
             Employee = apps.get_model("hr", "Employee")
-            employee = Employee.objects.filter(pk=assign_to).first()
-
-            ctx["assign_to_employee"] = employee
+            ctx["assign_to_employee"] = Employee.objects.filter(pk=assign_to).first()
             ctx["assign_mode"] = True
         else:
             ctx["assign_to_employee"] = None
@@ -212,14 +219,11 @@ class AssetDetailView(LoginRequiredMixin, DetailView):
         ctx = super().get_context_data(**kwargs)
 
         assignments = list(self.object.assignments.all())
-
-        # الإسناد الحالي (واحد فقط كحد أقصى)
         current_assignment = next(
             (a for a in assignments if a.date_to is None),
-            None
+            None,
         )
 
-        # التاريخ الكامل (بما فيه الحالي)
         ctx["current_assignment"] = current_assignment
         ctx["assignment_history"] = assignments
 
@@ -241,10 +245,7 @@ class AssetAssignView(LoginRequiredMixin, FormView):
 
     def dispatch(self, request, *args, **kwargs):
         self.asset = get_object_or_404(m.Asset, pk=kwargs["pk"])
-
-        # NEW: pre-selected employee (optional)
         self.assign_to_employee_id = request.GET.get("assign_to")
-
         return super().dispatch(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
@@ -267,11 +268,20 @@ class AssetAssignView(LoginRequiredMixin, FormView):
             employee = form.cleaned_data["employee"]
             date_from = form.cleaned_data.get("date_from")
             note = form.cleaned_data.get("note") or ""
-            assign_asset(self.asset, employee.id, date_from=date_from, note=note)
+
+            assign_asset(
+                self.asset,
+                employee.id,
+                date_from=date_from,
+                note=note,
+            )
+
             messages.success(self.request, "Asset assigned successfully.")
-            return HttpResponseRedirect(reverse("assets:asset_detail", args=[self.asset.pk]))
+            return HttpResponseRedirect(
+                reverse("assets:asset_detail", args=[self.asset.pk])
+            )
+
         except ValidationError as e:
-            # عرض رسالة واضحة بدون كسر الصفحة
             msg = getattr(e, "message", None) or str(e)
             form.add_error(None, msg)
             return self.form_invalid(form)
@@ -302,9 +312,18 @@ class AssetUnassignView(LoginRequiredMixin, FormView):
         try:
             date_to = form.cleaned_data.get("date_to")
             note = form.cleaned_data.get("note") or ""
-            unassign_asset(self.asset, date_to=date_to, note=note)
+
+            unassign_asset(
+                self.asset,
+                date_to=date_to,
+                note=note,
+            )
+
             messages.success(self.request, "Asset unassigned successfully.")
-            return HttpResponseRedirect(reverse("assets:asset_detail", args=[self.asset.pk]))
+            return HttpResponseRedirect(
+                reverse("assets:asset_detail", args=[self.asset.pk])
+            )
+
         except ValidationError as e:
             msg = getattr(e, "message", None) or str(e)
             form.add_error(None, msg)
@@ -328,15 +347,9 @@ class AssetAssignmentListView(LoginRequiredMixin, ListView):
             .select_related("asset", "employee", "company")
         )
 
-        # ==============================
-        # Query params
-        # ==============================
         q = (self.request.GET.get("q") or "").strip()
         state = (self.request.GET.get("state") or "").strip()  # open | closed
 
-        # ==============================
-        # Search
-        # ==============================
         if q:
             qs = qs.filter(
                 models.Q(asset__code__icontains=q)
@@ -344,15 +357,13 @@ class AssetAssignmentListView(LoginRequiredMixin, ListView):
                 | models.Q(employee__name__icontains=q)
             )
 
-        # ==============================
-        # State filter (CORRECT)
-        # ==============================
         if state == "open":
             qs = qs.filter(date_to__isnull=True)
         elif state == "closed":
             qs = qs.filter(date_to__isnull=False)
 
         return qs
+
 
 class AssetAssignmentDetailView(LoginRequiredMixin, DetailView):
     model = m.AssetAssignment

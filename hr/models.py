@@ -2,8 +2,7 @@
 # ============================================================
 # موديلات الموارد البشرية — Odoo-like
 # - Company scope عبر CompanyOwnedMixin
-# - صلاحيات كائنية عبر AccessControlledMixin (على Employee)
-# - ربط Partner للموظف (سيُدار عبر الإشارات)
+# - بدون ACL / Permissions
 # - حقول وفهارس وقيود تشبه Odoo
 # ============================================================
 
@@ -12,20 +11,18 @@ from __future__ import annotations
 from django.db import models
 from django.core.exceptions import ValidationError
 from django.db.models import Q
-from django.utils.translation import gettext_lazy as _
-from django.urls import reverse
 from django.utils import timezone
+from django.urls import reverse
+
 # مكسنات وبُنى أساسية من تطبيق base
 from base.models import (
-    CompanyOwnedMixin,  # يضمن company + فحوص التوافق
-    ActivableMixin,  # يحوي active=BooleanField
-    TimeStampedMixin,  # created_at / updated_at
-    UserStampedMixin, CompanyScopeManager,  # created_by / updated_by
+    CompanyOwnedMixin,      # يضمن company + فحوص التوافق
+    ActivableMixin,         # يحوي active=BooleanField
+    TimeStampedMixin,       # created_at / updated_at
+    UserStampedMixin,       # created_by / updated_by
+    CompanyScopeManager,    # Company scoping manager
 )
 
-
-# ACL (صلاحيات كائنية) — نطبّقها على Employee تحديدًا
-from base.acl import AccessControlledMixin, ACLManager, ACLQuerySet
 
 # ------------------------------------------------------------
 # ContractType — نوع عقد العمل (بسيط ومباشر)
@@ -43,13 +40,11 @@ class ContractType(TimeStampedMixin, UserStampedMixin, models.Model):
 
     class Meta:
         db_table = "hr_contract_type"
-        # مثل Odoo: الترتيب بالـ sequence فقط
         ordering = ("sequence",)
         indexes = [
             models.Index(fields=["name"], name="hr_contract_name_idx"),
             models.Index(fields=["code"], name="hr_contract_code_idx"),
         ]
-        # constraints = []
 
     def __str__(self):
         return self.name or self.code or f"ContractType #{self.pk}"
@@ -62,9 +57,8 @@ class ContractType(TimeStampedMixin, UserStampedMixin, models.Model):
 # using `active=False` instead of being deleted.
 # Deletion is intentionally restricted via on_delete=PROTECT
 # to preserve historical integrity and references.
-
 # ------------------------------------------------------------
-class Department(AccessControlledMixin,CompanyOwnedMixin, ActivableMixin, TimeStampedMixin, UserStampedMixin, models.Model):
+class Department(CompanyOwnedMixin, ActivableMixin, TimeStampedMixin, UserStampedMixin, models.Model):
     """
     Odoo-like hr.department
     - شجرة أقسام لكل شركة
@@ -125,7 +119,6 @@ class Department(AccessControlledMixin,CompanyOwnedMixin, ActivableMixin, TimeSt
             return "team"
 
     objects = CompanyScopeManager()
-    acl_objects = ACLManager()
 
     class Meta:
         db_table = "hr_department"
@@ -137,14 +130,11 @@ class Department(AccessControlledMixin,CompanyOwnedMixin, ActivableMixin, TimeSt
         ]
         ordering = ("name",)
         constraints = [
-            # 1) الأقسام الجذرية (parent = NULL): الاسم يجب أن يكون فريدًا داخل الشركة
             models.UniqueConstraint(
                 fields=["company", "name"],
                 condition=Q(parent__isnull=True),
                 name="uniq_department_root_per_company_name",
             ),
-
-            # 2) الأقسام غير الجذرية (parent != NULL): الاسم فريد داخل نفس الأب + نفس الشركة
             models.UniqueConstraint(
                 fields=["company", "parent", "name"],
                 condition=Q(parent__isnull=False),
@@ -161,6 +151,7 @@ class Department(AccessControlledMixin,CompanyOwnedMixin, ActivableMixin, TimeSt
     @property
     def employee_count(self):
         """Count all active employees inside this department subtree (including self) without double counting."""
+        from hr.models import Employee  # لتجنب circular import إن وُجد
         return Employee.objects.filter(
             active=True,
             company_id=self.company_id,
@@ -198,7 +189,6 @@ class Department(AccessControlledMixin,CompanyOwnedMixin, ActivableMixin, TimeSt
     # ---------------------------------------------------------
     #  Tree helpers (used by views + templates)
     # ---------------------------------------------------------
-
     @property
     def children_list(self):
         """Return active direct children."""
@@ -226,81 +216,45 @@ class Department(AccessControlledMixin,CompanyOwnedMixin, ActivableMixin, TimeSt
         3) Persist lineage fields efficiently
         4) Recompute subtree only when structural fields change
         """
-
-        # المدير السابق قبل الحفظ (للمقارنة فقط — توثيقي)
         prev_parent_id = None
         if self.pk:
             prev_parent_id = type(self).objects.only("parent_id").filter(pk=self.pk) \
                 .values_list("parent_id", flat=True).first()
 
-        # 1) احفظ للحصول على PK أو تحديث الحقول الأساسية
         super().save(*args, **kwargs)
 
-        # 2) أعد حساب حقول السلسلة للقسم الحالي
         self._recompute_lineage_fields()
         super().save(update_fields=["complete_name", "parent_path"])
 
-        # 3) حدّث الفروع فقط إذا تغيّر الأب (تحسين أداء)
         if prev_parent_id != self.parent_id:
             self._recompute_subtree()
 
-        # 4) لا يوجد أي اشتقاق تلقائي للمدير على الموظفين (Odoo-like behavior)
-
     # ---------- Validation ----------
     def clean(self):
-        """
-        Business validations for Department (Odoo-like).
-
-        Guarantees:
-        - No DB constraint errors reach the user
-        - All validation errors are user-friendly
-        - No interference with CompanyScope / ACL managers
-        """
-
         super().clean()
 
-        # استخدم manager غير مقيّد لضمان رؤية كل السجلات
         BaseMgr = type(self)._base_manager
 
-        # --------------------------------------------------
-        # 1) Parent department must belong to the same company
-        # --------------------------------------------------
         if self.parent and self.parent.company_id != self.company_id:
-            raise ValidationError({
-                "parent": "Parent department must belong to the same company."
-            })
+            raise ValidationError({"parent": "Parent department must belong to the same company."})
 
-        # --------------------------------------------------
-        # 2) Prevent self-parent and cyclic hierarchy
-        # --------------------------------------------------
-        # Direct self-parent
         if self.parent and self.pk and self.parent_id == self.pk:
-            raise ValidationError({
-                "parent": "A department cannot be parent of itself."
-            })
+            raise ValidationError({"parent": "A department cannot be parent of itself."})
 
-        # Cyclic hierarchy (walk up)
         node = self.parent
         while node:
             if node.pk == self.pk:
-                raise ValidationError({
-                    "parent": "Cyclic department hierarchy is not allowed."
-                })
+                raise ValidationError({"parent": "Cyclic department hierarchy is not allowed."})
             node = node.parent
 
-        # --------------------------------------------------
-        # 3) Prevent duplicate ROOT departments (company + name)
-        # --------------------------------------------------
         if self.parent is None and self.company_id and self.name:
             qs = BaseMgr.filter(
                 company_id=self.company_id,
                 parent__isnull=True,
                 name__iexact=self.name.strip(),
             )
-
             if self.pk:
                 qs = qs.exclude(pk=self.pk)
-
             if qs.exists():
                 raise ValidationError({
                     "name": (
@@ -309,25 +263,17 @@ class Department(AccessControlledMixin,CompanyOwnedMixin, ActivableMixin, TimeSt
                     )
                 })
 
-        # --------------------------------------------------
-        # 4) Prevent duplicate CHILD departments
-        #    (same company + same parent + same name)
-        # --------------------------------------------------
         if self.parent_id and self.company_id and self.name:
             qs = BaseMgr.filter(
                 company_id=self.company_id,
                 parent_id=self.parent_id,
                 name__iexact=self.name.strip(),
             )
-
             if self.pk:
                 qs = qs.exclude(pk=self.pk)
-
             if qs.exists():
                 raise ValidationError({
-                    "name": (
-                        "A department with this name already exists under the selected parent."
-                    )
+                    "name": "A department with this name already exists under the selected parent."
                 })
 
     def __str__(self):
@@ -350,17 +296,14 @@ class WorkLocation(CompanyOwnedMixin, ActivableMixin, TimeStampedMixin, UserStam
     company_dependent_relations = ("address",)
 
     objects = CompanyScopeManager()
-    acl_objects = ACLQuerySet.as_manager()
 
     def clean(self):
         super().clean()
-        # العنوان يجب أن يتبع نفس الشركة (سلوك Odoo)
         if self.address_id and getattr(self.address, "company_id", None) and self.address.company_id != self.company_id:
             raise ValidationError({"address": "Address must belong to the same company."})
 
     class Meta:
         db_table = "hr_work_location"
-        # constraints = []
         ordering = ("name",)
 
     def __str__(self):
@@ -370,7 +313,6 @@ class WorkLocation(CompanyOwnedMixin, ActivableMixin, TimeStampedMixin, UserStam
 # ------------------------------------------------------------
 # WorkShift / WorkShiftRule (Odoo-like resource.calendar)
 # ------------------------------------------------------------
-
 class WorkShift(CompanyOwnedMixin, ActivableMixin, TimeStampedMixin, UserStampedMixin, models.Model):
     """
     تقويم دوام (Shift/Calendar) على مستوى الشركة فقط (Company-level).
@@ -389,12 +331,11 @@ class WorkShift(CompanyOwnedMixin, ActivableMixin, TimeStampedMixin, UserStamped
         default="Asia/Baghdad",
         help_text="IANA time zone (e.g., Asia/Baghdad)",
     )
-    hours_per_day = models.DecimalField(max_digits=5, decimal_places=2, default=8)  # مرجع عام فقط
+    hours_per_day = models.DecimalField(max_digits=5, decimal_places=2, default=8)
     note = models.TextField(blank=True)
 
     def clean(self):
         super().clean()
-        # ساعات اليوم يجب أن تكون ضمن (0,24]
         if self.hours_per_day is not None and (self.hours_per_day <= 0 or self.hours_per_day > 24):
             raise ValidationError({"hours_per_day": "Hours per day must be within (0, 24]."})
 
@@ -409,7 +350,6 @@ class WorkShift(CompanyOwnedMixin, ActivableMixin, TimeStampedMixin, UserStamped
             models.Index(fields=["company", "name"], name="hr_ws_comp_name_idx"),
         ]
         constraints = [
-            # فريد داخل الشركة
             models.UniqueConstraint(
                 fields=["company", "name"],
                 name="uniq_ws_company_name",
@@ -417,32 +357,32 @@ class WorkShift(CompanyOwnedMixin, ActivableMixin, TimeStampedMixin, UserStamped
         ]
         ordering = ("company", "name")
 
+
 class WorkShiftRule(TimeStampedMixin, UserStampedMixin, models.Model):
     """
     قاعدة يومية واحدة لكل يوم ضمن الشفت (Mon..Sun).
     دعم "الشفت العابر لمنتصف الليل" عبر spans_next_day:
       - مثال: start=16:30, end=01:00, spans_next_day=True
     """
-    WEEKDAY = [(0,"Mon"),(1,"Tue"),(2,"Wed"),(3,"Thu"),(4,"Fri"),(5,"Sat"),(6,"Sun")]
+    WEEKDAY = [(0, "Mon"), (1, "Tue"), (2, "Wed"), (3, "Thu"), (4, "Fri"), (5, "Sat"), (6, "Sun")]
 
     shift = models.ForeignKey("hr.WorkShift", on_delete=models.CASCADE, related_name="rules")
     weekday = models.PositiveSmallIntegerField(choices=WEEKDAY)
     start_time = models.TimeField()
     end_time = models.TimeField()
     break_minutes = models.PositiveSmallIntegerField(default=0)
-    spans_next_day = models.BooleanField(default=False)  # يدعم عبور منتصف الليل
+    spans_next_day = models.BooleanField(default=False)
 
     def clean(self):
         super().clean()
+
         if self.break_minutes < 0 or self.break_minutes > 600:
             raise ValidationError({"break_minutes": "Break minutes must be between 0 and 600."})
 
         if not self.spans_next_day:
-            # الحالة العادية: يجب أن يكون end > start
             if self.start_time >= self.end_time:
                 raise ValidationError({"end_time": "End time must be greater than start time (same day)."})
         else:
-            # العابر لمنتصف الليل: end_time قد يكون <= start_time، لكن لا يمكن أن يساوِيه
             if self.start_time == self.end_time:
                 raise ValidationError({"end_time": "Overnight rule cannot have identical start/end times."})
 
@@ -451,20 +391,18 @@ class WorkShiftRule(TimeStampedMixin, UserStampedMixin, models.Model):
 
     @property
     def net_minutes(self) -> int:
-        """المدة الصافية لهذا اليوم (بالدقائق) = (المدة الكاملة - الاستراحة)، مع دعم overnight."""
         s = self.start_time
         e = self.end_time
         if s is None or e is None:
             return 0
 
-        s_tot = s.hour*60 + s.minute
-        e_tot = e.hour*60 + e.minute
+        s_tot = s.hour * 60 + s.minute
+        e_tot = e.hour * 60 + e.minute
 
         if not self.spans_next_day:
             total = e_tot - s_tot
         else:
-            # مثال 16:30 → 01:00: المدة = (24*60 - s) + e
-            total = (24*60 - s_tot) + e_tot
+            total = (24 * 60 - s_tot) + e_tot
 
         return max(0, total - (self.break_minutes or 0))
 
@@ -475,7 +413,6 @@ class WorkShiftRule(TimeStampedMixin, UserStampedMixin, models.Model):
     class Meta:
         db_table = "hr_work_shift_rule"
         constraints = [
-            # قاعدة واحدة فقط لكل يوم داخل الشفت (بسيط وواضح)
             models.UniqueConstraint(fields=["shift", "weekday"], name="uniq_rule_weekday_per_shift"),
         ]
         ordering = ("shift", "weekday", "start_time")
@@ -487,7 +424,7 @@ class WorkShiftRule(TimeStampedMixin, UserStampedMixin, models.Model):
 class Job(CompanyOwnedMixin, ActivableMixin, TimeStampedMixin, UserStampedMixin, models.Model):
     name = models.CharField(max_length=255, db_index=True)
     sequence = models.IntegerField(default=10)
-    description = models.TextField(blank=True)   # HTML في Odoo
+    description = models.TextField(blank=True)
     requirements = models.TextField(blank=True)
 
     department = models.ForeignKey(
@@ -509,12 +446,10 @@ class Job(CompanyOwnedMixin, ActivableMixin, TimeStampedMixin, UserStampedMixin,
 
     no_of_recruitment = models.PositiveIntegerField(default=1)
 
-    # store=True في Odoo → تُحدَّث بعد الحفظ
     no_of_employee = models.PositiveIntegerField(default=0, editable=False)
     expected_employees = models.PositiveIntegerField(default=0, editable=False)
 
     objects = CompanyScopeManager()
-    acl_objects = ACLQuerySet.as_manager()
 
     class Meta:
         db_table = "hr_job"
@@ -549,15 +484,12 @@ class Job(CompanyOwnedMixin, ActivableMixin, TimeStampedMixin, UserStampedMixin,
 # ============================================================
 # Job Career Path
 # ============================================================
-
 class JobCareerPath(TimeStampedMixin, UserStampedMixin, models.Model):
     """
     Career Path between jobs (Odoo / Enterprise style)
-
     - from_job -> to_job
     - sequence controls priority/order
     """
-
     from_job = models.ForeignKey(
         "hr.Job",
         on_delete=models.CASCADE,
@@ -573,7 +505,6 @@ class JobCareerPath(TimeStampedMixin, UserStampedMixin, models.Model):
     )
 
     sequence = models.PositiveIntegerField(default=10)
-
     active = models.BooleanField(default=True)
 
     class Meta:
@@ -587,20 +518,17 @@ class JobCareerPath(TimeStampedMixin, UserStampedMixin, models.Model):
 
     def clean(self):
         super().clean()
-
         if self.from_job_id == self.to_job_id:
-            raise ValidationError({
-                "to_job": "Job cannot transition to itself."
-            })
+            raise ValidationError({"to_job": "Job cannot transition to itself."})
 
     def __str__(self) -> str:
         return f"{self.from_job} → {self.to_job}"
+
 
 class CareerPolicy(TimeStampedMixin, UserStampedMixin, models.Model):
     """
     Career & Promotion Policy (Enterprise-grade)
     """
-
     name = models.CharField(max_length=100, unique=True)
 
     company = models.ForeignKey(

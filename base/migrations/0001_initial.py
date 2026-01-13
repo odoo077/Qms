@@ -16,7 +16,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('auth', '0012_alter_user_first_name_max_length'),
-        ('contenttypes', '0002_remove_content_type_name'),
+        # تم حذف contenttypes لأنه كان مستخدمًا فقط مع ObjectACL
     ]
 
     operations = [
@@ -173,34 +173,6 @@ class Migration(migrations.Migration):
                 'verbose_name': 'User Settings',
                 'verbose_name_plural': 'User Settings',
                 'db_table': 'users_settings',
-            },
-        ),
-        migrations.CreateModel(
-            name='ObjectACL',
-            fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('object_id', models.PositiveIntegerField(db_index=True)),
-                ('can_view', models.BooleanField(default=False)),
-                ('can_change', models.BooleanField(default=False)),
-                ('can_delete', models.BooleanField(default=False)),
-                ('can_share', models.BooleanField(default=False)),
-                ('can_approve', models.BooleanField(default=False)),
-                ('can_assign', models.BooleanField(default=False)),
-                ('can_comment', models.BooleanField(default=False)),
-                ('can_export', models.BooleanField(default=False)),
-                ('can_rate', models.BooleanField(default=False)),
-                ('can_attach', models.BooleanField(default=False)),
-                ('extra_perms', models.JSONField(blank=True, default=list)),
-                ('active', models.BooleanField(db_index=True, default=True)),
-                ('company', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.PROTECT, to='base.company')),
-                ('content_type', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='contenttypes.contenttype')),
-                ('group', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='object_acls', to='auth.group')),
-                ('user', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='object_acls', to=settings.AUTH_USER_MODEL)),
-            ],
-            options={
-                'db_table': 'object_acl',
-                'indexes': [models.Index(fields=['content_type', 'object_id', 'active'], name='acl_ct_obj_active_idx'), models.Index(fields=['user'], name='acl_user_idx'), models.Index(fields=['group'], name='acl_group_idx')],
-                'constraints': [models.CheckConstraint(condition=models.Q(('user__isnull', True), ('group__isnull', True), _negated=True), name='acl_has_principal'), models.CheckConstraint(condition=models.Q(('can_view', True), ('can_change', True), ('can_delete', True), ('can_share', True), ('can_approve', True), ('can_assign', True), ('can_comment', True), ('can_export', True), ('can_rate', True), ('can_attach', True), models.Q(('extra_perms', []), _negated=True), _connector='OR'), name='acl_has_any_perm'), models.UniqueConstraint(condition=models.Q(('user__isnull', False)), fields=('content_type', 'object_id', 'user'), name='acl_unique_ct_obj_user'), models.UniqueConstraint(condition=models.Q(('group__isnull', False)), fields=('content_type', 'object_id', 'group'), name='acl_unique_ct_obj_group')],
             },
         ),
         migrations.AddIndex(

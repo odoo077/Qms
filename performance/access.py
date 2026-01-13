@@ -27,8 +27,6 @@ from base.access import (
     is_manager_of,
     user_is_in_manager_chain,
     is_in_same_company,
-    is_in_same_department,
-    can_user_work_with_employee,
 )
 
 User = get_user_model()

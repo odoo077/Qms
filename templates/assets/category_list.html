@@ -1,165 +1,196 @@
 {% extends "base.html" %}
-
 {% block title %}Asset Categories{% endblock %}
 
 {% block content %}
 <div class="w-full px-6 py-6 space-y-6">
 
-    <!-- ===================================================== -->
-    <!-- Header -->
-    <!-- ===================================================== -->
-    <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div>
-            <h1 class="text-3xl font-bold">Asset Categories</h1>
-            <p class="text-sm opacity-70 mt-1">
-                Organize and manage asset classification structure
-            </p>
-        </div>
-
-        <div>
-            <a href="{% url 'assets:category_create' %}"
-               class="btn btn-primary btn-sm gap-2">
-                <span class="text-lg">+</span>
-                New Category
-            </a>
-        </div>
+  <!-- ===================================================== -->
+  <!-- PAGE HEADER -->
+  <!-- ===================================================== -->
+  <section class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+    <div>
+      <h1 class="text-3xl font-semibold tracking-tight">
+        Asset Categories
+      </h1>
+      <p class="text-sm text-base-content/60">
+        Organize and manage asset classification structure
+      </p>
     </div>
 
-    <!-- ===================================================== -->
-    <!-- Filters -->
-    <!-- ===================================================== -->
-    <form method="get"
-          class="card bg-base-100 shadow p-6 grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+    <div>
+      <a href="{% url 'assets:category_create' %}"
+         class="btn btn-primary btn-sm">
+        + New Category
+      </a>
+    </div>
+  </section>
+
+  <!-- ===================================================== -->
+  <!-- FILTERS -->
+  <!-- ===================================================== -->
+  <section class="card bg-base-100 border border-base-200 shadow-sm">
+    <form method="get" class="p-5">
+      <div class="grid grid-cols-1 md:grid-cols-6 gap-4 items-end">
 
         <!-- Search -->
-        <div>
-            <label class="label text-sm font-medium">Search</label>
-            <input type="text"
-                   name="q"
-                   value="{{ request.GET.q|default:'' }}"
-                   placeholder="Search by category name"
-                   class="input input-bordered w-full">
+        <div class="md:col-span-3">
+          <label class="label p-0 mb-1">
+            <span class="label-text text-xs text-base-content/60">
+              Search
+            </span>
+          </label>
+          <input type="text"
+                 name="q"
+                 value="{{ request.GET.q|default:'' }}"
+                 placeholder="Search by category name"
+                 class="input input-bordered w-full">
         </div>
 
         <!-- Status -->
-        <div>
-            <label class="label text-sm font-medium">Status</label>
-            <select name="active" class="select select-bordered w-full">
-                <option value="">All</option>
-                <option value="1" {% if request.GET.active == "1" %}selected{% endif %}>
-                    Active
-                </option>
-                <option value="0" {% if request.GET.active == "0" %}selected{% endif %}>
-                    Archived
-                </option>
-            </select>
+        <div class="md:col-span-2">
+          <label class="label p-0 mb-1">
+            <span class="label-text text-xs text-base-content/60">
+              Status
+            </span>
+          </label>
+          <select name="active" class="select select-bordered w-full">
+            <option value="">All</option>
+            <option value="1" {% if request.GET.active == "1" %}selected{% endif %}>
+              Active
+            </option>
+            <option value="0" {% if request.GET.active == "0" %}selected{% endif %}>
+              Archived
+            </option>
+          </select>
         </div>
 
         <!-- Actions -->
-        <div class="md:col-span-2 flex gap-2">
-            <button type="submit" class="btn btn-primary btn-sm">
-                Apply Filters
-            </button>
-            <a href="{% url 'assets:category_list' %}"
-               class="btn btn-ghost btn-sm">
-                Reset
-            </a>
+        <div class="md:col-span-1 flex justify-end items-center gap-2">
+          <button type="submit"
+                  class="btn btn-primary btn-sm px-4 shadow-sm hover:shadow-md transition-all">
+            Apply
+          </button>
+
+          <a href="{% url 'assets:category_list' %}"
+             class="btn btn-ghost btn-sm text-base-content/60 hover:text-base-content hover:bg-base-200">
+            Reset
+          </a>
         </div>
+
+      </div>
     </form>
+  </section>
 
-    <!-- ===================================================== -->
-    <!-- Table -->
-    <!-- ===================================================== -->
-    <div class="card bg-base-100 shadow overflow-x-auto">
-        <table class="table table-zebra w-full">
+  <!-- ===================================================== -->
+  <!-- TABLE -->
+  <!-- ===================================================== -->
+  <section class="card bg-base-100 border border-base-200 shadow-sm overflow-x-auto">
+    <table class="table w-full text-sm">
+      <thead class="bg-base-200/60">
+        <tr>
+          <th>Name</th>
+          <th>Parent</th>
+          <th>Company</th>
+          <th>Status</th>
+          <th class="text-right w-24">Actions</th>
+        </tr>
+      </thead>
 
-            <thead>
-                <tr>
-                    <th>Name</th>
-                    <th>Parent</th>
-                    <th>Company</th>
-                    <th>Status</th>
-                    <th class="text-right">Actions</th>
-                </tr>
-            </thead>
+      <tbody class="[&>tr]:border-base-200">
+        {% for obj in object_list %}
+        <tr class="hover">
 
-            <tbody>
-                {% for obj in object_list %}
-                <tr class="hover">
-                    <td class="font-medium">
-                        <a href="{% url 'assets:category_detail' obj.id %}"
-                           class="link link-primary">
-                            {{ obj.name }}
-                        </a>
-                    </td>
+          <td class="font-medium">
+            <a href="{% url 'assets:category_detail' obj.id %}"
+               class="link link-hover">
+              {{ obj.name }}
+            </a>
+          </td>
 
-                    <td class="opacity-80">
-                        {{ obj.parent|default:"—" }}
-                    </td>
+          <td class="text-base-content/70">
+            {{ obj.parent|default:"—" }}
+          </td>
 
-                    <td class="opacity-80">
-                        {{ obj.company|default:"—" }}
-                    </td>
+          <td class="text-base-content/70">
+            {{ obj.company|default:"—" }}
+          </td>
 
-                    <td>
-                        {% if obj.active %}
-                            <span class="badge badge-success badge-sm">
-                                Active
-                            </span>
-                        {% else %}
-                            <span class="badge badge-ghost badge-sm">
-                                Archived
-                            </span>
-                        {% endif %}
-                    </td>
+          <td class="text-sm">
+            {% if obj.active %}
+              <span class="text-success font-medium">Active</span>
+            {% else %}
+              <span class="text-base-content/40">Archived</span>
+            {% endif %}
+          </td>
 
-<td class="text-right">
-  <div class="inline-flex gap-2">
+          <td class="text-right">
+            <div class="inline-flex items-center gap-2">
 
-    <a href="{% url 'assets:category_detail' obj.id %}"
-       class="btn btn-xs btn-outline">
-      View
-    </a>
+              <!-- Edit -->
+              <a href="{% url 'assets:category_edit' obj.id %}"
+                 class="tooltip tooltip-left"
+                 data-tip="Edit">
+                <div class="btn btn-ghost btn-xs text-primary hover:bg-primary/10">
+                  <svg xmlns="http://www.w3.org/2000/svg"
+                       class="h-4 w-4"
+                       fill="none"
+                       viewBox="0 0 24 24"
+                       stroke="currentColor">
+                    <path stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M15.232 5.232l3.536 3.536M9 11l6.232-6.232a2.5 2.5 0 013.536 3.536L12.536 14.536
+                             9 15l.464-3.464z" />
+                  </svg>
+                </div>
+              </a>
 
-    <a href="{% url 'assets:category_edit' obj.id %}"
-       class="btn btn-xs btn-outline btn-primary">
-      Edit
-    </a>
+              <!-- Delete -->
+              <a href="{% url 'assets:category_delete' obj.id %}"
+                 class="tooltip tooltip-left"
+                 data-tip="Delete">
+                <div class="btn btn-ghost btn-xs text-error hover:bg-error/10">
+                  <svg xmlns="http://www.w3.org/2000/svg"
+                       class="h-4 w-4"
+                       fill="none"
+                       viewBox="0 0 24 24"
+                       stroke="currentColor">
+                    <path stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5-4h4m-4 0a1 1 0 00-1 1v1h6V4a1 1 0 00-1-1m-4 0h4" />
+                  </svg>
+                </div>
+              </a>
 
-    <a href="{% url 'assets:category_delete' obj.id %}"
-       class="btn btn-xs btn-outline btn-error">
-      Delete
-    </a>
+            </div>
+          </td>
 
-  </div>
-</td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="5" class="py-16 text-center">
+            <p class="font-medium text-base-content/70">
+              No asset categories found
+            </p>
+            <p class="text-sm text-base-content/50 mt-1">
+              Create categories to organize assets by structure
+            </p>
+            <a href="{% url 'assets:category_create' %}"
+               class="btn btn-primary btn-sm mt-4">
+              + Add Category
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
 
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="5" class="text-center py-16">
-                        <p class="text-lg font-medium opacity-70">
-                            No asset categories found
-                        </p>
-                        <p class="text-sm opacity-50 mt-1">
-                            Create your first category to organize assets
-                        </p>
-                        <a href="{% url 'assets:category_create' %}"
-                           class="btn btn-primary btn-sm mt-4">
-                            + Add Category
-                        </a>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-
-        </table>
-    </div>
-
-    <!-- ===================================================== -->
-    <!-- Pagination -->
-    <!-- ===================================================== -->
-    {% include "partials/paginator.html" %}
+  <!-- ===================================================== -->
+  <!-- PAGINATION -->
+  <!-- ===================================================== -->
+  {% include "partials/paginator.html" %}
 
 </div>
 {% endblock %}

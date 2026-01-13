@@ -6,12 +6,8 @@
 
 from django.db import models
 from django.conf import settings
-from django.db.models.signals import post_save
-from django.dispatch import receiver
 from django.utils.translation import gettext_lazy as _
-from base.acl import AccessControlledMixin, ACLManager
 from base.models import CompanyScopeManager
-from base.acl import ACLQuerySet
 
 COMPANY_MODEL = "base.Company"
 EMPLOYEE_MODEL = "hr.Employee"
@@ -22,7 +18,7 @@ DEPARTMENT_MODEL = "hr.Department"
 # Asset Category
 # ============================================================
 
-class AssetCategory(AccessControlledMixin, models.Model):
+class AssetCategory(models.Model):
     """
     فئات الأصول – مشابهة لفئات Odoo (account.asset.category)
     """
@@ -36,7 +32,9 @@ class AssetCategory(AccessControlledMixin, models.Model):
         "self", on_delete=models.CASCADE, related_name="children",
         verbose_name=_("Parent"), null=True, blank=True
     )
-    parent_path = models.CharField(_("Parent path"), max_length=255, blank=True, default="", db_index=True)
+    parent_path = models.CharField(
+        _("Parent path"), max_length=255, blank=True, default="", db_index=True
+    )
     active = models.BooleanField(_("Active"), default=True)
 
     # --------- Human-friendly validation ----------
@@ -46,14 +44,12 @@ class AssetCategory(AccessControlledMixin, models.Model):
         """
         from django.core.exceptions import ValidationError
 
-        # عند التعديل فقط يكون self.pk معروفًا؛ تأكد أن الأب ليس هو نفس السجل
         if self.pk and self.parent_id == self.pk:
             raise ValidationError({
                 "parent": _("Parent category cannot be the same as the category itself.")
             })
 
     objects = CompanyScopeManager()
-    acl_objects = ACLManager()
 
     class Meta:
         db_table = "assets_category"
@@ -61,8 +57,10 @@ class AssetCategory(AccessControlledMixin, models.Model):
             models.Index(fields=["company", "active"], name="as_cat_c_act_idx"),
         ]
         constraints = [
-            models.UniqueConstraint(fields=["company", "name"], name="as_cat_comp_name_uniq"),
-            # نُبقي قيد قاعدة البيانات للحماية الصلبة
+            models.UniqueConstraint(
+                fields=["company", "name"],
+                name="as_cat_comp_name_uniq"
+            ),
             models.CheckConstraint(
                 name="as_cat_parent_not_self_chk",
                 check=~models.Q(parent=models.F("pk")),
@@ -78,7 +76,7 @@ class AssetCategory(AccessControlledMixin, models.Model):
 # Asset
 # ============================================================
 
-class Asset(AccessControlledMixin, models.Model):
+class Asset(models.Model):
     """
     الأصول – يمثل الأصل الرئيسي كما في Odoo
     """
@@ -92,6 +90,7 @@ class Asset(AccessControlledMixin, models.Model):
     name = models.CharField(_("Name"), max_length=255)
     code = models.CharField(_("Code"), max_length=64, db_index=True)
     serial = models.CharField(_("Serial number"), max_length=128, blank=True, null=True)
+
     company = models.ForeignKey(
         COMPANY_MODEL, on_delete=models.CASCADE,
         related_name="assets", verbose_name=_("Company"), db_index=True
@@ -111,19 +110,26 @@ class Asset(AccessControlledMixin, models.Model):
         related_name="holding_assets", verbose_name=_("Holder (employee)"),
         null=True, blank=True
     )
+
     status = models.CharField(
         _("Status"), max_length=16, choices=Status.choices,
         default=Status.AVAILABLE, db_index=True
     )
+
     purchase_date = models.DateField(_("Purchase date"), null=True, blank=True)
-    purchase_value = models.DecimalField(_("Purchase value"), max_digits=12, decimal_places=2, null=True, blank=True)
+    purchase_value = models.DecimalField(
+        _("Purchase value"), max_digits=12, decimal_places=2, null=True, blank=True
+    )
+
     note = models.TextField(_("Notes"), blank=True, default="")
     active = models.BooleanField(_("Active"), default=True)
+
     parent = models.ForeignKey(
         "self", on_delete=models.SET_NULL,
         related_name="children", verbose_name=_("Parent Asset"),
         null=True, blank=True
     )
+
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
         related_name="created_assets", null=True, blank=True, verbose_name=_("Created by")
@@ -135,7 +141,6 @@ class Asset(AccessControlledMixin, models.Model):
         related_name="updated_assets", null=True, blank=True, verbose_name=_("Updated by")
     )
 
-
     # ------------------------------------------------------------
     # Validations (human-friendly admin errors)
     # ------------------------------------------------------------
@@ -145,36 +150,33 @@ class Asset(AccessControlledMixin, models.Model):
 
         errors = {}
 
-        # 1) منطق الحالة ↔ الحامل
+        # (1) منطق الحالة ↔ الحامل
         if self.status == self.Status.ASSIGNED and not self.holder_id:
             errors["holder"] = "You must select a holder when status is ‘Assigned’."
         if self.status != self.Status.ASSIGNED and self.holder_id:
             errors["holder"] = "Holder can only be set when status is ‘Assigned’."
 
-        # 2) اتساق الشركة عبر العلاقات
-        if self.category_id and getattr(self.category, "company_id",
-                                        None) and self.category.company_id != self.company_id:
+        # (2) اتساق الشركة عبر العلاقات
+        if self.category_id and self.category.company_id != self.company_id:
             errors["category"] = "Category must belong to the same company as the asset."
 
-        if self.department_id and getattr(self.department, "company_id",
-                                          None) and self.department.company_id != self.company_id:
+        if self.department_id and self.department.company_id != self.company_id:
             errors["department"] = "Department must belong to the same company as the asset."
 
-        if self.holder_id and getattr(self.holder, "company_id", None) and self.holder.company_id != self.company_id:
+        if self.holder_id and self.holder.company_id != self.company_id:
             errors["holder"] = "Holder must belong to the same company as the asset."
 
-        # 3) Parent: منع self-reference + اتساق الشركة
+        # (3) Parent: منع self-reference + اتساق الشركة
         if self.parent_id:
             if self.parent_id == self.pk:
                 errors["parent"] = "Asset cannot be its own parent."
-            elif getattr(self.parent, "company_id", None) and self.parent.company_id != self.company_id:
+            elif self.parent.company_id != self.company_id:
                 errors["parent"] = "Parent asset must belong to the same company as the asset."
 
         if errors:
             raise ValidationError(errors)
 
     objects = CompanyScopeManager()
-    acl_objects = ACLQuerySet.as_manager()
 
     class Meta:
         db_table = "assets_asset"
@@ -184,16 +186,19 @@ class Asset(AccessControlledMixin, models.Model):
             models.Index(fields=["company", "holder"], name="as_ast_c_holder_idx"),
         ]
         constraints = [
-            models.UniqueConstraint(fields=["company", "code"], name="as_ast_comp_code_uniq"),
+            models.UniqueConstraint(
+                fields=["company", "code"],
+                name="as_ast_comp_code_uniq"
+            ),
             models.UniqueConstraint(
                 fields=["company", "serial"],
                 name="as_ast_comp_serial_uniq",
-                # يطابق سلوك Odoo: التفرد على القيم الحقيقية فقط، ويمنع إدخالات خادعة بـ "".
                 condition=models.Q(serial__isnull=False) & ~models.Q(serial=""),
             ),
             models.CheckConstraint(
                 name="as_ast_status_holder_chk",
-                check=models.Q(status="assigned", holder__isnull=False) | ~models.Q(status="assigned"),
+                check=models.Q(status="assigned", holder__isnull=False)
+                      | ~models.Q(status="assigned"),
             ),
         ]
         ordering = ("company_id", "name", "code")
@@ -206,11 +211,9 @@ class Asset(AccessControlledMixin, models.Model):
 # Asset Assignment
 # ============================================================
 
-class AssetAssignment(AccessControlledMixin, models.Model):
+class AssetAssignment(models.Model):
     """
     سجل إسناد الأصول للموظفين (تاريخي)
-    - يعتمد على date_to لتحديد الإسناد المفتوح / المغلق
-    - مطابق لمنطق Odoo (no dual state)
     """
 
     asset = models.ForeignKey(
@@ -219,14 +222,12 @@ class AssetAssignment(AccessControlledMixin, models.Model):
         related_name="assignments",
         verbose_name=_("Asset"),
     )
-
     employee = models.ForeignKey(
         EMPLOYEE_MODEL,
         on_delete=models.CASCADE,
         related_name="asset_assignments",
         verbose_name=_("Employee"),
     )
-
     company = models.ForeignKey(
         COMPANY_MODEL,
         on_delete=models.CASCADE,
@@ -236,7 +237,6 @@ class AssetAssignment(AccessControlledMixin, models.Model):
 
     date_from = models.DateField(_("From"), null=True, blank=True)
     date_to = models.DateField(_("To"), null=True, blank=True)
-
     note = models.CharField(_("Note"), max_length=255, blank=True, default="")
 
     # ------------------------------------------------------------
@@ -247,48 +247,32 @@ class AssetAssignment(AccessControlledMixin, models.Model):
         super().clean()
 
         errors = {}
-
         asset = self.asset
+
         if not asset:
             raise ValidationError({"asset": "Asset is required."})
 
-        # --------------------------------------------------
-        # (1) منع وجود أكثر من إسناد مفتوح لنفس الأصل
-        # --------------------------------------------------
-        open_qs = type(self).objects.filter(
-            asset=asset,
-            date_to__isnull=True,
-        )
+        # (1) منع أكثر من إسناد مفتوح
+        open_qs = type(self).objects.filter(asset=asset, date_to__isnull=True)
         if self.pk:
             open_qs = open_qs.exclude(pk=self.pk)
 
         if open_qs.exists() and self.date_to is None:
             errors["asset"] = "There is already an open assignment for this asset."
 
-        # --------------------------------------------------
-        # (2) تحقق منطقي للتواريخ
-        # --------------------------------------------------
+        # (2) تحقق التواريخ
         if self.date_from and self.date_to and self.date_to < self.date_from:
             errors["date_to"] = "End date must be greater than or equal to start date."
 
-        # --------------------------------------------------
-        # (3) اتساق الشركة (employee ↔ asset)
-        # --------------------------------------------------
-        emp_company_id = getattr(self.employee, "company_id", None) if self.employee_id else None
-        ast_company_id = getattr(asset, "company_id", None)
-
-        if emp_company_id and ast_company_id and emp_company_id != ast_company_id:
+        # (3) اتساق الشركة
+        if self.employee.company_id != asset.company_id:
             errors["employee"] = "Employee must belong to the same company as the asset."
 
-        # --------------------------------------------------
-        # (4) الأصل يجب أن يكون فعّالًا
-        # --------------------------------------------------
+        # (4) الأصل فعّال
         if not asset.active:
             errors["asset"] = "Cannot assign an inactive asset."
 
-        # --------------------------------------------------
-        # (5) الإسناد المفتوح مسموح فقط عندما الأصل Available
-        # --------------------------------------------------
+        # (5) الإسناد المفتوح فقط عند Available
         if self.date_to is None and asset.status != asset.Status.AVAILABLE:
             errors["asset"] = (
                 f"Cannot assign asset while status is '{asset.status}'. "
@@ -298,26 +282,16 @@ class AssetAssignment(AccessControlledMixin, models.Model):
         if errors:
             raise ValidationError(errors)
 
-    # ------------------------------------------------------------
-    # Managers
-    # ------------------------------------------------------------
     objects = CompanyScopeManager()
-    acl_objects = ACLQuerySet.as_manager()
 
-    # ------------------------------------------------------------
-    # Meta
-    # ------------------------------------------------------------
     class Meta:
         db_table = "assets_assignment"
         ordering = ("-id",)
-
         indexes = [
             models.Index(fields=["company"], name="as_asg_company_idx"),
             models.Index(fields=["asset", "employee"], name="as_asg_ast_emp_idx"),
         ]
-
         constraints = [
-            # تاريخ الانتهاء إن وُجد يجب أن يكون ≥ تاريخ البدء
             models.CheckConstraint(
                 name="as_asg_dates_chk",
                 check=(
@@ -326,8 +300,6 @@ class AssetAssignment(AccessControlledMixin, models.Model):
                     | models.Q(date_to__gte=models.F("date_from"))
                 ),
             ),
-
-            # يمنع أكثر من إسناد مفتوح لنفس الأصل
             models.UniqueConstraint(
                 fields=["asset"],
                 condition=models.Q(date_to__isnull=True),

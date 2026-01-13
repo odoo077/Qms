@@ -29,8 +29,6 @@ from django.db import transaction
 from django.db.models.signals import post_migrate, pre_save, post_save, post_delete
 from django.dispatch import receiver
 
-from base.acl_service import grant_access, apply_default_acl, revoke_access
-
 
 # ============================================================
 # Helpers
@@ -175,52 +173,6 @@ def ensure_employee_work_contact(sender, instance, created: bool, **kwargs):
 
 
 # ============================================================
-# 2) ACL Fixes on Employee Change
-# ============================================================
-
-@receiver(
-    post_save,
-    sender=_get_model("hr", "Employee"),
-    dispatch_uid="hr.employee.fix_acl_on_department_or_user_change",
-)
-def _employee_fix_acl_on_department_change(sender, instance, created, **kwargs):
-    """
-    Revoke old ACLs and reapply default policy when:
-    - department changes
-    - linked user changes
-    """
-    if not hasattr(instance, "_old_department_id") and not hasattr(instance, "_old_user_id"):
-        return
-
-    old_user_id = getattr(instance, "_old_user_id", None)
-    new_user_id = instance.user_id
-
-    if old_user_id and old_user_id != new_user_id:
-        from base.models import User
-        old_user = User.objects.filter(pk=old_user_id).first()
-        if old_user:
-            revoke_access(instance, user=old_user)
-
-    old_dept_id = getattr(instance, "_old_department_id", None)
-    new_dept_id = getattr(instance, "department_id", None)
-
-    if old_dept_id and old_dept_id != new_dept_id:
-        Department = _get_model("hr", "Department")
-        old_dept = (
-            Department._base_manager
-            .only("manager_id")
-            .filter(pk=old_dept_id)
-            .first()
-        )
-        if old_dept and getattr(old_dept, "manager_id", None):
-            old_mgr_emp = old_dept.manager
-            if getattr(old_mgr_emp, "user_id", None):
-                revoke_access(instance, user=old_mgr_emp.user)
-
-    apply_default_acl(instance)
-
-
-# ============================================================
 # 3) Capture Old Values (pre_save)
 # ============================================================
 
@@ -253,7 +205,6 @@ def _employee_capture_old_vals(sender, instance, **kwargs):
         instance._old_user_id = None
         instance._old_work_contact_id = None
         instance._old_department_id = None
-
 
 # ============================================================
 # 4) Job Counters (Employee ↔ Job)
