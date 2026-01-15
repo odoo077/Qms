@@ -68,12 +68,23 @@
           <span class="text-base-content/60">Parent company</span>
           <div class="mt-1 font-medium">
             {% if object.parent %}
-              <a href="{% url 'base:company_detail' object.parent.pk %}"
-                 class="link link-hover">
-                {{ object.parent.name }}
-              </a>
+              {% if object.parent.id in active_ids %}
+                <a href="{% url 'base:company_detail' object.parent.pk %}"
+                   class="link link-hover">
+                  {{ object.parent.name }}
+                </a>
+              {% else %}
+                <span class="text-base-content/60">
+                  {{ object.parent.name }}
+                </span>
+                <span class="text-xs text-base-content/40 ml-1">
+                  (out of scope)
+                </span>
+              {% endif %}
             {% else %}
-              <span class="text-base-content/50">No parent (top-level company)</span>
+              <span class="text-base-content/50">
+                No parent (top-level company)
+              </span>
             {% endif %}
           </div>
         </div>

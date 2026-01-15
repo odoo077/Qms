@@ -47,43 +47,36 @@
     <div class="rounded-xl border border-base-200 bg-base-100 p-3">
       <div class="text-xs uppercase tracking-wide opacity-60">Companies</div>
       <div class="mt-1 text-2xl font-semibold text-primary">{{ companies_count|default:"0" }}</div>
-      <div class="text-xs opacity-60 mt-1">Active only</div>
     </div>
 
     <div class="rounded-xl border border-base-200 bg-base-100 p-3">
       <div class="text-xs uppercase tracking-wide opacity-60">Partners</div>
       <div class="mt-1 text-2xl font-semibold">{{ partners_count|default:"0" }}</div>
-      <div class="text-xs opacity-60 mt-1">Active only</div>
     </div>
 
     <div class="rounded-xl border border-base-200 bg-base-100 p-3">
       <div class="text-xs uppercase tracking-wide opacity-60">Users</div>
       <div class="mt-1 text-2xl font-semibold">{{ users_count|default:"0" }}</div>
-      <div class="text-xs opacity-60 mt-1">Active only</div>
     </div>
 
     <div class="rounded-xl border border-base-200 bg-base-100 p-3">
       <div class="text-xs uppercase tracking-wide opacity-60">Employees</div>
       <div class="mt-1 text-2xl font-semibold text-secondary">{{ employees_count|default:"0" }}</div>
-      <div class="text-xs opacity-60 mt-1">active=True</div>
     </div>
 
     <div class="rounded-xl border border-base-200 bg-base-100 p-3">
       <div class="text-xs uppercase tracking-wide opacity-60">Assets</div>
       <div class="mt-1 text-2xl font-semibold text-secondary">{{ assets_count|default:"0" }}</div>
-      <div class="text-xs opacity-60 mt-1">active=True</div>
     </div>
 
     <div class="rounded-xl border border-base-200 bg-base-100 p-3">
       <div class="text-xs uppercase tracking-wide opacity-60">Skills</div>
       <div class="mt-1 text-2xl font-semibold">{{ skills_count|default:"0" }}</div>
-      <div class="text-xs opacity-60 mt-1">active=True</div>
     </div>
 
     <div class="rounded-xl border border-base-200 bg-base-100 p-3">
       <div class="text-xs uppercase tracking-wide opacity-60">Employee Skills</div>
       <div class="mt-1 text-2xl font-semibold">{{ employee_skills_count|default:"0" }}</div>
-      <div class="text-xs opacity-60 mt-1">active=True</div>
     </div>
 
     <div class="rounded-xl border border-base-200 bg-base-100 p-3">
@@ -228,7 +221,6 @@
       <div class="p-4 border-b border-base-200 flex items-center justify-between">
         <div>
           <div class="font-semibold">Recent Employees</div>
-          <div class="text-sm opacity-70">active=True (latest)</div>
         </div>
         <a href="{{ urls.employees_list }}" class="link link-hover text-sm">View all</a>
       </div>
@@ -257,7 +249,6 @@
       <div class="p-4 border-b border-base-200 flex items-center justify-between">
         <div>
           <div class="font-semibold">Recent Assets</div>
-          <div class="text-sm opacity-70">active=True (latest)</div>
         </div>
         <a href="{{ urls.assets_list }}" class="link link-hover text-sm">View all</a>
       </div>

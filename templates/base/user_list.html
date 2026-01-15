@@ -16,12 +16,10 @@
 {% block content %}
 <div class="space-y-6">
 
-  {# ================= Search & Filters ================= #}
-  {% include "base/includes/search_panel.html" %}
+  {% include "base/includes/search/_search_panel_user.html" %}
 
   {% if object_list %}
 
-    {# ================= Result Summary ================= #}
     <div class="flex items-center justify-between">
       <p class="text-sm text-base-content/60">
         Showing
@@ -36,17 +34,16 @@
       </p>
     </div>
 
-    {# ================= Users Table ================= #}
     <div class="overflow-x-auto rounded-xl border border-base-300 bg-base-100">
       <table class="table table-zebra w-full">
 
         <thead>
           <tr>
-            <th>Email</th>
-            <th>Name</th>
-            <th>Company</th>
-            <th>Status</th>
-            <th class="text-right">Actions</th>
+            <th class="w-[28%]">User</th>
+            <th class="w-[22%]">Name</th>
+            <th>Companies</th>
+            <th class="w-[10%]">Status</th>
+            <th class="text-right w-[14%]">Actions</th>
           </tr>
         </thead>
 
@@ -54,52 +51,81 @@
           {% for u in object_list %}
             <tr class="hover">
 
-              {# ---- Email ---- #}
-              <td class="font-medium">
-                <a href="{% url 'base:user_detail' u.pk %}"
-                   class="link link-hover">
-                  {{ u.email }}
-                </a>
-              </td>
-
-              {# ---- Name ---- #}
-              <td class="text-sm">
-                {% if u.first_name or u.last_name %}
-                  {{ u.first_name }} {{ u.last_name }}
-                {% else %}
-                  <span class="text-base-content/50">—</span>
-                {% endif %}
-              </td>
-
-              {# ---- Company ---- #}
-              <td class="text-sm">
-                {% if u.company %}
-                  <a href="{% url 'base:company_detail' u.company.pk %}"
-                     class="link link-hover">
-                    {{ u.company.name }}
-                  </a>
-                {% else %}
-                  <span class="text-base-content/50">—</span>
-                {% endif %}
-              </td>
-
-              {# ---- Status ---- #}
-              <td>
-                {% if u.is_active %}
-                  <span class="text-success">Active</span>
-                {% else %}
-                  <span class="text-error">Inactive</span>
-                {% endif %}
-              </td>
-
-              {# ---- Actions ---- #}
-              <td class="text-right">
-                <div class="flex justify-end gap-2">
-
+              {# ---------- User (Email + Partner) ---------- #}
+              <td class="align-top">
+                <div class="space-y-1">
                   <a href="{% url 'base:user_detail' u.pk %}"
-                     class="btn btn-xs btn-outline">
-                    View
+                     class="link link-hover font-semibold">
+                    {{ u.email }}
                   </a>
+
+                  {% if u.partner %}
+                    <div class="text-xs text-base-content/60 truncate max-w-[30ch]">
+                      Partner: {{ u.partner.name }}
+                    </div>
+                  {% endif %}
+                </div>
+              </td>
+
+              {# ---------- Name ---------- #}
+              <td class="align-top text-sm">
+                {% if u.first_name or u.last_name %}
+                  <div class="font-medium">
+                    {{ u.first_name }} {{ u.last_name }}
+                  </div>
+                {% else %}
+                  <span class="text-base-content/50">—</span>
+                {% endif %}
+              </td>
+
+              {# ---------- Companies (Primary + Allowed) ---------- #}
+              <td class="align-top">
+                <div class="flex flex-wrap gap-2">
+
+                  {# Primary company #}
+                  {% if u.company %}
+                    <a href="{% url 'base:company_detail' u.company.pk %}"
+                       class="badge badge-outline hover:badge-primary transition-colors"
+                       title="Primary company">
+                      {{ u.company.name }}
+                      {% if not u.company.active %} · Inactive{% endif %}
+                    </a>
+                  {% endif %}
+
+                  {# Allowed companies (M2M, excluding primary) #}
+                  {% for c in u.companies.all %}
+                    {% if not u.company or c.id != u.company.id %}
+                      <a href="{% url 'base:company_detail' c.pk %}"
+                         class="badge badge-ghost hover:badge-primary transition-colors"
+                         title="Allowed company">
+                        {{ c.name }}
+                        {% if not c.active %} · Inactive{% endif %}
+                      </a>
+                    {% endif %}
+                  {% empty %}
+                    {% if not u.company %}
+                      <span class="text-sm text-base-content/50">—</span>
+                    {% endif %}
+                  {% endfor %}
+                </div>
+
+                <div class="text-[11px] text-base-content/50 mt-1">
+                  Primary company and allowed companies.
+                </div>
+              </td>
+
+              {# ---------- Status ---------- #}
+              <td class="align-top">
+                {% if u.is_active %}
+                  <span class="badge badge-success badge-sm">Active</span>
+                {% else %}
+                  <span class="badge badge-error badge-sm">Inactive</span>
+                {% endif %}
+              </td>
+
+              {# ---------- Actions ---------- #}
+              <td class="text-right align-top">
+                <div class="inline-flex items-center justify-end gap-2">
 
                   {% if u.id in user_change_ids %}
                     <a href="{% url 'base:user_edit' u.pk %}"
@@ -118,12 +144,10 @@
       </table>
     </div>
 
-    {# ================= Pagination ================= #}
     {% include "partials/paginator.html" %}
 
   {% else %}
 
-    {# ================= Empty State ================= #}
     <section
       class="max-w-xl mx-auto rounded-xl border border-dashed
              border-base-300 bg-base-100 p-10 text-center space-y-3">
@@ -133,8 +157,7 @@
       </h2>
 
       <p class="text-sm text-base-content/60">
-        You may not have permission to view users in this workspace,
-        or no users match your filters.
+        No users match the current filters, or you may not have access in this scope.
       </p>
 
       {% if can_add_user %}

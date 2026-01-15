@@ -1,54 +1,125 @@
-# base/admin_mixins.py
+# ============================================================
+# Django Admin Mixins
+# ------------------------------------------------------------
 # مزيّنات/ميكسنات عامة قابلة لإعادة الاستخدام في كل التطبيقات
+# تُستخدم لتحسين تجربة Django Admin في بيئة متعددة الشركات
+# ============================================================
+
 from typing import Any, Sequence
+
 from django.contrib import admin
 
+
+# ============================================================
+# Internal Helpers
+# ============================================================
+
 def _unscoped_manager(model: type) -> Any:
-    # يُرجع مديرًا غير مقيّد لعرض كل السجلات في الأدمن
+    """
+    Return an unscoped manager for admin usage.
+
+    - If the model defines `all_objects`, it is used
+    - Otherwise fallback to Django's base manager
+    """
     return getattr(model, "all_objects", model._base_manager)
+
+
+# ============================================================
+# Admin Mixins
+# ============================================================
 
 class UnscopedAdminMixin:
     """
-    يجعل الـ Admin يرى كل السجلات (بدون سكوب الشركات) ويعرض جميع خيارات FK/M2M.
-    لا تستورد أي موديل هنا لتجنب الدوران.
+    Make Django Admin unscoped (Odoo-like behavior).
+
+    Effects:
+    - Admin sees all records (no company scope)
+    - ForeignKey and ManyToMany fields show all possible choices
+
+    Notes:
+    - No models are imported here to avoid circular imports
     """
+
     def get_queryset(self, request):
         return _unscoped_manager(self.model).all()
 
     def formfield_for_foreignkey(self, db_field, request, **kwargs):
-        Remote = db_field.remote_field.model
-        kwargs.setdefault("queryset", _unscoped_manager(Remote).all())
+        remote_model = db_field.remote_field.model
+        kwargs.setdefault(
+            "queryset",
+            _unscoped_manager(remote_model).all(),
+        )
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
     def formfield_for_manytomany(self, db_field, request, **kwargs):
-        Remote = db_field.remote_field.model
-        kwargs.setdefault("queryset", _unscoped_manager(Remote).all())
+        remote_model = db_field.remote_field.model
+        kwargs.setdefault(
+            "queryset",
+            _unscoped_manager(remote_model).all(),
+        )
         return super().formfield_for_manytomany(db_field, request, **kwargs)
+
 
 class HideAuditFieldsMixin:
     """
-    يُخفي حقول الأثر (created_by/updated_by/created_at/updated_at) إن وُجدت.
-    آمن حتى لو لم تكن الحقول موجودة على الموديل.
+    Hide audit fields in Django Admin if they exist on the model.
+
+    Fields handled safely:
+    - created_by
+    - updated_by
+    - created_at
+    - updated_at
+
+    Safe to use even if the model does not define these fields.
     """
-    AUDIT_FIELDS: Sequence[str] = ("created_by", "updated_by", "created_at", "updated_at")
+
+    AUDIT_FIELDS: Sequence[str] = (
+        "created_by",
+        "updated_by",
+        "created_at",
+        "updated_at",
+    )
 
     def get_exclude(self, request, obj=None):
         base_exclude = list(super().get_exclude(request, obj) or [])
-        # أضف فقط الحقول الموجودة فعلاً على الموديل
-        present = [f for f in self.AUDIT_FIELDS if f in {fld.name for fld in self.model._meta.get_fields()}]
-        return list(set(base_exclude + present))
+
+        model_fields = {field.name for field in self.model._meta.get_fields()}
+        present_fields = [f for f in self.AUDIT_FIELDS if f in model_fields]
+
+        return list(set(base_exclude + present_fields))
+
 
 class ReadonlyAuditFieldsMixin:
     """
-    يجعل حقول الأثر للقراءة فقط (لا يخفيها).
+    Make audit fields read-only in Django Admin (without hiding them).
     """
-    AUDIT_FIELDS: Sequence[str] = ("created_by", "updated_by", "created_at", "updated_at")
+
+    AUDIT_FIELDS: Sequence[str] = (
+        "created_by",
+        "updated_by",
+        "created_at",
+        "updated_at",
+    )
 
     def get_readonly_fields(self, request, obj=None):
-        ro = list(super().get_readonly_fields(request, obj) or [])
-        present = [f for f in self.AUDIT_FIELDS if f in {fld.name for fld in self.model._meta.get_fields()}]
-        return list(set(ro + present))
+        readonly = list(super().get_readonly_fields(request, obj) or [])
 
+        model_fields = {field.name for field in self.model._meta.get_fields()}
+        present_fields = [f for f in self.AUDIT_FIELDS if f in model_fields]
+
+        return list(set(readonly + present_fields))
+
+
+# ============================================================
+# Base Admin Class
+# ============================================================
 
 class AppAdmin(UnscopedAdminMixin, HideAuditFieldsMixin, admin.ModelAdmin):
+    """
+    Base Admin class for all applications.
+
+    Defaults:
+    - Unscoped admin behavior
+    - Audit fields hidden if present
+    """
     pass

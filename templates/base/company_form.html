@@ -64,7 +64,21 @@
             </span>
           </label>
 
-          {{ form.parent|add_class:"select select-bordered w-full" }}
+          {% if object and object.parent and object.parent not in form.parent.field.queryset %}
+            <div class="alert alert-warning text-sm mb-2">
+              Parent company
+              <strong>{{ object.parent.name }}</strong>
+              is outside your active company scope and cannot be changed.
+            </div>
+
+            <input type="text"
+                   class="input input-bordered w-full"
+                   value="{{ object.parent.name }}"
+                   disabled>
+
+          {% else %}
+            {{ form.parent|add_class:"select select-bordered w-full" }}
+          {% endif %}
 
           <label class="label">
             <span class="label-text-alt text-base-content/60">

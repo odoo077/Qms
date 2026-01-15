@@ -1,0 +1,31 @@
+{% extends "base/includes/search/_search_panel_generic.html" %}
+
+{% block advanced_filters %}
+<div class="grid gap-3 sm:grid-cols-3">
+
+  <!-- 🏢 Parent Company -->
+  <div>
+    <label class="label-text text-xs font-medium">Parent company</label>
+    <select name="parent" class="select select-bordered select-sm w-full">
+      <option value="">All</option>
+      {% for p in parent_companies %}
+        <option value="{{ p.id }}"
+                {% if filters.parent == p.id|stringformat:"s" %}selected{% endif %}>
+          {{ p.name }}
+        </option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <!-- ↕️ Ordering -->
+  <div>
+    <label class="label-text text-xs font-medium">Order by</label>
+    <select name="order" class="select select-bordered select-sm w-full">
+      <option value="name"   {% if filters.order|default:"name" == "name" %}selected{% endif %}>Name (A–Z)</option>
+      <option value="latest" {% if filters.order == "latest" %}selected{% endif %}>Latest</option>
+      <option value="active" {% if filters.order == "active" %}selected{% endif %}>Active first</option>
+    </select>
+  </div>
+
+</div>
+{% endblock %}

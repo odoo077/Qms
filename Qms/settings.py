@@ -10,10 +10,6 @@ import os
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
-# هذا يسمح لك لاحقًا بإعادة تفعيل ACL بدون إعادة كتابة أي شيء.
-DISABLE_OBJECT_ACL = True
-
-
 # تعريف env مع قيم افتراضية
 # القيم الحساسة مثل SECRET_KEY, EMAIL_HOST_USER, EMAIL_HOST_PASSWORD, DB_PASSWORD → لا علاقة لها بـ default.
 env = environ.Env(

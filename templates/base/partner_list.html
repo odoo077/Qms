@@ -17,12 +17,10 @@
 {% block content %}
 <div class="space-y-6">
 
-  {# ================= Search & Filters ================= #}
-  {% include "base/includes/search_panel.html" %}
+  {% include "base/includes/search/_search_panel_partner.html" %}
 
   {% if object_list %}
 
-    {# ================= Result Summary ================= #}
     <div class="flex items-center justify-between">
       <p class="text-sm text-base-content/60">
         Showing
@@ -37,18 +35,17 @@
       </p>
     </div>
 
-    {# ================= Partners Table ================= #}
     <div class="overflow-x-auto rounded-xl border border-base-300 bg-base-100">
       <table class="table table-zebra w-full">
 
         <thead>
           <tr>
-            <th>Name</th>
-            <th>Kind</th>
-            <th>Company</th>
-            <th>Contact</th>
-            <th>Status</th>
-            <th class="text-right">Actions</th>
+            <th class="w-[28%]">Partner</th>
+            <th class="w-[14%]">Type</th>
+            <th class="w-[22%]">Company</th>
+            <th class="w-[18%]">Contact</th>
+            <th class="w-[8%]">Status</th>
+            <th class="text-right w-[10%]">Actions</th>
           </tr>
         </thead>
 
@@ -56,16 +53,26 @@
           {% for p in object_list %}
             <tr class="hover">
 
-              {# ---- Name ---- #}
-              <td>
-                <a href="{% url 'base:partner_detail' p.pk %}"
-                   class="link link-hover font-medium">
-                  {{ p.name }}
-                </a>
+              <td class="align-top">
+                <div class="space-y-1">
+                  <a href="{% url 'base:partner_detail' p.pk %}"
+                     class="link link-hover font-semibold">
+                    {{ p.display_name|default:p.name }}
+                  </a>
+
+                  {% if p.parent %}
+                    <div class="text-xs text-base-content/60 truncate">
+                      Parent:
+                      <a href="{% url 'base:partner_detail' p.parent.pk %}"
+                         class="link link-hover">
+                        {{ p.parent.name }}
+                      </a>
+                    </div>
+                  {% endif %}
+                </div>
               </td>
 
-              {# ---- Kind ---- #}
-              <td>
+              <td class="align-top">
                 {% if p.is_company %}
                   <span class="badge badge-primary badge-outline">
                     Company
@@ -75,10 +82,13 @@
                     Person
                   </span>
                 {% endif %}
+
+                <div class="text-xs text-base-content/60 mt-1">
+                  {{ p.get_type_display }}
+                </div>
               </td>
 
-              {# ---- Company (read-only relation) ---- #}
-              <td class="text-sm">
+              <td class="align-top text-sm">
                 {% if p.company %}
                   <a href="{% url 'base:company_detail' p.company.pk %}"
                      class="link link-hover">
@@ -92,42 +102,37 @@
                 {% endif %}
               </td>
 
-              {# ---- Contact ---- #}
-              <td class="text-sm">
+              <td class="align-top text-sm space-y-0.5">
                 <div>{{ p.email|default:"—" }}</div>
                 {% if p.phone %}
                   <div class="text-xs text-base-content/60">
                     {{ p.phone }}
                   </div>
                 {% endif %}
-              </td>
-
-              {# ---- Status ---- #}
-              <td>
-                {% if p.active %}
-                  <span class="text-success">Active</span>
-                {% else %}
-                  <span class="text-error">Inactive</span>
+                {% if p.mobile %}
+                  <div class="text-xs text-base-content/60">
+                    {{ p.mobile }}
+                  </div>
                 {% endif %}
               </td>
 
-              {# ---- Actions ---- #}
-              <td class="text-right">
-                <div class="flex justify-end gap-2">
+              <td class="align-top">
+                {% if p.active %}
+                  <span class="badge badge-success badge-sm">Active</span>
+                {% else %}
+                  <span class="badge badge-error badge-sm">Inactive</span>
+                {% endif %}
+              </td>
 
-                  <a href="{% url 'base:partner_detail' p.pk %}"
-                     class="btn btn-xs btn-outline">
-                    View
-                  </a>
+              <td class="text-right align-top">
+                <div class="inline-flex items-center justify-end gap-2">
 
-{% if p.id in partner_change_ids %}
-  <a href="{% url 'base:partner_edit' p.pk %}"
-     class="btn btn-xs btn-ghost">
-    Edit
-  </a>
-{% endif %}
-
-
+                  {% if p.id in partner_change_ids %}
+                    <a href="{% url 'base:partner_edit' p.pk %}"
+                       class="btn btn-xs btn-ghost">
+                      Edit
+                    </a>
+                  {% endif %}
 
                 </div>
               </td>
@@ -139,12 +144,10 @@
       </table>
     </div>
 
-    {# ================= Pagination ================= #}
     {% include "partials/paginator.html" %}
 
   {% else %}
 
-    {# ================= Empty State ================= #}
     <section
       class="max-w-xl mx-auto rounded-xl border border-dashed
              border-base-300 bg-base-100 p-10 text-center space-y-3">
@@ -154,8 +157,8 @@
       </h2>
 
       <p class="text-sm text-base-content/60">
-        You may not have permission to view partners in this workspace,
-        or no partners match your filters.
+        No partners match the current filters,
+        or you may not have access in this scope.
       </p>
 
       {% if can_add_partner %}

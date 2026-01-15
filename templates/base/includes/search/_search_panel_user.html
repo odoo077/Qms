@@ -1,0 +1,114 @@
+<form method="get" class="space-y-4 mb-6">
+
+  <div class="grid gap-3 sm:grid-cols-4 lg:grid-cols-5">
+
+    {# 🔍 Search #}
+    <div class="lg:col-span-2">
+      <label class="label-text text-xs font-medium">
+        {{ filter_form.q.label }}
+      </label>
+      {{ filter_form.q }}
+    </div>
+
+    {# 🏢 Company (allowed scope) #}
+    <div>
+      <label class="label-text text-xs font-medium">
+        {{ filter_form.company.label }}
+      </label>
+      {{ filter_form.company }}
+    </div>
+
+    {# ✅ Active / Inactive #}
+    <div>
+      <label class="label-text text-xs font-medium">
+        {{ filter_form.is_active.label }}
+      </label>
+      {{ filter_form.is_active }}
+    </div>
+
+    {# ↕️ Ordering #}
+    <div>
+      <label class="label-text text-xs font-medium">
+        {{ filter_form.order.label }}
+      </label>
+      {{ filter_form.order }}
+    </div>
+
+  </div>
+
+  <details class="group rounded-xl border border-base-300 bg-base-100">
+
+    <summary
+      class="flex cursor-pointer items-center justify-between
+             px-4 py-2 text-xs font-medium text-base-content/80
+             hover:bg-base-200 rounded-xl">
+
+      <span class="flex items-center gap-2">
+        <!-- filter icon -->
+        <svg xmlns="http://www.w3.org/2000/svg"
+             class="h-4 w-4 opacity-70"
+             fill="none" viewBox="0 0 24 24"
+             stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round"
+                stroke-width="2"
+                d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707L14 13.414V19a1 1 0 01-.447.832l-4 2.667A1 1 0 018 21.667v-8.253L3.293 6.707A1 1 0 013 6V4z" />
+        </svg>
+        Advanced filters
+      </span>
+
+      <span class="text-[11px] opacity-60 group-open:hidden">
+        Optional
+      </span>
+      <span class="text-[11px] opacity-60 hidden group-open:inline">
+        Hide
+      </span>
+    </summary>
+
+    <div class="px-4 pb-4 pt-3">
+
+      <div class="grid gap-3 sm:grid-cols-3">
+
+        {# 📧 Email verified #}
+        <div>
+          <label class="label-text text-xs font-medium">
+            {{ filter_form.email_verified.label }}
+          </label>
+          {{ filter_form.email_verified }}
+        </div>
+
+        {# 👔 Staff #}
+        <div>
+          <label class="label-text text-xs font-medium">
+            {{ filter_form.is_staff.label }}
+          </label>
+          {{ filter_form.is_staff }}
+        </div>
+
+        {# 🛡 Superuser #}
+        <div>
+          <label class="label-text text-xs font-medium">
+            {{ filter_form.is_superuser.label }}
+          </label>
+          {{ filter_form.is_superuser }}
+        </div>
+
+      </div>
+
+    </div>
+  </details>
+
+  <div class="flex items-center gap-2">
+
+    <button type="submit" class="btn btn-primary btn-sm">
+      Apply
+    </button>
+
+    {% if request.GET %}
+      <a href="{{ request.path }}" class="btn btn-ghost btn-sm">
+        Reset
+      </a>
+    {% endif %}
+
+  </div>
+
+</form>

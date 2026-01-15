@@ -344,6 +344,83 @@ class PartnerForm(forms.ModelForm):
         return cleaned
 
 
+class PartnerFilterForm(forms.Form):
+    """
+    Partner Filter Form (Directory-grade)
+
+    Used by PartnerListView only.
+    No save(), no side-effects.
+    """
+
+    q = forms.CharField(
+        required=False,
+        label="Search",
+        widget=forms.TextInput(attrs={
+            "placeholder": "Search name, email, phone…"
+        })
+    )
+
+    company = forms.ModelChoiceField(
+        queryset=Company.objects.none(),
+        required=False,
+        empty_label="All allowed companies",
+        label="Company"
+    )
+
+    company_type = forms.ChoiceField(
+        choices=[("", "All")] + Partner.COMPANY_TYPE_CHOICES,
+        required=False,
+        label="Company Type"
+    )
+
+    type = forms.ChoiceField(
+        choices=[("", "All")] + Partner.TYPE_CHOICES,
+        required=False,
+        label="Contact Type"
+    )
+
+    active = forms.ChoiceField(
+        choices=[
+            ("", "All"),
+            ("1", "Active"),
+            ("0", "Inactive"),
+        ],
+        required=False,
+        label="Status"
+    )
+
+    employee = forms.ChoiceField(
+        choices=[
+            ("", "All"),
+            ("1", "Employee"),
+            ("0", "Not employee"),
+        ],
+        required=False,
+        label="Employee"
+    )
+
+    order = forms.ChoiceField(
+        choices=[
+            ("name", "Name (A–Z)"),
+            ("latest", "Latest"),
+            ("company", "Company"),
+        ],
+        required=False,
+        initial="name",
+        label="Order by"
+    )
+
+    # -----------------------------
+    # Dynamic queryset injection
+    # -----------------------------
+    def __init__(self, *args, **kwargs):
+        allowed_companies = kwargs.pop("allowed_companies", None)
+        super().__init__(*args, **kwargs)
+
+        if allowed_companies is not None:
+            self.fields["company"].queryset = allowed_companies
+
+
 # ----- user forms -----------
 
 class UserForm(forms.ModelForm):
@@ -356,6 +433,123 @@ class UserForm(forms.ModelForm):
             "company",
             "companies",
         )
+
+
+class UserFilterForm(forms.Form):
+    """
+    Enterprise-grade User search & filter form (Odoo-like)
+
+    Purpose:
+    - Used ONLY for listing & filtering users
+    - No save()
+    - Pure query intent
+    """
+
+    # -------------------------------------------------
+    # Search
+    # -------------------------------------------------
+    q = forms.CharField(
+        required=False,
+        label="Search",
+        widget=forms.TextInput(attrs={
+            "placeholder": "Search by email, name, partner…",
+            "class": "input input-bordered input-sm w-full",
+        }),
+    )
+
+    # -------------------------------------------------
+    # Company filters
+    # -------------------------------------------------
+    company = forms.ModelChoiceField(
+        queryset=Company.objects.none(),  # injected from view
+        required=False,
+        label="Company",
+        widget=forms.Select(attrs={
+            "class": "select select-bordered select-sm w-full",
+        }),
+    )
+
+    # -------------------------------------------------
+    # Status
+    # -------------------------------------------------
+    is_active = forms.NullBooleanField(
+        required=False,
+        label="Status",
+        widget=forms.Select(choices=[
+            ("", "All"),
+            ("true", "Active"),
+            ("false", "Inactive"),
+        ], attrs={
+            "class": "select select-bordered select-sm w-full",
+        }),
+    )
+
+    # -------------------------------------------------
+    # Email verification
+    # -------------------------------------------------
+    email_verified = forms.NullBooleanField(
+        required=False,
+        label="Email verified",
+        widget=forms.Select(choices=[
+            ("", "All"),
+            ("true", "Verified"),
+            ("false", "Not verified"),
+        ], attrs={
+            "class": "select select-bordered select-sm w-full",
+        }),
+    )
+
+    # -------------------------------------------------
+    # Superuser / Staff
+    # -------------------------------------------------
+    is_staff = forms.NullBooleanField(
+        required=False,
+        label="Staff",
+        widget=forms.Select(choices=[
+            ("", "All"),
+            ("true", "Staff only"),
+            ("false", "Non-staff"),
+        ], attrs={
+            "class": "select select-bordered select-sm w-full",
+        }),
+    )
+
+    is_superuser = forms.NullBooleanField(
+        required=False,
+        label="Superuser",
+        widget=forms.Select(choices=[
+            ("", "All"),
+            ("true", "Superusers"),
+            ("false", "Non-superusers"),
+        ], attrs={
+            "class": "select select-bordered select-sm w-full",
+        }),
+    )
+
+    # -------------------------------------------------
+    # Ordering
+    # -------------------------------------------------
+    order = forms.ChoiceField(
+        required=False,
+        choices=[
+            ("email", "Email (A–Z)"),
+            ("name", "Name (A–Z)"),
+            ("company", "Company"),
+            ("latest", "Latest"),
+        ],
+        widget=forms.Select(attrs={
+            "class": "select select-bordered select-sm w-full",
+        }),
+    )
+
+    # -------------------------------------------------
+    # Dynamic injection (company scope)
+    # -------------------------------------------------
+    def set_company_queryset(self, qs):
+        """
+        Inject allowed companies from view (company scope aware).
+        """
+        self.fields["company"].queryset = qs.order_by("name")
 
 # ----- Company forms -----------
 

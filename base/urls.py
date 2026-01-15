@@ -1,14 +1,41 @@
-# base/urls.py
 from django.urls import path, reverse_lazy
 from django.contrib.auth import views as auth_views
 
 from .views import (
+    # Home
+    HomeView,
+
+    # Company
     CompanySwitchView,
-    PartnerListView, PartnerDetailView, PartnerCreateView, PartnerUpdateView,
-    register_view, activate_view, activation_sent_view, activation_failed_view, resend_activation_view,
-    login_view, logout_view, profile_view, edit_profile_view,
-    password_change_view, password_change_done_view, HomeView, UserDetailView, UserListView, UserUpdateView,
-    CompanyDetailView, CompanyCreateView, CompanyListView, CompanyUpdateView, UserCreateView,
+    CompanyListView,
+    CompanyCreateView,
+    CompanyDetailView,
+    CompanyUpdateView,
+
+    # Partners
+    PartnerListView,
+    PartnerDetailView,
+    PartnerCreateView,
+    PartnerUpdateView,
+
+    # Users
+    UserListView,
+    UserDetailView,
+    UserCreateView,
+    UserUpdateView,
+
+    # Auth & Profile
+    register_view,
+    activate_view,
+    activation_sent_view,
+    activation_failed_view,
+    resend_activation_view,
+    login_view,
+    logout_view,
+    profile_view,
+    edit_profile_view,
+    password_change_view,
+    password_change_done_view,
 )
 
 
@@ -16,35 +43,55 @@ app_name = "base"
 
 urlpatterns = [
 
+    # ==========================================================
+    # Home
+    # ==========================================================
     path("", HomeView.as_view(), name="home"),
 
-    # Company
-    path("company/switch/",   CompanySwitchView.as_view(),   name="company_switch"),
+    # ==========================================================
+    # Company Context
+    # ==========================================================
+    path("company/switch/", CompanySwitchView.as_view(), name="company_switch"),
 
+    # ==========================================================
     # Partners
-    path("partners/", PartnerListView.as_view(),   name="partner_list"),
+    # ==========================================================
+    path("partners/", PartnerListView.as_view(), name="partner_list"),
     path("partners/new/", PartnerCreateView.as_view(), name="partner_create"),
-    path("partners/<int:pk>/",      PartnerDetailView.as_view(), name="partner_detail"),
+    path("partners/<int:pk>/", PartnerDetailView.as_view(), name="partner_detail"),
     path("partners/<int:pk>/edit/", PartnerUpdateView.as_view(), name="partner_edit"),
 
-    # Users/Auth
-    path("users/register/",            register_view,           name="register"),
-    path("users/activate/<uidb64>/<token>/", activate_view,     name="activate"),
-    path("users/activation-sent/",     activation_sent_view,    name="activation_sent"),
-    path("users/activation-failed/",   activation_failed_view,  name="activation_failed"),
-    path("users/resend-activation/",   resend_activation_view,  name="resend_activation"),
+    # ==========================================================
+    # Authentication & Registration
+    # ==========================================================
+    path("users/register/", register_view, name="register"),
+    path("users/activate/<uidb64>/<token>/", activate_view, name="activate"),
+    path("users/activation-sent/", activation_sent_view, name="activation_sent"),
+    path("users/activation-failed/", activation_failed_view, name="activation_failed"),
+    path("users/resend-activation/", resend_activation_view, name="resend_activation"),
 
-    path("users/login/",   login_view,  name="login"),
-    path("users/logout/",  logout_view, name="logout"),
+    path("users/login/", login_view, name="login"),
+    path("users/logout/", logout_view, name="logout"),
 
-    path("users/profile/",      profile_view,      name="profile"),
+    # ==========================================================
+    # User Profile
+    # ==========================================================
+    path("users/profile/", profile_view, name="profile"),
     path("users/profile/edit/", edit_profile_view, name="edit_profile"),
 
-    # Password change (logged-in)
-    path("users/password-change/",       password_change_view,      name="password_change"),
-    path("users/password-change/done/",  password_change_done_view, name="password_change_done"),
+    # ==========================================================
+    # Password Management (Logged-in)
+    # ==========================================================
+    path("users/password-change/", password_change_view, name="password_change"),
+    path(
+        "users/password-change/done/",
+        password_change_done_view,
+        name="password_change_done",
+    ),
 
-    # Password reset (built-ins)
+    # ==========================================================
+    # Password Reset (Built-in Django Views)
+    # ==========================================================
     path(
         "users/password-reset/",
         auth_views.PasswordResetView.as_view(
@@ -79,18 +126,19 @@ urlpatterns = [
         name="password_reset_complete",
     ),
 
-    # Users
+    # ==========================================================
+    # Users Management
+    # ==========================================================
     path("users/", UserListView.as_view(), name="user_list"),
+    path("users/new/", UserCreateView.as_view(), name="user_create"),
     path("users/<int:pk>/", UserDetailView.as_view(), name="user_detail"),
     path("users/<int:pk>/edit/", UserUpdateView.as_view(), name="user_edit"),
-    path("users/new/", UserCreateView.as_view(), name="user_create"),
 
-
-    # Companies
+    # ==========================================================
+    # Companies Management
+    # ==========================================================
     path("companies/", CompanyListView.as_view(), name="company_list"),
     path("companies/new/", CompanyCreateView.as_view(), name="company_create"),
     path("companies/<int:pk>/", CompanyDetailView.as_view(), name="company_detail"),
     path("companies/<int:pk>/edit/", CompanyUpdateView.as_view(), name="company_edit"),
-
-
 ]

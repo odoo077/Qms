@@ -1,0 +1,69 @@
+<form method="get" class="grid gap-4 mb-6">
+
+  <div class="grid gap-3 sm:grid-cols-4">
+
+    <!-- 🔍 Search -->
+    <div>
+      <label class="label-text text-xs font-medium">Search</label>
+      <input
+        type="text"
+        name="q"
+        value="{{ filters.q }}"
+        placeholder="{{ search_config.placeholder|default:'Search…' }}"
+        class="input input-bordered input-sm w-full"
+      />
+    </div>
+
+    <!-- 🏢 Company -->
+    {% if search_config.show_company_filter %}
+    <div>
+      <label class="label-text text-xs font-medium">Company</label>
+      <select name="company" class="select select-bordered select-sm w-full">
+        <option value="">All allowed</option>
+        {% for c in allowed_companies %}
+          <option value="{{ c.id }}"
+                  {% if filters.company == c.id|stringformat:"s" %}selected{% endif %}>
+            {{ c.name }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+    {% endif %}
+
+    <!-- ✅ Status -->
+    {% if search_config.show_active_filter %}
+    <div>
+      <label class="label-text text-xs font-medium">Status</label>
+      <select name="active" class="select select-bordered select-sm w-full">
+        <option value="">All</option>
+        <option value="1" {% if filters.active == "1" %}selected{% endif %}>Active</option>
+        <option value="0" {% if filters.active == "0" %}selected{% endif %}>Inactive</option>
+      </select>
+    </div>
+    {% endif %}
+
+    <!-- ⏱ Range -->
+    {% if search_config.show_range_filter %}
+    <div>
+      <label class="label-text text-xs font-medium">Date range</label>
+      <select name="range" class="select select-bordered select-sm w-full">
+        <option value="">—</option>
+        <option value="today" {% if filters.range == "today" %}selected{% endif %}>Today</option>
+        <option value="week"  {% if filters.range == "week" %}selected{% endif %}>This week</option>
+        <option value="month" {% if filters.range == "month" %}selected{% endif %}>This month</option>
+        <option value="year"  {% if filters.range == "year" %}selected{% endif %}>This year</option>
+      </select>
+    </div>
+    {% endif %}
+
+  </div>
+
+  {% block advanced_filters %}{% endblock %}
+
+  <div class="flex gap-2">
+    <button type="submit" class="btn btn-primary btn-sm">Apply</button>
+    {% if request.GET %}
+      <a href="{{ request.path }}" class="btn btn-ghost btn-sm">Reset</a>
+    {% endif %}
+  </div>
+</form>

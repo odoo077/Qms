@@ -18,7 +18,7 @@ from django.utils import timezone
 from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from base.forms import RegisterForm, PartnerForm, LoginForm, ProfileEditForm, UserForm, CompanyForm, \
-    UserCreateForm
+    UserCreateForm, UserFilterForm, PartnerFilterForm
 from base.tokens import account_activation_token
 from .models import Partner, Company
 from django.core.exceptions import PermissionDenied
@@ -218,6 +218,34 @@ def password_change_done_view(request):
 
 
 
+
+# ------------------------------------------------------------
+# Users policy knobs (Odoo-like)
+# ------------------------------------------------------------
+# هل نسمح بإسناد User إلى شركات غير نشطة من الواجهة؟
+USER_ALLOW_ASSIGN_INACTIVE_COMPANIES = False
+
+# هل نُظهر الشركات غير النشطة في فلتر "Company" داخل قائمة المستخدمين؟
+USER_LIST_FILTER_SHOW_INACTIVE_COMPANIES = True
+
+
+def _allowed_company_ids_for_request(request):
+    """
+    Allowed companies (membership) for admin-like directory views.
+    - Superuser: all
+    - Normal user: request.user.companies
+    """
+    user = getattr(request, "user", None)
+    if not user or not user.is_authenticated:
+        return []
+
+    if user.is_superuser:
+        return list(Company.objects.values_list("id", flat=True))
+
+    return list(user.companies.values_list("id", flat=True))
+
+
+
 # ------------------------------------------------------------
 # Dashboard (Odoo-grade, compact, practical)
 # ------------------------------------------------------------
@@ -225,7 +253,7 @@ class HomeView(LoginRequiredMixin, TemplateView):
     template_name = "home.html"
 
     # ---- Dashboard knobs (tune without touching template) ----
-    RECENT_LIMIT = 7
+    RECENT_LIMIT = 5
     SEARCH_LIMIT = 8
 
     # ---------------------------------------------------------
@@ -873,50 +901,140 @@ def apply_search_filters(request, qs, search_fields=None):
 
 # ------- partner views ---------
 
-class PartnerListView(LoginRequiredMixin, BaseScopedListView):
+
+class PartnerListView(LoginRequiredMixin, ListView):
+    """
+    Partner Directory View (Enterprise-grade)
+
+    Rules:
+    - Scoped by allowed companies (directory, not active-context)
+    - Supports full filtering via PartnerFilterForm
+    """
+
     model = Partner
-    paginate_by = 20
+    paginate_by = 24
     template_name = "base/partner_list.html"
 
-    def get_queryset(self):
-        # يطبّق فقط نطاق الشركات (Company Scope)
-        base_qs = super().get_queryset()
-        qs = (
-            base_qs
+    ORDERING_MAP = {
+        "name": "name",
+        "latest": "-id",
+        "company": "company__name",
+    }
+
+    # --------------------------------------------------
+    # Base queryset
+    # --------------------------------------------------
+    def _base_queryset(self):
+        return (
+            Partner.objects
             .select_related("company", "parent")
-            .order_by("name")
+            .prefetch_related("categories")
         )
-        qs = apply_search_filters(self.request, qs, search_fields=["name", "email", "phone"])
+
+    # --------------------------------------------------
+    # Main queryset
+    # --------------------------------------------------
+    def get_queryset(self):
+        qs = self._base_queryset()
+
+        # ------------------------------
+        # Company scope
+        # ------------------------------
+        if not self.request.user.is_superuser:
+            allowed_ids = _allowed_company_ids_for_request(self.request)
+            qs = qs.filter(
+                Q(company_id__in=allowed_ids) |
+                Q(parent_company_id__in=allowed_ids)
+            ).distinct()
+
+        # ------------------------------
+        # Filters
+        # ------------------------------
+        self.filter_form = self.get_filter_form()
+
+        if self.filter_form.is_valid():
+            data = self.filter_form.cleaned_data
+
+            # Search
+            q = data.get("q")
+            if q:
+                qs = qs.filter(
+                    Q(name__icontains=q) |
+                    Q(display_name__icontains=q) |
+                    Q(email__icontains=q) |
+                    Q(phone__icontains=q) |
+                    Q(mobile__icontains=q)
+                )
+
+            # Company
+            if data.get("company"):
+                qs = qs.filter(company=data["company"])
+
+            # Company type
+            if data.get("company_type"):
+                qs = qs.filter(company_type=data["company_type"])
+
+            # Contact type
+            if data.get("type"):
+                qs = qs.filter(type=data["type"])
+
+            # Active
+            if data.get("active") == "1":
+                qs = qs.filter(active=True)
+            elif data.get("active") == "0":
+                qs = qs.filter(active=False)
+
+            # Employee
+            if data.get("employee") == "1":
+                qs = qs.filter(employee=True)
+            elif data.get("employee") == "0":
+                qs = qs.filter(employee=False)
+
+            # Ordering
+            order_key = data.get("order") or "name"
+            qs = qs.order_by(self.ORDERING_MAP.get(order_key, "name"))
+
         return qs
 
+    # --------------------------------------------------
+    # Filter form
+    # --------------------------------------------------
+    def get_filter_form(self):
+        if hasattr(self, "filter_form"):
+            return self.filter_form
+
+        if self.request.user.is_superuser:
+            companies_qs = Company.objects.all()
+        else:
+            companies_qs = Company.objects.filter(
+                id__in=_allowed_company_ids_for_request(self.request)
+            )
+
+        return PartnerFilterForm(
+            self.request.GET or None,
+            allowed_companies=companies_qs.order_by("name")
+        )
+
+    # --------------------------------------------------
+    # Context
+    # --------------------------------------------------
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx["list_model"] = self.model._meta.model_name
-        # جميع المستخدمين يستطيعون الإضافة والتعديل
+
+        ctx["list_model"] = "partner"
         ctx["can_add_partner"] = True
-        ctx["partner_change_ids"] = set(
-            self.get_queryset().values_list("id", flat=True)
-        )
+        ctx["partner_change_ids"] = {obj.id for obj in self.object_list}
+
+        ctx["filter_form"] = self.get_filter_form()
+
+        ctx["search_config"] = {
+            "placeholder": "Search partners…",
+            "show_company_filter": True,
+            "show_active_filter": True,
+            "show_range_filter": False,
+        }
+
         return ctx
-
-
-class PartnerUpdateView(LoginRequiredMixin, UpdateView):
-    """
-    Partner Update View
-
-    - Uses PartnerForm (identity & contact only)
-    - No ACL
-    - No permissions
-    """
-
-    model = Partner
-    form_class = PartnerForm
-    template_name = "base/partner_form.html"
-    success_url = reverse_lazy("base:partner_list")
-
-    def get_queryset(self):
-        # بدون ACL أو صلاحيات
-        return Partner.objects.all()
 
 
 class PartnerCreateView(LoginRequiredMixin, BaseScopedCreateView):
@@ -926,67 +1044,175 @@ class PartnerCreateView(LoginRequiredMixin, BaseScopedCreateView):
     success_url = reverse_lazy("base:partner_list")
 
 
-class PartnerDetailView(LoginRequiredMixin, DetailView):
+class PartnerUpdateView(LoginRequiredMixin, BaseScopedUpdateView):
     """
-    Partner Detail View
+    Partner Update View (Identity & Contact only)
+    """
 
+    model = Partner
+    form_class = PartnerForm
+    template_name = "base/partner_form.html"
+    success_url = reverse_lazy("base:partner_list")
+
+    def get_queryset(self):
+        qs = Partner.objects.select_related("company", "parent")
+        return self._enforce_company_on_queryset(qs)
+
+
+class PartnerDetailView(LoginRequiredMixin, BaseScopedDetailView):
+    """
+    Partner Detail View (Scoped)
     - Read-only directory view
-    - No ACL
-    - No permissions
+    - Enforces active company scope (multi-company)
     """
 
     model = Partner
     template_name = "base/partner_detail.html"
 
     def get_queryset(self):
-        return Partner.objects.select_related("company", "parent")
+        qs = Partner.objects.select_related("company", "parent")
+        return self._enforce_company_on_queryset(qs)
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        # جميع المستخدمين يمكنهم التعديل
         ctx["can_edit_object"] = True
         return ctx
 
 
-# --- Users ---
 
-class UserListView(LoginRequiredMixin, BaseScopedListView):
+# ============================================================
+# Users (Odoo-like, company-scope aware)
+# ============================================================
+
+
+class UserListView(LoginRequiredMixin, ListView):
     model = User
     template_name = "base/user_list.html"
     paginate_by = 24
 
+    ORDERING_MAP = {
+        "email": "email",
+        "name": "first_name",
+        "company": "company__name",
+        "latest": "-id",
+    }
+
     def get_queryset(self):
         qs = (
             User.objects
-            .select_related("company")
+            .select_related("company", "partner")
             .prefetch_related("companies")
-            .order_by("email")
         )
-        # نطاق الشركات فقط (إن وُجد حقل company)
-        qs = self._enforce_company_on_queryset(qs)
+
+        # -------------------------------------------------
+        # Company scope (directory logic, not active context)
+        # -------------------------------------------------
+        if not self.request.user.is_superuser:
+            allowed_ids = self.request.user.company_ids
+            qs = qs.filter(
+                Q(company_id__in=allowed_ids) |
+                Q(companies__id__in=allowed_ids)
+            ).distinct()
+
+        # -------------------------------------------------
+        # Apply filters via form (FIXED)
+        # -------------------------------------------------
+        self.filter_form = UserFilterForm(self.request.GET or None)
+
+        # IMPORTANT: inject company queryset BEFORE validation
+        if self.request.user.is_superuser:
+            companies_qs = Company.objects.all()
+        else:
+            companies_qs = Company.objects.filter(
+                id__in=self.request.user.company_ids
+            )
+
+        self.filter_form.set_company_queryset(companies_qs)
+
+        if self.filter_form.is_valid():
+            f = self.filter_form.cleaned_data
+
+            # Search
+            q = f.get("q")
+            if q:
+                qs = qs.filter(
+                    Q(email__icontains=q) |
+                    Q(first_name__icontains=q) |
+                    Q(last_name__icontains=q) |
+                    Q(partner__name__icontains=q)
+                ).distinct()
+
+            # Company
+            if f.get("company"):
+                c = f["company"]
+                qs = qs.filter(
+                    Q(company=c) |
+                    Q(companies=c)
+                ).distinct()
+
+            # Status
+            if f.get("is_active") is not None:
+                qs = qs.filter(is_active=f["is_active"])
+
+            if f.get("email_verified") is not None:
+                qs = qs.filter(email_verified=f["email_verified"])
+
+            if f.get("is_staff") is not None:
+                qs = qs.filter(is_staff=f["is_staff"])
+
+            if f.get("is_superuser") is not None:
+                qs = qs.filter(is_superuser=f["is_superuser"])
+
+            # Ordering
+            order_key = f.get("order") or "email"
+            qs = qs.order_by(self.ORDERING_MAP.get(order_key, "email"))
+
         return qs
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx["list_model"] = self.model._meta.model_name
+
+        # Inject filter form
+        form = getattr(self, "filter_form", UserFilterForm())
+
+        ctx["filter_form"] = form
         ctx["can_add_user"] = True
-        ctx["user_change_ids"] = set(
-            self.get_queryset().values_list("id", flat=True)
-        )
+        ctx["user_change_ids"] = {u.id for u in ctx["object_list"]}
+
         return ctx
 
 
 class UserDetailView(LoginRequiredMixin, DetailView):
     """
-    User directory view.
-    No ACL. No permissions.
+    User Detail View (Company-scope aware, directory)
+
+    Rule:
+    - Superuser: allowed
+    - Normal user: user must be in allowed scope by:
+      (user.company in allowed) OR (user.companies intersects allowed)
     """
 
     model = User
     template_name = "base/user_detail.html"
 
     def get_queryset(self):
-        return User.objects.select_related("company", "partner")
+        return User.objects.select_related("company", "partner").prefetch_related("companies")
+
+    def get_object(self, queryset=None):
+        obj = super().get_object(queryset=queryset)
+
+        if self.request.user.is_superuser:
+            return obj
+
+        allowed_ids = set(_allowed_company_ids_for_request(self.request))
+
+        in_fk = getattr(obj, "company_id", None) in allowed_ids
+        in_m2m = obj.companies.filter(id__in=allowed_ids).exists() if hasattr(obj, "companies") else False
+
+        if not (in_fk or in_m2m):
+            raise PermissionDenied("You do not have access to this user.")
+
+        return obj
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -996,12 +1222,13 @@ class UserDetailView(LoginRequiredMixin, DetailView):
 
 class UserUpdateView(LoginRequiredMixin, UpdateView):
     """
-    User Update View
+    User Update View (Company-scope aware)
 
-    - Any logged-in user can edit any user
-    - No ACL
-    - No permissions
-    - No company scope
+    Rules:
+    - Superuser: can edit any user
+    - Normal user: can edit only users in allowed scope
+    - company / companies fields are restricted to allowed companies
+      (and optionally active-only depending on policy)
     """
 
     model = User
@@ -1010,16 +1237,60 @@ class UserUpdateView(LoginRequiredMixin, UpdateView):
     success_url = reverse_lazy("base:user_list")
 
     def get_queryset(self):
-        return User.objects.select_related("company", "partner")
+        qs = User.objects.select_related("company", "partner").prefetch_related("companies")
+        if self.request.user.is_superuser:
+            return qs
+
+        allowed_ids = _allowed_company_ids_for_request(self.request)
+        return qs.filter(Q(company_id__in=allowed_ids) | Q(companies__id__in=allowed_ids)).distinct()
+
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+
+        # Restrict FK company and M2M companies choices
+        if self.request.user.is_superuser:
+            companies_qs = Company.objects.all()
+        else:
+            companies_qs = Company.objects.filter(id__in=_allowed_company_ids_for_request(self.request))
+
+        if not USER_ALLOW_ASSIGN_INACTIVE_COMPANIES:
+            companies_qs = companies_qs.filter(active=True)
+
+        if "company" in form.fields:
+            form.fields["company"].queryset = companies_qs.order_by("name")
+
+        if "companies" in form.fields:
+            form.fields["companies"].queryset = companies_qs.order_by("name")
+
+        return form
+
+    def form_valid(self, form):
+        # Defensive: ensure selected companies are within allowed scope for non-superuser
+        if not self.request.user.is_superuser:
+            allowed_ids = set(_allowed_company_ids_for_request(self.request))
+
+            fk_company = form.cleaned_data.get("company")
+            if fk_company and fk_company.pk not in allowed_ids:
+                raise PermissionDenied("Company is outside allowed scope.")
+
+            m2m_companies = form.cleaned_data.get("companies")
+            if m2m_companies:
+                bad = [c.pk for c in m2m_companies if c.pk not in allowed_ids]
+                if bad:
+                    raise PermissionDenied("One or more companies are outside allowed scope.")
+
+        return super().form_valid(form)
 
 
-class UserCreateView(LoginRequiredMixin, BaseScopedCreateView):
+class UserCreateView(LoginRequiredMixin, CreateView):
     """
-    User Create View
+    User Create View (Company-scope aware, Odoo-like)
 
-    - No permissions
-    - Company prefill from active company context
-    - Signals handle Partner & UserSettings
+    Rules:
+    - Superuser: can create for any company
+    - Normal user: can create only within allowed companies
+    - Default company is current company context (if exists) but must be allowed
+    - company/companies field choices restricted (active-only optional)
     """
 
     model = User
@@ -1027,38 +1298,119 @@ class UserCreateView(LoginRequiredMixin, BaseScopedCreateView):
     template_name = "base/user_form.html"
     success_url = reverse_lazy("base:user_list")
 
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+
+        # Build allowed companies queryset
+        if self.request.user.is_superuser:
+            companies_qs = Company.objects.all()
+        else:
+            companies_qs = Company.objects.filter(id__in=_allowed_company_ids_for_request(self.request))
+
+        if not USER_ALLOW_ASSIGN_INACTIVE_COMPANIES:
+            companies_qs = companies_qs.filter(active=True)
+
+        companies_qs = companies_qs.order_by("name")
+
+        if "company" in form.fields:
+            form.fields["company"].queryset = companies_qs
+
+        if "companies" in form.fields:
+            form.fields["companies"].queryset = companies_qs
+
+        return form
+
     def get_initial(self):
         initial = super().get_initial()
 
-        from .company_context import get_company_id
+        # Prefill from active company context (nice UX) لكن ضمن allowed
         cid = get_company_id(self.request)
 
         if cid:
-            if "company" in self.form_class.base_fields:
-                initial["company"] = cid
-            if "companies" in self.form_class.base_fields:
-                initial["companies"] = [cid]
+            if self.request.user.is_superuser:
+                allowed = True
+            else:
+                allowed = cid in set(_allowed_company_ids_for_request(self.request))
+
+            if allowed:
+                if "company" in self.form_class.base_fields:
+                    initial["company"] = cid
+                if "companies" in self.form_class.base_fields:
+                    initial["companies"] = [cid]
 
         return initial
 
-    def form_invalid(self, form):
-        # إبقاء السلوك كما هو (تشخيص فقط)
-        print("❌ USER CREATE FORM ERRORS")
-        print("Form errors:", form.errors)
-        print("Non-field errors:", form.non_field_errors())
-        return super().form_invalid(form)
+    def form_valid(self, form):
+        if not self.request.user.is_superuser:
+            allowed_ids = set(_allowed_company_ids_for_request(self.request))
+
+            fk_company = form.cleaned_data.get("company")
+            if fk_company and fk_company.pk not in allowed_ids:
+                raise PermissionDenied("Company is outside allowed scope.")
+
+            m2m_companies = form.cleaned_data.get("companies")
+            if m2m_companies:
+                bad = [c.pk for c in m2m_companies if c.pk not in allowed_ids]
+                if bad:
+                    raise PermissionDenied("One or more companies are outside allowed scope.")
+
+        return super().form_valid(form)
+
 
 
 # --- Companies ---
 class CompanyListView(LoginRequiredMixin, BaseScopedListView):
+    """
+    Company List View (Enterprise-grade)
+
+    Features:
+    - Company scope (multi-company)
+    - Search by name
+    - Active / inactive filter
+    - Parent company filter
+    - Controlled ordering
+    - Pagination
+    """
+
     model = Company
     template_name = "base/company_list.html"
     paginate_by = 24
 
+    # -----------------------------------
+    # Ordering whitelist (UI → DB)
+    # -----------------------------------
+    ORDERING_MAP = {
+        "name": "name",
+        "latest": "-id",
+        "active": ("-active", "name"),
+    }
+
     def get_queryset(self):
-        qs = super().get_queryset()
-        qs = qs.order_by("name")
-        qs = apply_search_filters(self.request, qs, search_fields=["name"])
+        qs = Company.objects.all()
+
+        if not self.request.user.is_superuser:
+            allowed_ids = self.request.user.companies.values_list("id", flat=True)
+            qs = qs.filter(id__in=allowed_ids)
+
+        # Parent filter
+        parent_id = self.request.GET.get("parent")
+        if parent_id:
+            try:
+                qs = qs.filter(parent_id=int(parent_id))
+            except (TypeError, ValueError):
+                pass
+
+        qs = apply_search_filters(
+            self.request,
+            qs,
+            search_fields=["name"],
+        )
+
+        order_key = self.request.GET.get("order") or "name"
+        ordering = self.ORDERING_MAP.get(order_key)
+        if ordering:
+            qs = qs.order_by(*ordering) if isinstance(ordering, (list, tuple)) else qs.order_by(ordering)
+
         return qs
 
     def get_context_data(self, **kwargs):
@@ -1067,32 +1419,81 @@ class CompanyListView(LoginRequiredMixin, BaseScopedListView):
         ctx["list_model"] = self.model._meta.model_name
         ctx["can_add_company"] = True
 
-        # ✅ استخدم نفس queryset المعروض
-        change_ids = (
-            self.get_queryset()
-            .values_list("id", flat=True)
-        )
-        ctx["company_change_ids"] = set(change_ids)
+        ctx["company_change_ids"] = {obj.id for obj in self.object_list}
+
+        # Parent companies for filter dropdown
+        allowed_ids = get_allowed_company_ids(self.request)
+
+        parent_qs = Company.objects.filter(parent__isnull=True)
+
+        # تطبيق Company Scope
+        if allowed_ids:
+            parent_qs = parent_qs.filter(id__in=allowed_ids)
+
+        # (اختياري لكن موصى به)
+        # عدم عرض شركات غير نشطة في الفلتر
+        parent_qs = parent_qs.filter(active=True)
+
+        ctx["parent_companies"] = parent_qs.order_by("name")
+
+        # 🔍 Search panel configuration (بديل with)
+        ctx["search_config"] = {
+            "placeholder": "Search company name…",
+            "show_company_filter": False,
+            "show_active_filter": True,
+            "show_range_filter": False,
+        }
+
+        ctx["filters"] = {
+            "q": self.request.GET.get("q", ""),
+            "active": self.request.GET.get("active", ""),
+            "parent": self.request.GET.get("parent", ""),
+            "order": self.request.GET.get("order", ""),
+        }
 
         return ctx
 
+
 class CompanyDetailView(LoginRequiredMixin, DetailView):
     """
-    Company Detail View
+    Company Detail View (Company-scope aware)
 
     Rules:
-    - NO Company Scope enforcement
-    - ACL enforced explicitly (view)
-    - Company is a structural object
+    - Enforces company scope
+    - Allows access only to allowed companies
+    - Superuser bypass supported
     """
 
     model = Company
     template_name = "base/company_detail.html"
 
+    def get_object(self, queryset=None):
+        """
+        Enforce Company Scope explicitly.
+        Prevent access to companies outside allowed scope.
+        """
+        obj = super().get_object(queryset=queryset)
+
+        # Superuser can access everything
+        if self.request.user.is_superuser:
+            return obj
+
+        # Superuser can access everything
+        if self.request.user.is_superuser:
+            return obj
+
+        # Allowed companies = user.companies (NOT active context)
+        allowed_ids = self.request.user.companies.values_list("id", flat=True)
+
+        if obj.pk not in allowed_ids:
+            raise PermissionDenied("You do not have access to this company.")
+
+        return obj
+
     def get_queryset(self):
         """
-        Enforce ACL (view) only.
-        NO company scope.
+        Optimize related objects loading only.
+        Scope enforced in get_object().
         """
         return (
             Company.objects
@@ -1101,21 +1502,18 @@ class CompanyDetailView(LoginRequiredMixin, DetailView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        obj = ctx.get("object")
-
         ctx["can_edit_object"] = True
         return ctx
 
-class CompanyUpdateView(LoginRequiredMixin, BaseScopedUpdateView):
-    """
-    Company Update View
 
-    Why we override get_object():
-    - BaseScopedUpdateView.get_object() يطبق Object-level ACL عبر _enforce_object_scope_or_404:contentReference[oaicite:4]{index=4}:contentReference[oaicite:5]{index=5}
-    - Company كيان هيكلي (Directory/Root) وغالبًا لا يحتاج Object-level ACL على مستوى السجل
-    - لذلك نعتمد على:
-      1) Django permission: base.change_company
-      2) Active company scope (الشركات النشطة فقط)
+class CompanyUpdateView(LoginRequiredMixin, UpdateView):
+    """
+    Company Update View (Enterprise-grade, Odoo-like)
+
+    Key rules:
+    - Company is a structural object
+    - NOT restricted by active company context
+    - Access controlled by user.companies only
     """
 
     model = Company
@@ -1123,38 +1521,110 @@ class CompanyUpdateView(LoginRequiredMixin, BaseScopedUpdateView):
     template_name = "base/company_form.html"
     success_url = reverse_lazy("base:company_list")
 
+    # ------------------------------------------------------------------
+    # Object retrieval
+    # ------------------------------------------------------------------
     def get_object(self, queryset=None):
-        """
-        Fetch object using Django's UpdateView logic (NOT BaseScopedUpdateView),
-        then enforce:
-        - Django permission
-        - Active company scope
-        """
-        # 1) احصل على الشركة بدون المرور على BaseScopedUpdateView.get_object()
-        obj = UpdateView.get_object(self, queryset=queryset)
+        obj = super().get_object(queryset)
 
-        # 3) تحقق من نطاق الشركات النشطة (multi-company scope)
-        active_ids = get_allowed_company_ids(self.request)
-        if active_ids and obj.pk not in active_ids:
-            raise PermissionDenied("Company is outside active scope.")
+        # Superuser bypass
+        if self.request.user.is_superuser:
+            return obj
+
+        allowed_ids = self.request.user.companies.values_list("id", flat=True)
+
+        if obj.pk not in allowed_ids:
+            raise PermissionDenied("You do not have access to this company.")
 
         return obj
 
-    def form_valid(self, form):
-        """
-        نترك BaseScopedUpdateView.form_valid يعمل من حيث الحفظ،
-        لكن بدون الاعتماد على Object-level ACL الخاص بالـ mixin (لأننا عالجناه في get_object)
-        """
+    # ------------------------------------------------------------------
+    # Form preparation (restrict parent choices)
+    # ------------------------------------------------------------------
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
 
-        # كإجراء إضافي: تأكيد أن الشركة لم تخرج من النطاق بعد التعديل
-        active_ids = get_allowed_company_ids(self.request)
-        if active_ids and form.instance.pk not in active_ids:
-            raise PermissionDenied("Company is outside active scope.")
+        allowed_ids = self.request.user.companies.values_list("id", flat=True)
+
+        parent_qs = (
+            Company.objects
+            .filter(active=True, id__in=allowed_ids)
+            .order_by("name")
+        )
+
+        # Exclude self from parent options
+        if self.object:
+            parent_qs = parent_qs.exclude(id=self.object.id)
+
+        form.fields["parent"].queryset = parent_qs
+
+        return form
+
+    # ------------------------------------------------------------------
+    # Final validation before save
+    # ------------------------------------------------------------------
+    def form_valid(self, form):
+        allowed_ids = self.request.user.companies.values_list("id", flat=True)
+
+        if form.instance.pk not in allowed_ids:
+            raise PermissionDenied("You do not have access to this company.")
+
+        parent = form.cleaned_data.get("parent")
+        if parent and parent.pk not in allowed_ids:
+            raise PermissionDenied("Parent company is outside allowed scope.")
 
         return super().form_valid(form)
 
-class CompanyCreateView(LoginRequiredMixin, BaseScopedCreateView):
+
+class CompanyCreateView(LoginRequiredMixin, CreateView):
+    """
+    Company Create View (Enterprise-grade, Odoo-like)
+
+    Design rules:
+    - Company is a structural object
+    - Parent company choices:
+        - Active companies only
+        - Within user's allowed companies
+    - No dependency on active company context
+    """
+
     model = Company
     form_class = CompanyForm
     template_name = "base/company_form.html"
     success_url = reverse_lazy("base:company_list")
+
+    # ------------------------------------------------------------------
+    # Form preparation (restrict parent choices)
+    # ------------------------------------------------------------------
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+
+        # Superuser: see all active companies
+        if self.request.user.is_superuser:
+            parent_qs = Company.objects.filter(active=True)
+        else:
+            allowed_ids = self.request.user.companies.values_list("id", flat=True)
+            parent_qs = Company.objects.filter(
+                active=True,
+                id__in=allowed_ids,
+            )
+
+        form.fields["parent"].queryset = parent_qs.order_by("name")
+
+        return form
+
+    # ------------------------------------------------------------------
+    # Final validation before save
+    # ------------------------------------------------------------------
+    def form_valid(self, form):
+        # Superuser bypass
+        if self.request.user.is_superuser:
+            return super().form_valid(form)
+
+        allowed_ids = self.request.user.companies.values_list("id", flat=True)
+
+        parent = form.cleaned_data.get("parent")
+        if parent and parent.pk not in allowed_ids:
+            raise PermissionDenied("Parent company is outside allowed scope.")
+
+        return super().form_valid(form)
