@@ -3,7 +3,7 @@
 {% block title %}Company · {{ object.name }}{% endblock %}
 
 {% block content %}
-<div class="px-4 py-6 space-y-8 mx-auto">
+<div class=" mx-auto px-4 py-6 space-y-6">
 
   {# ================= Breadcrumbs ================= #}
   <nav class="text-sm breadcrumbs">
@@ -20,188 +20,396 @@
   </nav>
 
   {# ================= Header ================= #}
-  <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+  <section class="rounded-xl border border-base-300 bg-base-100 p-4 sm:p-5">
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
 
-    <div class="flex items-center gap-3 min-w-0">
-      <h1 class="text-2xl font-bold truncate">
-        {{ object.name }}
-      </h1>
+      <div class="min-w-0 space-y-2">
+        <div class="flex items-center gap-2 flex-wrap">
+          <h1 class="text-2xl font-bold truncate">
+            {{ object.name }}
+          </h1>
 
-      {% if current_company and object.id == current_company.id %}
-        <span class="badge badge-primary badge-outline">
-          Current
-        </span>
-      {% endif %}
+          {% if company_state.is_current %}
+            <span class="badge badge-primary badge-sm">
+              Current
+            </span>
+          {% endif %}
 
-      {% if not object.active %}
-        <span class="badge badge-error badge-outline">
-          Archived
-        </span>
-      {% endif %}
+          {% if not company_state.active %}
+            <span class="badge badge-outline badge-error badge-sm">
+              Inactive
+            </span>
+          {% else %}
+            <span class="badge badge-outline badge-success badge-sm">
+              Active
+            </span>
+          {% endif %}
+        </div>
+
+        <div class="text-sm text-base-content/60">
+          Company record overview and organization context.
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2">
+        {% if can_edit_object %}
+          <a href="{% url 'base:company_edit' object.pk %}"
+             class="btn btn-primary btn-sm">
+            Edit
+          </a>
+        {% endif %}
+
+        <a href="{% url 'base:company_list' %}"
+           class="btn btn-ghost btn-sm">
+          Back
+        </a>
+      </div>
+
+    </div>
+  </section>
+
+  {# ================= Tabs ================= #}
+  <div class="tabs tabs-lifted">
+
+    {# ---------- Tab 1: Overview ---------- #}
+    <input type="radio" name="company_tabs" class="tab" aria-label="Overview" checked="checked" />
+    <div class="tab-content bg-base-100 border border-base-300 rounded-xl p-4 sm:p-6 space-y-6">
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+
+        {# ---- Summary card ---- #}
+        <div class="card border border-base-300 bg-base-100 lg:col-span-1">
+          <div class="card-body p-5 space-y-4">
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0">
+                <div class="text-xs uppercase tracking-wide text-base-content/60">
+                  Summary
+                </div>
+                <div class="mt-1 text-lg font-semibold truncate">
+                  {{ object.name }}
+                </div>
+                <div class="mt-1 text-xs text-base-content/60">
+                  ID #{{ object.id }}
+                </div>
+              </div>
+              {% if object.partner %}
+                <span class="badge badge-outline badge-info">
+                  Partner linked
+                </span>
+              {% endif %}
+            </div>
+
+            <div class="divider my-1"></div>
+
+            <div class="grid grid-cols-1 gap-3 text-sm">
+              <div>
+                <div class="text-base-content/60 text-xs">Status</div>
+                <div class="font-medium">
+                  {% if company_state.active %}
+                    <span class="text-success">Active</span>
+                  {% else %}
+                    <span class="text-error">Inactive</span>
+                  {% endif %}
+                </div>
+              </div>
+
+              <div>
+                <div class="text-base-content/60 text-xs">Currency</div>
+                <div class="font-medium">
+                  {% if object.currency %}
+                    {{ object.currency.code }}{% if object.currency.name %} · {{ object.currency.name }}{% endif %}
+                  {% else %}
+                    <span class="text-base-content/50">—</span>
+                  {% endif %}
+                </div>
+              </div>
+
+              <div>
+                <div class="text-base-content/60 text-xs">Parent</div>
+                <div class="font-medium truncate">
+                  {% if company_parent %}
+                    <a class="link link-hover"
+                       href="{% url 'base:company_detail' company_parent.pk %}">
+                      {{ company_parent.name }}
+                    </a>
+                  {% else %}
+                    <span class="text-base-content/50">Top-level company</span>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        {# ---- Identity card ---- #}
+        <div class="card border border-base-300 bg-base-100 lg:col-span-2">
+          <div class="card-body p-5">
+            <div class="flex items-start justify-between gap-3 mb-4">
+              <div>
+                <div class="text-xs uppercase tracking-wide text-base-content/60">
+                  Identity (from Partner)
+                </div>
+                <div class="mt-1 text-sm text-base-content/60">
+                  Read-only fields synchronized automatically.
+                </div>
+              </div>
+
+              {% if object.partner %}
+                <a href="{% url 'base:partner_detail' object.partner.pk %}"
+                   class="btn btn-outline btn-sm">
+                  View Partner
+                </a>
+              {% endif %}
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+              <div>
+                <div class="text-base-content/60 text-xs">Email</div>
+                <div class="font-medium break-words">
+                  {% if company_identity.email %}
+                    <a class="link link-hover" href="mailto:{{ company_identity.email }}">{{ company_identity.email }}</a>
+                  {% else %}
+                    <span class="text-base-content/50">—</span>
+                  {% endif %}
+                </div>
+              </div>
+
+              <div>
+                <div class="text-base-content/60 text-xs">Phone</div>
+                <div class="font-medium break-words">
+                  {% if company_identity.phone %}
+                    <a class="link link-hover" href="tel:{{ company_identity.phone }}">{{ company_identity.phone }}</a>
+                  {% else %}
+                    <span class="text-base-content/50">—</span>
+                  {% endif %}
+                </div>
+              </div>
+
+              <div>
+                <div class="text-base-content/60 text-xs">Website</div>
+                <div class="font-medium break-words">
+                  {% if company_identity.website %}
+                    <a class="link link-hover" target="_blank" rel="noopener"
+                       href="{{ company_identity.website }}">{{ company_identity.website }}</a>
+                  {% else %}
+                    <span class="text-base-content/50">—</span>
+                  {% endif %}
+                </div>
+              </div>
+
+              <div>
+                <div class="text-base-content/60 text-xs">VAT</div>
+                <div class="font-medium break-words">
+                  {% if company_identity.vat %}
+                    {{ company_identity.vat }}
+                  {% else %}
+                    <span class="text-base-content/50">—</span>
+                  {% endif %}
+                </div>
+              </div>
+
+              <div class="sm:col-span-2">
+                <div class="text-base-content/60 text-xs">Company Registry</div>
+                <div class="font-medium break-words">
+                  {% if company_identity.company_registry %}
+                    {{ company_identity.company_registry }}
+                  {% else %}
+                    <span class="text-base-content/50">—</span>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+
+      {# ---- Address card ---- #}
+      <div class="card border border-base-300 bg-base-100">
+        <div class="card-body p-5">
+          <div class="text-xs uppercase tracking-wide text-base-content/60">
+            Address (from Partner)
+          </div>
+
+          <div class="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
+
+            <div>
+              <div class="text-base-content/60 text-xs">Street</div>
+              <div class="font-medium break-words">
+                {% if company_address.street %}
+                  {{ company_address.street }}
+                {% else %}
+                  <span class="text-base-content/50">—</span>
+                {% endif %}
+              </div>
+              {% if company_address.street2 %}
+                <div class="text-xs text-base-content/60 mt-1 break-words">
+                  {{ company_address.street2 }}
+                </div>
+              {% endif %}
+            </div>
+
+            <div>
+              <div class="text-base-content/60 text-xs">City</div>
+              <div class="font-medium break-words">
+                {% if company_address.city %}
+                  {{ company_address.city }}
+                {% else %}
+                  <span class="text-base-content/50">—</span>
+                {% endif %}
+              </div>
+            </div>
+
+            <div>
+              <div class="text-base-content/60 text-xs">State</div>
+              <div class="font-medium break-words">
+                {% if company_address.state %}
+                  {{ company_address.state }}
+                {% else %}
+                  <span class="text-base-content/50">—</span>
+                {% endif %}
+              </div>
+            </div>
+
+            <div>
+              <div class="text-base-content/60 text-xs">ZIP</div>
+              <div class="font-medium break-words">
+                {% if company_address.zip %}
+                  {{ company_address.zip }}
+                {% else %}
+                  <span class="text-base-content/50">—</span>
+                {% endif %}
+              </div>
+            </div>
+
+            <div>
+              <div class="text-base-content/60 text-xs">Country</div>
+              <div class="font-medium break-words">
+                {% if company_address.country %}
+                  {{ company_address.country }}
+                {% else %}
+                  <span class="text-base-content/50">—</span>
+                {% endif %}
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
     </div>
 
-    <div class="flex items-center gap-2">
-      {% if can_edit_object %}
-        <a href="{% url 'base:company_edit' object.pk %}"
-           class="btn btn-outline btn-sm">
-          Edit
-        </a>
-      {% endif %}
-      <a href="{% url 'base:company_list' %}"
-         class="btn btn-ghost btn-sm">
-        Back
-      </a>
+    {# ---------- Tab 2: Hierarchy ---------- #}
+    <input type="radio" name="company_tabs" class="tab" aria-label="Hierarchy" />
+    <div class="tab-content bg-base-100 border border-base-300 rounded-xl p-4 sm:p-6 space-y-6">
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+        {# Parent #}
+        <div class="card border border-base-300 bg-base-100">
+          <div class="card-body p-5">
+            <div class="text-xs uppercase tracking-wide text-base-content/60">
+              Parent company
+            </div>
+
+            <div class="mt-2 text-sm font-medium">
+              {% if company_parent %}
+                <a href="{% url 'base:company_detail' company_parent.pk %}"
+                   class="link link-hover">
+                  {{ company_parent.name }}
+                </a>
+              {% else %}
+                <span class="text-base-content/50">
+                  No parent (top-level company)
+                </span>
+              {% endif %}
+            </div>
+
+            <div class="divider my-4"></div>
+
+            <div class="text-xs text-base-content/60">
+              Company hierarchy is managed from the Company record itself.
+              Partner hierarchy is synchronized automatically.
+            </div>
+          </div>
+        </div>
+
+        {# Children #}
+        <div class="card border border-base-300 bg-base-100">
+          <div class="card-body p-5">
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <div class="text-xs uppercase tracking-wide text-base-content/60">
+                  Child companies
+                </div>
+                <div class="mt-1 text-xs text-base-content/60">
+                  Active children only.
+                </div>
+              </div>
+              <span class="badge badge-outline">
+                {{ company_children|length }}
+              </span>
+            </div>
+
+            <div class="mt-4 space-y-2 text-sm">
+              {% if company_children %}
+                {% for child in company_children %}
+                  <div class="flex items-center justify-between gap-3">
+                    <a href="{% url 'base:company_detail' child.pk %}"
+                       class="link link-hover truncate">
+                      {{ child.name }}
+                    </a>
+                    <span class="badge badge-outline text-xs">
+                      #{{ child.id }}
+                    </span>
+                  </div>
+                {% endfor %}
+              {% else %}
+                <div class="text-sm text-base-content/50">
+                  No active child companies.
+                </div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+    {# ---------- Tab 3: Metadata ---------- #}
+    <input type="radio" name="company_tabs" class="tab" aria-label="Metadata" />
+    <div class="tab-content bg-base-100 border border-base-300 rounded-xl p-4 sm:p-6">
+
+      <div class="card border border-base-300 bg-base-100">
+        <div class="card-body p-5">
+          <div class="text-xs uppercase tracking-wide text-base-content/60 mb-4">
+            Metadata
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+            <div>
+              <div class="text-base-content/60 text-xs">Created at</div>
+              <div class="font-medium">
+                {{ object.created_at|date:"Y-m-d H:i" }}
+              </div>
+            </div>
+
+            <div>
+              <div class="text-base-content/60 text-xs">Last updated</div>
+              <div class="font-medium">
+                {{ object.updated_at|date:"Y-m-d H:i" }}
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
     </div>
 
   </div>
-
-  {# ================= Hierarchy ================= #}
-  <section>
-    <h2 class="text-sm font-semibold text-base-content/70 mb-3">
-      Company Hierarchy
-    </h2>
-
-    <div class="card bg-base-100 border border-base-300">
-      <div class="card-body p-5 space-y-3 text-sm">
-
-        <div>
-          <span class="text-base-content/60">Parent company</span>
-          <div class="mt-1 font-medium">
-            {% if object.parent %}
-              {% if object.parent.id in active_ids %}
-                <a href="{% url 'base:company_detail' object.parent.pk %}"
-                   class="link link-hover">
-                  {{ object.parent.name }}
-                </a>
-              {% else %}
-                <span class="text-base-content/60">
-                  {{ object.parent.name }}
-                </span>
-                <span class="text-xs text-base-content/40 ml-1">
-                  (out of scope)
-                </span>
-              {% endif %}
-            {% else %}
-              <span class="text-base-content/50">
-                No parent (top-level company)
-              </span>
-            {% endif %}
-          </div>
-        </div>
-
-        <div class="divider my-1"></div>
-
-        <div class="text-xs text-base-content/60">
-          Company hierarchy is managed from the Company record itself.
-          Partner hierarchy is synchronized automatically.
-        </div>
-
-      </div>
-    </div>
-  </section>
-
-  {# ================= Overview ================= #}
-  <section>
-    <h2 class="text-sm font-semibold text-base-content/70 mb-3">
-      Overview
-    </h2>
-
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-
-      {# Linked Partner #}
-      <div class="card bg-base-100 border border-base-300">
-        <div class="card-body p-4">
-          <div class="text-xs uppercase tracking-wide text-base-content/60">
-            Linked Partner
-          </div>
-          <div class="mt-1 font-medium">
-            {% if object.partner %}
-              <a href="{% url 'base:partner_detail' object.partner.pk %}"
-                 class="link link-hover">
-                {{ object.partner.name }}
-              </a>
-            {% else %}
-              <span class="text-base-content/50">—</span>
-            {% endif %}
-          </div>
-        </div>
-      </div>
-
-      {# Status #}
-      <div class="card bg-base-100 border border-base-300">
-        <div class="card-body p-4">
-          <div class="text-xs uppercase tracking-wide text-base-content/60">
-            Status
-          </div>
-          <div class="mt-1 font-medium">
-            {% if object.active %}
-              <span class="text-success">Active</span>
-            {% else %}
-              <span class="text-error">Archived</span>
-            {% endif %}
-          </div>
-        </div>
-      </div>
-
-      {# Company ID #}
-      <div class="card bg-base-100 border border-base-300">
-        <div class="card-body p-4">
-          <div class="text-xs uppercase tracking-wide text-base-content/60">
-            Company ID
-          </div>
-          <div class="mt-1 font-mono text-sm">
-            #{{ object.id }}
-          </div>
-        </div>
-      </div>
-
-      {# Placeholder for future KPIs #}
-      <div class="card bg-base-100 border border-base-300">
-        <div class="card-body p-4">
-          <div class="text-xs uppercase tracking-wide text-base-content/60">
-            Usage
-          </div>
-          <div class="mt-1 text-base-content/50 text-sm">
-            —
-          </div>
-        </div>
-      </div>
-
-    </div>
-  </section>
-
-  {# ================= Metadata ================= #}
-  <section>
-    <h2 class="text-sm font-semibold text-base-content/70 mb-3">
-      Metadata
-    </h2>
-
-    <div class="card bg-base-100 border border-base-300">
-      <div class="card-body p-5">
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-
-          <div>
-            <div class="text-base-content/60">
-              Created at
-            </div>
-            <div class="font-medium">
-              {{ object.created_at|date:"Y-m-d H:i" }}
-            </div>
-          </div>
-
-          <div>
-            <div class="text-base-content/60">
-              Last updated
-            </div>
-            <div class="font-medium">
-              {{ object.updated_at|date:"Y-m-d H:i" }}
-            </div>
-          </div>
-
-        </div>
-      </div>
-    </div>
-  </section>
-
 </div>
 {% endblock %}

@@ -1,62 +1,196 @@
 {% extends "base.html" %}
 {% load widget_tweaks %}
 
-{% block title %}Edit profile · 360 Manager{% endblock %}
+{% block title %}
+Edit Profile · 360 Manager
+{% endblock %}
 
+{# ===================================================== #}
+{# Page Header                                           #}
+{# ===================================================== #}
 {% block page_title %}Profile{% endblock %}
-{% block header_title %}Edit profile{% endblock %}
+
+{% block header_title %}
+Edit profile
+{% endblock %}
+
 {% block header_subtitle %}
 Update your personal information and account details.
 {% endblock %}
 
+{% block page_actions %}
+<a href="{% url 'base:profile' %}" class="btn btn-ghost btn-sm">
+  ← Back to profile
+</a>
+{% endblock %}
+
+{# ===================================================== #}
+{# Page Content                                          #}
+{# ===================================================== #}
 {% block content %}
-<!-- Center wrapper -->
-<div class="flex justify-center">
-  <div class="w-full max-w-2xl">
 
-    <div class="card bg-base-100 shadow-sm">
-      <div class="card-body">
+<div class="max-w-4xl mx-auto space-y-6">
 
-        <form method="post" enctype="multipart/form-data" class="space-y-4" novalidate>
-          {% csrf_token %}
+  <form method="post" enctype="multipart/form-data" novalidate>
+    {% csrf_token %}
 
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {% for field in form %}
-              <div class="form-control">
-                <label class="label">
-                  <span class="label-text">{{ field.label }}</span>
-                </label>
+    {# ===================================================== #}
+    {# Avatar & Identity                                    #}
+    {# ===================================================== #}
+    <div class="card bg-base-100 border border-base-300">
+      <div class="card-body p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
 
-                {% render_field field class="input input-bordered w-full" %}
+        {# ---------- Avatar ---------- #}
+        <div class="flex flex-col items-center text-center gap-3">
 
-                {% if field.help_text %}
-                  <p class="text-xs opacity-60 mt-1">
-                    {{ field.help_text }}
-                  </p>
-                {% endif %}
-
-                {% if field.errors %}
-                  <p class="text-xs text-error mt-1">
-                    {{ field.errors|join:", " }}
-                  </p>
-                {% endif %}
-              </div>
-            {% endfor %}
+          <div class="avatar">
+            <div class="w-28 rounded-full overflow-hidden bg-base-200">
+              {% if request.user.avatar %}
+                <img src="{{ request.user.avatar.url }}" alt="Avatar">
+              {% else %}
+                <div class="flex items-center justify-center h-full text-primary text-3xl font-semibold">
+                  {{ request.user.display_name|slice:":1"|upper }}
+                </div>
+              {% endif %}
+            </div>
           </div>
 
-          <div class="pt-4 flex gap-2">
-            <button type="submit" class="btn btn-primary">
-              Save changes
-            </button>
-            <a href="{% url 'base:profile' %}" class="btn btn-outline">
-              Cancel
-            </a>
+          {% if form.avatar %}
+            <div class="w-full">
+              {% render_field form.avatar class="file-input file-input-bordered file-input-sm w-full" %}
+              {% if form.avatar.errors %}
+                <p class="text-xs text-error mt-1">
+                  {{ form.avatar.errors|striptags }}
+                </p>
+              {% endif %}
+            </div>
+          {% endif %}
+
+          <p class="text-xs text-base-content/60">
+            JPG or PNG. Max 2MB.
+          </p>
+
+        </div>
+
+        {# ---------- Personal info ---------- #}
+        <div class="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+          {# First name #}
+          {% if form.first_name %}
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-medium">First name</span>
+            </label>
+            {% render_field form.first_name class="input input-bordered w-full" %}
+            {% if form.first_name.errors %}
+              <p class="text-xs text-error mt-1">
+                {{ form.first_name.errors|striptags }}
+              </p>
+            {% endif %}
           </div>
-        </form>
+          {% endif %}
+
+          {# Last name #}
+          {% if form.last_name %}
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text font-medium">Last name</span>
+            </label>
+            {% render_field form.last_name class="input input-bordered w-full" %}
+            {% if form.last_name.errors %}
+              <p class="text-xs text-error mt-1">
+                {{ form.last_name.errors|striptags }}
+              </p>
+            {% endif %}
+          </div>
+          {% endif %}
+
+          {# Email (readonly usually) #}
+          {% if form.email %}
+          <div class="form-control sm:col-span-2">
+            <label class="label">
+              <span class="label-text font-medium">Email</span>
+            </label>
+            {% render_field form.email class="input input-bordered w-full" %}
+            {% if form.email.errors %}
+              <p class="text-xs text-error mt-1">
+                {{ form.email.errors|striptags }}
+              </p>
+            {% endif %}
+          </div>
+          {% endif %}
+
+        </div>
 
       </div>
     </div>
 
-  </div>
+    {# ===================================================== #}
+    {# Account Info (Read-only)                              #}
+    {# ===================================================== #}
+    <div class="card bg-base-100 border border-base-300">
+      <div class="card-body p-6">
+
+        <h3 class="text-sm font-semibold text-base-content/70 mb-4">
+          Account information
+        </h3>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+
+          <div>
+            <div class="text-base-content/60">Username</div>
+            <div class="font-medium">
+              {{ request.user.username }}
+            </div>
+          </div>
+
+          <div>
+            <div class="text-base-content/60">Default company</div>
+            <div class="font-medium">
+              {{ request.user.company|default:"—" }}
+            </div>
+          </div>
+
+          <div>
+            <div class="text-base-content/60">Joined</div>
+            <div class="font-medium">
+              {{ request.user.date_joined|date:"Y-m-d" }}
+            </div>
+          </div>
+
+          <div>
+            <div class="text-base-content/60">Last login</div>
+            <div class="font-medium">
+              {{ request.user.last_login|date:"Y-m-d H:i"|default:"—" }}
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+
+    {# ===================================================== #}
+    {# Actions                                               #}
+    {# ===================================================== #}
+    <div class="flex items-center gap-3 pt-2">
+
+      <button type="submit" class="btn btn-primary">
+        Save changes
+      </button>
+
+      <a href="{% url 'base:profile' %}" class="btn btn-ghost">
+        Cancel
+      </a>
+
+      <span class="ml-auto text-xs text-base-content/60">
+        User ID: #{{ request.user.id }}
+      </span>
+
+    </div>
+
+  </form>
+
 </div>
+
 {% endblock %}

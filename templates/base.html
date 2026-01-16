@@ -666,36 +666,50 @@
 </div>
 
 
-        {# Profile / Login #}
-        {% if user.is_authenticated %}
-        <div class="hidden md:block text-sm text-base-content/70 mr-1">
-          Hi, {{ user.name|default:user.email }}
-        </div>
-        <div class="dropdown dropdown-end">
-          <label tabindex="0" class="btn btn-ghost btn-circle avatar">
-            <div class="w-9 rounded-full overflow-hidden bg-base-200">
-              {% if user.avatar %}
-                <img src="{{ user.avatar.url }}" alt="avatar" class="object-cover w-full h-full" />
-              {% else %}
-                <img src="https://api.dicebear.com/8.x/initials/svg?seed={{ user.name|default:user.email }}"
-                     alt="avatar" />
-              {% endif %}
-            </div>
-          </label>
-          <ul tabindex="0"
-              class="menu menu-sm dropdown-content mt-3 z-[1] p-2 shadow bg-base-100 rounded-box w-48">
-            <li><a href="{% url 'base:profile' %}">Profile</a></li>
-            <li><a href="{% url 'base:edit_profile' %}">Edit profile</a></li>
-            <li><a href="{% url 'base:password_change' %}">Change password</a></li>
-            <li><a href="{% url 'base:logout' %}" class="text-error">Logout</a></li>
-          </ul>
-        </div>
+{# Profile / Login #}
+{% if user.is_authenticated %}
+  <div class="hidden md:block text-sm text-base-content/70 mr-1">
+    Hi, ✨ {{ user.display_name|default:user.email }} ✨
+  </div>
+
+  <div class="dropdown dropdown-end">
+    <label tabindex="0" class="btn btn-ghost btn-circle avatar">
+      <div class="w-9 rounded-full overflow-hidden bg-base-200">
+        {% if user.avatar %}
+          <img src="{{ user.avatar.url }}"
+               alt="avatar"
+               class="object-cover w-full h-full" />
         {% else %}
-        <a href="{% url 'base:login' %}?next={{ request.path|urlencode }}"
-           class="btn btn-primary btn-sm">
-          Login
-        </a>
+          <img src="https://api.dicebear.com/8.x/initials/svg?seed={{ user.display_name|default:user.email }}"
+               alt="avatar" />
         {% endif %}
+      </div>
+    </label>
+
+    <ul tabindex="0"
+        class="menu menu-sm dropdown-content mt-3 z-[1] p-2 shadow bg-base-100 rounded-box w-48">
+
+      {# My Profile (Standalone page) #}
+      <li>
+        <a href="{% url 'base:profile' %}">
+          My profile
+        </a>
+      </li>
+      <li>
+        <a href="{% url 'base:logout' %}" class="text-error">
+          Logout
+        </a>
+      </li>
+    </ul>
+  </div>
+
+{% else %}
+  <a href="{% url 'base:login' %}?next={{ request.path|urlencode }}"
+     class="btn btn-primary btn-sm">
+    Login
+  </a>
+{% endif %}
+
       </div>
     </div>
   </header>
@@ -734,19 +748,54 @@
     {% block content %}{% endblock %}
   </main>
 
-  {# Footer #}
-  <footer class="bg-base-100 border-t">
-    <div class="px-4 sm:px-6 py-6 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between text-sm text-base-content/70">
-      <div>© {% now "Y" %} 360 Manager — All rights reserved.</div>
-      <div class="flex flex-wrap items-center gap-3">
-        <a class="link link-hover">Privacy</a>
-        <span class="opacity-40">•</span>
-        <a class="link link-hover">Terms</a>
-        <span class="opacity-40">•</span>
-        <span class="opacity-70">v{{ APP_VERSION|default:"1.0" }}</span>
-      </div>
+{# ===================================================== #}
+{# Global Footer                                        #}
+{# ===================================================== #}
+<footer class="bg-base-100 border-t border-base-300">
+  <div
+    class="px-4 sm:px-6 py-6
+           flex flex-col sm:flex-row
+           gap-3 sm:items-center sm:justify-between
+           text-sm text-base-content/70"
+  >
+
+    {# ---------- Left: Copyright ---------- #}
+    <div class="flex items-center gap-1">
+      <span>
+        © {% now "Y" %} 360 Manager
+      </span>
+      <span class="hidden sm:inline">—</span>
+      <span class="hidden sm:inline">
+        All rights reserved.
+      </span>
     </div>
-  </footer>
+
+    {# ---------- Right: Legal + Version ---------- #}
+    <div class="flex flex-wrap items-center gap-3">
+
+      <a href="{% url 'base:privacy' %}"
+         class="link link-hover">
+        Privacy Policy
+      </a>
+
+      <span class="opacity-40">•</span>
+
+      <a href="{% url 'base:terms' %}"
+         class="link link-hover">
+        Terms of Service
+      </a>
+
+      <span class="opacity-40">•</span>
+
+      <span class="opacity-70">
+        v{{ APP_VERSION|default:"1.0" }}
+      </span>
+
+    </div>
+
+  </div>
+</footer>
+
 
 </div>
 

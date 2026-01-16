@@ -1,4 +1,5 @@
 # base/views.py
+from dataclasses import dataclass
 
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import Q, Count
@@ -184,7 +185,7 @@ def logout_view(request):
 
 @login_required
 def profile_view(request):
-    return render(request, "base/users/profile.html")
+    return render(request, "base/users/profile_page.html")
 
 
 @login_required
@@ -247,58 +248,137 @@ def _allowed_company_ids_for_request(request):
 
 
 # ------------------------------------------------------------
-# Dashboard (Odoo-grade, compact, practical)
+# Dashboard (Odoo-grade, Hybrid UI, company-checkbox scope)
 # ------------------------------------------------------------
+
+
+
+@dataclass(frozen=True)
+class DashboardSearchResult:
+    title: str
+    subtitle: str
+    open_url: str
+
+
 class HomeView(LoginRequiredMixin, TemplateView):
+    """
+    Dashboard rules (FINAL):
+    - Scope = companies SELECTED by user in Navbar (checkboxes) WITHIN allowed scope.
+      Sources:
+        * allowed: request.allowed_company_ids (security scope) OR request.user.company_ids
+        * selected: request.selected_company_ids (Navbar choice) OR fallback to allowed
+      Always: selected ∩ allowed
+
+    - Global search:
+      * Single input
+      * Top N results per entity
+      * “View all results” links to list pages with ?q=...
+
+    - KPIs + Health:
+      Practical data quality checks requiring action.
+
+    - Performance:
+      Expected < 10k records -> OK on-demand with efficient queries.
+    """
+
     template_name = "home.html"
 
-    # ---- Dashboard knobs (tune without touching template) ----
-    RECENT_LIMIT = 5
-    SEARCH_LIMIT = 8
+    RECENT_LIMIT = 6
+    SEARCH_LIMIT = 7
 
     # ---------------------------------------------------------
-    # Helpers
+    # Safe helpers
     # ---------------------------------------------------------
     @staticmethod
     def _has_field(model, field_name: str) -> bool:
-        return any(f.name == field_name for f in model._meta.get_fields() if hasattr(f, "name"))
+        return any(getattr(f, "name", None) == field_name for f in model._meta.get_fields())
 
     def _filter_active_if_supported(self, qs):
         """
-        Apply active=True only if model has 'active' field.
-        Keeps this dashboard robust even if some base models differ.
+        Applies active=True if the model has 'active' field.
+        This keeps behavior consistent across models.
         """
-        model = qs.model
-        if self._has_field(model, "active"):
+        if self._has_field(qs.model, "active"):
             return qs.filter(active=True)
         return qs
 
-    def _safe_reverse(self, name: str, fallback: str = "#", kwargs=None) -> str:
+    def _safe_reverse(
+        self,
+        name: str,
+        fallback: str = "#",
+        kwargs: dict | None = None,
+        query: dict | None = None,
+    ) -> str:
         try:
-            return reverse(name, kwargs=kwargs or {})
+            url = reverse(name, kwargs=kwargs or {})
         except NoReverseMatch:
             return fallback
 
-    def _get_active_company_ids(self, Company, allowed_companies_qs):
-        """
-        Active companies only + within allowed companies.
-        Uses request.allowed_company_ids if provided by middleware,
-        otherwise falls back to user's allowed companies.
-        """
-        # user allowed companies
-        allowed_companies_qs = self._filter_active_if_supported(allowed_companies_qs)
+        if query:
+            parts = []
+            for k, v in query.items():
+                if v is None or v == "":
+                    continue
+                parts.append(f"{k}={v}")
+            if parts:
+                url = url + ("&" if "?" in url else "?") + "&".join(parts)
+        return url
 
-        # middleware-provided allowed company ids (if any)
-        active_ids = getattr(self.request, "allowed_company_ids", None)
-        if active_ids:
-            # intersect with allowed companies, and keep only active companies
-            qs = Company.objects.filter(id__in=active_ids)
-            qs = self._filter_active_if_supported(qs)
-            qs = qs.filter(id__in=allowed_companies_qs.values_list("id", flat=True))
-            return list(qs.values_list("id", flat=True))
+    # ---------------------------------------------------------
+    # Company scope (selected in Navbar within allowed)
+    # ---------------------------------------------------------
+    def _get_allowed_company_ids(self, Company) -> list[int]:
+        """
+        Allowed scope (security).
+        Prefer middleware injection; fallback to user.company_ids; last resort: any one company.
+        """
+        allowed = getattr(self.request, "allowed_company_ids", None)
+        if allowed:
+            try:
+                allowed_ids = [int(x) for x in list(allowed)]
+            except Exception:
+                allowed_ids = []
 
-        # fallback: all active allowed companies
-        return list(allowed_companies_qs.values_list("id", flat=True))
+            if allowed_ids:
+                return allowed_ids
+
+        user_allowed = list(getattr(self.request.user, "company_ids", []) or [])
+        if user_allowed:
+            return [int(x) for x in user_allowed if str(x).isdigit() or isinstance(x, int)]
+
+        # Last resort: avoid crashing dashboard
+        return list(Company.objects.values_list("id", flat=True)[:1])
+
+    def _get_selected_company_ids(self, Company, allowed_company_ids: list[int]) -> list[int]:
+        """
+        Selected scope (user choice) within allowed.
+        Primary: request.selected_company_ids (from middleware reading session)
+        Fallback: allowed_company_ids
+        Always: selected ∩ allowed
+        Also enforces Company.active=True if supported.
+        """
+        selected = getattr(self.request, "selected_company_ids", None)
+
+        if selected:
+            try:
+                selected_ids = [int(x) for x in list(selected)]
+            except Exception:
+                selected_ids = list(allowed_company_ids)
+        else:
+            selected_ids = list(allowed_company_ids)
+
+        # hard safety: intersect with allowed
+        allowed_set = set(int(x) for x in allowed_company_ids)
+        selected_ids = [cid for cid in selected_ids if int(cid) in allowed_set]
+
+        if not selected_ids:
+            selected_ids = list(allowed_company_ids)
+
+        # keep only active companies if Company has 'active'
+        qs = Company.objects.filter(id__in=selected_ids)
+        qs = self._filter_active_if_supported(qs)
+
+        return list(qs.values_list("id", flat=True))
 
     # ---------------------------------------------------------
     # Main context
@@ -310,182 +390,235 @@ class HomeView(LoginRequiredMixin, TemplateView):
         Company = apps.get_model("base", "Company")
         Partner = apps.get_model("base", "Partner")
         User = apps.get_model("base", "User")
-
         Employee = apps.get_model("hr", "Employee")
         Asset = apps.get_model("assets", "Asset")
-
         Skill = apps.get_model("skills", "Skill")
         EmployeeSkill = apps.get_model("skills", "EmployeeSkill")
-
         Payslip = apps.get_model("payroll", "Payslip")
 
-        # Current company injected by middleware (optional)
+        # -----------------------------------------------------
+        # Allowed + Selected company ids
+        # -----------------------------------------------------
+        allowed_company_ids = self._get_allowed_company_ids(Company)
+        selected_company_ids = self._get_selected_company_ids(Company, allowed_company_ids)
+
+        selected_companies_qs = Company.objects.filter(id__in=selected_company_ids).order_by("name")
+        selected_companies_qs = self._filter_active_if_supported(selected_companies_qs)
+
+        # Current company badge (optional)
         current_company = None
-        cid = getattr(self.request, "company_id", None)
-        if cid:
-            current_company = Company.objects.filter(id=cid).first()
-        ctx["current_company"] = current_company
+        current_cid = getattr(self.request, "company_id", None)
+        if current_cid:
+            current_company = Company.objects.filter(id=current_cid).first()
 
-        # Allowed companies (user scope) + active only
-        allowed_companies = getattr(self.request.user, "companies", None)
-        allowed_companies_qs = allowed_companies.all() if allowed_companies else Company.objects.none()
-
-        active_company_ids = self._get_active_company_ids(Company, allowed_companies_qs)
-
-        # Active companies queryset (for UI dropdown/preview)
-        active_companies_qs = Company.objects.filter(id__in=active_company_ids).order_by("name")
-        # (ensure active=True if supported)
-        active_companies_qs = self._filter_active_if_supported(active_companies_qs)
-
-        # -------------------------
-        # Base app counts (active companies only)
-        # -------------------------
-        partners_qs = Partner.objects.filter(company_id__in=active_company_ids)
+        # -----------------------------------------------------
+        # Scoped querysets (ALL must use selected_company_ids)
+        # -----------------------------------------------------
+        partners_qs = Partner.objects.filter(company_id__in=selected_company_ids)
         partners_qs = self._filter_active_if_supported(partners_qs)
 
-        users_qs = User.objects.filter(company_id__in=active_company_ids)
-        users_qs = self._filter_active_if_supported(users_qs)
-
-        # -------------------------
-        # HR / Assets / Skills / Payroll (active companies + active=True where applicable)
-        # -------------------------
-        employees_qs = Employee.objects.filter(company_id__in=active_company_ids, active=True)
-        assets_qs = Asset.objects.filter(company_id__in=active_company_ids, active=True)
-
-        skills_qs = Skill.objects.filter(active=True)
-        # EmployeeSkill has its own active + company field
-        employee_skills_qs = EmployeeSkill.objects.filter(company_id__in=active_company_ids, active=True)
-
-        # Payslip has no 'active' field; filter by company only
-        payslips_qs = Payslip.objects.filter(company_id__in=active_company_ids)
-
-        # -------------------------
-        # KPI Counters (correct, fast)
-        # -------------------------
-        companies_count = len(getattr(self.request, "allowed_company_ids", []))
-        partners_count = partners_qs.count()
-        users_count = users_qs.count()
-
-        employees_count = employees_qs.count()
-        assets_count = assets_qs.count()
-
-        skills_count = skills_qs.count()
-        employee_skills_count = employee_skills_qs.count()
-
-        payslips_count = payslips_qs.count()
-
-        # -------------------------
-        # Breakdowns (for practical dashboard widgets)
-        # -------------------------
-        # Asset status breakdown
-        assets_by_status = (
-            assets_qs.values("status")
-            .annotate(cnt=Count("id"))
-            .order_by("-cnt")
-        )
-        assets_by_status_map = {row["status"]: row["cnt"] for row in assets_by_status}
-
-        # Payslip state breakdown
-        payslips_by_state = (
-            payslips_qs.values("state")
-            .annotate(cnt=Count("id"))
-            .order_by("-cnt")
-        )
-        payslips_by_state_map = {row["state"]: row["cnt"] for row in payslips_by_state}
-
-        # -------------------------
-        # Recent activity (compact, Odoo-like)
-        # -------------------------
-
-        recent_partners = list(
-            partners_qs
-            .select_related("company", "parent")
-            .order_by("-id")[: self.RECENT_LIMIT]
-        )
-        for p in recent_partners:
-            p.open_url = self._safe_reverse(
-                "base:partner_edit",
-                kwargs={"pk": p.pk},
+        # Users: include FK company + M2M companies, scoped to selected
+        users_qs = (
+            User.objects
+            .filter(
+                Q(company_id__in=selected_company_ids) |
+                Q(companies__id__in=selected_company_ids)
             )
-
-        recent_users = list(
-            users_qs
-            .select_related("company", "partner")
-            .order_by("-id")[: self.RECENT_LIMIT]
+            .distinct()
         )
-        for u in recent_users:
-            u.open_url = self._safe_reverse(
-                "base:user_edit",
-                kwargs={"pk": u.pk},
-            )
+        # NOTE: لا نُطبق is_active هنا حتى KPI users يعكس جميع المستخدمين داخل scope
+        # مؤشرات الصحة ستعالج inactive/unverified وغيرها.
 
-        recent_employees = list(
-            employees_qs
-            .select_related("company", "department", "job")
-            .order_by("-id")[: self.RECENT_LIMIT]
-        )
-        for e in recent_employees:
-            e.open_url = self._safe_reverse(
-                "hr:employee_edit",
-                kwargs={"pk": e.pk},
-            )
+        employees_qs = Employee.objects.filter(company_id__in=selected_company_ids)
+        employees_qs = self._filter_active_if_supported(employees_qs)
 
-        recent_assets = list(
-            assets_qs
-            .select_related("company", "category", "department", "holder")
-            .order_by("-id")[: self.RECENT_LIMIT]
-        )
-        for a in recent_assets:
-            a.open_url = self._safe_reverse(
-                "assets:asset_edit",
-                kwargs={"pk": a.pk},
-            )
+        assets_qs = Asset.objects.filter(company_id__in=selected_company_ids)
+        assets_qs = self._filter_active_if_supported(assets_qs)
 
-        recent_employee_skills = list(
-            employee_skills_qs
-            .select_related("employee", "skill", "skill_type", "skill_level", "company")
-            .order_by("-id")[: self.RECENT_LIMIT]
-        )
-        for es in recent_employee_skills:
-            es.open_url = self._safe_reverse(
-                "skills:employeeskill_update",
-                kwargs={"pk": es.pk},
-            )
+        # Skills are global reference data (لا ترتبط بالشركات)
+        skills_qs = Skill.objects.all()
+        skills_qs = self._filter_active_if_supported(skills_qs)
 
-        recent_payslips = list(
-            payslips_qs
-            .select_related("company", "employee", "period")
-            .order_by("-id")[: self.RECENT_LIMIT]
-        )
-        for ps in recent_payslips:
-            ps.open_url = self._safe_reverse(
-                "payroll:payslip_edit",
-                kwargs={"pk": ps.pk},
-            )
+        employee_skills_qs = EmployeeSkill.objects.filter(company_id__in=selected_company_ids)
+        employee_skills_qs = self._filter_active_if_supported(employee_skills_qs)
 
-        # -------------------------
-        # Global Quick Search (single input, top results)
-        # ?q=...
-        # -------------------------
-        q = (self.request.GET.get("q") or "").strip()
-        search = {
-            "q": q,
-            "partners": [],
-            "employees": [],
-            "assets": [],
+        payslips_qs = Payslip.objects.filter(company_id__in=selected_company_ids)
+        # Payslip غالباً لا يحتوي active
+
+        # -----------------------------------------------------
+        # Core KPIs (now fully scoped)
+        # -----------------------------------------------------
+        kpis = {
+            "companies": selected_companies_qs.count(),
+            "partners": partners_qs.count(),
+            "users": users_qs.count(),
+            "employees": employees_qs.count(),
+            "assets": assets_qs.count(),
+            "skills": skills_qs.count(),  # global by design
+            "employee_skills": employee_skills_qs.count(),
+            "payslips": payslips_qs.count(),
         }
+
+        # -----------------------------------------------------
+        # Breakdowns (scoped)
+        # -----------------------------------------------------
+        assets_by_status_map = {
+            row["status"]: row["cnt"]
+            for row in (
+                assets_qs.values("status")
+                .annotate(cnt=Count("id"))
+                .order_by("-cnt")
+            )
+        }
+
+        payslips_by_state_map = {
+            row["state"]: row["cnt"]
+            for row in (
+                payslips_qs.values("state")
+                .annotate(cnt=Count("id"))
+                .order_by("-cnt")
+            )
+        }
+
+        # -----------------------------------------------------
+        # Health Indicators (scoped)
+        # -----------------------------------------------------
+        health = {}
+
+        # Employees without department
+        if self._has_field(Employee, "department"):
+            health["employees_without_department"] = employees_qs.filter(department__isnull=True).count()
+        else:
+            health["employees_without_department"] = 0
+
+        # Assets without holder
+        if self._has_field(Asset, "holder"):
+            health["assets_unassigned"] = assets_qs.filter(holder__isnull=True).count()
+        else:
+            health["assets_unassigned"] = 0
+
+        # Partners missing contact info (email+phone+mobile)
+        # (نقيس "missing all" بشكل صحيح)
+        missing_parts = [Q(email="") | Q(email__isnull=True)]
+        if self._has_field(Partner, "phone"):
+            missing_parts.append(Q(phone="") | Q(phone__isnull=True))
+        if self._has_field(Partner, "mobile"):
+            missing_parts.append(Q(mobile="") | Q(mobile__isnull=True))
+
+        partner_missing_q = missing_parts[0]
+        for extra in missing_parts[1:]:
+            partner_missing_q &= extra
+
+        health["partners_missing_contact"] = partners_qs.filter(partner_missing_q).count()
+
+        # Users without partner
+        if self._has_field(User, "partner"):
+            health["users_without_partner"] = users_qs.filter(partner__isnull=True).count()
+        else:
+            health["users_without_partner"] = 0
+
+        # Users inactive
+        if self._has_field(User, "is_active"):
+            health["users_inactive"] = users_qs.filter(is_active=False).count()
+        else:
+            health["users_inactive"] = 0
+
+        # Users email not verified
+        if self._has_field(User, "email_verified"):
+            health["users_unverified_email"] = users_qs.filter(email_verified=False).count()
+        else:
+            health["users_unverified_email"] = 0
+
+        # Payslips unpaid
+        if self._has_field(Payslip, "state"):
+            health["payslips_unpaid"] = payslips_qs.exclude(state="paid").count()
+        else:
+            health["payslips_unpaid"] = 0
+
+        # Employees without skills
+        if self._has_field(EmployeeSkill, "employee"):
+            employee_ids_with_skills = employee_skills_qs.values_list("employee_id", flat=True).distinct()
+            health["employees_without_skills"] = employees_qs.exclude(id__in=employee_ids_with_skills).count()
+        else:
+            health["employees_without_skills"] = 0
+
+        # -----------------------------------------------------
+        # Recent activity (scoped)
+        # -----------------------------------------------------
+        def _attach_open_url(items, url_name: str):
+            for obj in items:
+                obj.open_url = self._safe_reverse(url_name, kwargs={"pk": obj.pk})
+            return items
+
+        recent = {
+            "employees": _attach_open_url(
+                list(
+                    employees_qs.select_related("company", "department", "job")
+                    .order_by("-id")[: self.RECENT_LIMIT]
+                ),
+                "hr:employee_edit",
+            ),
+            "assets": _attach_open_url(
+                list(
+                    assets_qs.select_related("company", "category", "department", "holder")
+                    .order_by("-id")[: self.RECENT_LIMIT]
+                ),
+                "assets:asset_edit",
+            ),
+            "partners": _attach_open_url(
+                list(
+                    partners_qs.select_related("company", "parent")
+                    .order_by("-id")[: self.RECENT_LIMIT]
+                ),
+                "base:partner_edit",
+            ),
+            "users": _attach_open_url(
+                list(
+                    users_qs.select_related("company", "partner")
+                    .order_by("-id")[: self.RECENT_LIMIT]
+                ),
+                "base:user_edit",
+            ),
+            "payslips": _attach_open_url(
+                list(
+                    payslips_qs.select_related("company", "employee", "period")
+                    .order_by("-id")[: self.RECENT_LIMIT]
+                ),
+                "payroll:payslip_edit",
+            ),
+        }
+
+        # -----------------------------------------------------
+        # Best-practice global search (scoped)
+        # -----------------------------------------------------
+        q = (self.request.GET.get("q") or "").strip()
+        search = {"q": q, "partners": [], "employees": [], "assets": [], "users": []}
+
         if q:
-            # Partners (name + optionally other common fields if exist)
+            # Partners
             partner_filter = Q(name__icontains=q)
-            # add phone/email if fields exist
-            if self._has_field(Partner, "phone"):
-                partner_filter |= Q(phone__icontains=q)
+            if self._has_field(Partner, "display_name"):
+                partner_filter |= Q(display_name__icontains=q)
             if self._has_field(Partner, "email"):
                 partner_filter |= Q(email__icontains=q)
+            if self._has_field(Partner, "phone"):
+                partner_filter |= Q(phone__icontains=q)
+            if self._has_field(Partner, "mobile"):
+                partner_filter |= Q(mobile__icontains=q)
 
-            search["partners"] = list(
-                partners_qs.filter(partner_filter).select_related("company").order_by("name")[: self.SEARCH_LIMIT]
+            partners_found = (
+                partners_qs.filter(partner_filter)
+                .select_related("company")
+                .order_by("name")[: self.SEARCH_LIMIT]
             )
+            search["partners"] = [
+                DashboardSearchResult(
+                    title=(getattr(p, "display_name", "") or p.name or "—"),
+                    subtitle=(str(getattr(p, "company", "")) or ""),
+                    open_url=self._safe_reverse("base:partner_detail", kwargs={"pk": p.pk}),
+                )
+                for p in partners_found
+            ]
 
             # Employees
             emp_filter = Q(name__icontains=q)
@@ -494,77 +627,99 @@ class HomeView(LoginRequiredMixin, TemplateView):
             if self._has_field(Employee, "private_email"):
                 emp_filter |= Q(private_email__icontains=q)
 
-            search["employees"] = list(
-                employees_qs.filter(emp_filter).select_related("company", "department").order_by("name")[: self.SEARCH_LIMIT]
+            employees_found = (
+                employees_qs.filter(emp_filter)
+                .select_related("company", "department")
+                .order_by("name")[: self.SEARCH_LIMIT]
             )
+            search["employees"] = [
+                DashboardSearchResult(
+                    title=(getattr(e, "name", "") or "—"),
+                    subtitle=(str(getattr(e, "department", "")) or ""),
+                    open_url=self._safe_reverse("hr:employee_detail", kwargs={"pk": e.pk}),
+                )
+                for e in employees_found
+            ]
 
-            # Assets (code/name/serial)
+            # Assets
             asset_filter = Q(name__icontains=q) | Q(code__icontains=q)
             if self._has_field(Asset, "serial"):
                 asset_filter |= Q(serial__icontains=q)
 
-            search["assets"] = list(
-                assets_qs.filter(asset_filter).select_related("company").order_by("code")[: self.SEARCH_LIMIT]
+            assets_found = (
+                assets_qs.filter(asset_filter)
+                .select_related("company")
+                .order_by("code")[: self.SEARCH_LIMIT]
             )
+            search["assets"] = [
+                DashboardSearchResult(
+                    title=f"{getattr(a, 'code', '')} — {getattr(a, 'name', '')}".strip(" —"),
+                    subtitle=(str(getattr(a, "company", "")) or ""),
+                    open_url=self._safe_reverse("assets:asset_detail", kwargs={"pk": a.pk}),
+                )
+                for a in assets_found
+            ]
 
-        # -------------------------
-        # URLs (safe reverse so dashboard never breaks if a url name changes)
-        # -------------------------
+            # Users
+            user_filter = Q(email__icontains=q) | Q(first_name__icontains=q) | Q(last_name__icontains=q)
+            if self._has_field(User, "partner"):
+                user_filter |= Q(partner__name__icontains=q)
+
+            users_found = (
+                users_qs.filter(user_filter)
+                .select_related("company", "partner")
+                .order_by("email")[: self.SEARCH_LIMIT]
+            )
+            search["users"] = [
+                DashboardSearchResult(
+                    title=(getattr(u, "email", "") or "—"),
+                    subtitle=(u.get_full_name() or (getattr(u, "partner", None) and u.partner.name) or ""),
+                    open_url=self._safe_reverse("base:user_detail", kwargs={"pk": u.pk}),
+                )
+                for u in users_found
+            ]
+
+        # -----------------------------------------------------
+        # URLs + view-all search links
+        # -----------------------------------------------------
         urls = {
             "partners_list": self._safe_reverse("base:partner_list"),
             "partners_create": self._safe_reverse("base:partner_create"),
-
+            "users_list": self._safe_reverse("base:user_list"),
+            "users_create": self._safe_reverse("base:user_create"),
             "employees_list": self._safe_reverse("hr:employee_list"),
             "employees_create": self._safe_reverse("hr:employee_create"),
-
             "assets_list": self._safe_reverse("assets:asset_list"),
             "assets_create": self._safe_reverse("assets:asset_create"),
-
-            "skills_list": self._safe_reverse("skills:skill_list"),
-            "employee_skills_list": self._safe_reverse("skills:employeeskill_list"),
-
             "payslips_list": self._safe_reverse("payroll:payslip_list"),
             "payslips_create": self._safe_reverse("payroll:payslip_create"),
         }
 
-        # -------------------------
+        search_all = {
+            "partners": self._safe_reverse("base:partner_list", query={"q": q}),
+            "employees": self._safe_reverse("hr:employee_list", query={"q": q}),
+            "assets": self._safe_reverse("assets:asset_list", query={"q": q}),
+            "users": self._safe_reverse("base:user_list", query={"q": q}),
+        }
+
+        # -----------------------------------------------------
         # Context
-        # -------------------------
+        # -----------------------------------------------------
         ctx.update({
-            # company scope
-            "active_company_ids": active_company_ids,
-            "active_companies": active_companies_qs,
-            "companies_count": companies_count,
+            "current_company": current_company,
+            "selected_company_ids": selected_company_ids,
+            "selected_companies": selected_companies_qs,
 
-            # KPIs
-            "partners_count": partners_count,
-            "users_count": users_count,
-            "employees_count": employees_count,
-            "assets_count": assets_count,
-            "skills_count": skills_count,
-            "employee_skills_count": employee_skills_count,
-            "payslips_count": payslips_count,
-
-            # breakdowns
+            "kpis": kpis,
             "assets_by_status": assets_by_status_map,
             "payslips_by_state": payslips_by_state_map,
-
-            # recent
-            "recent_partners": recent_partners,
-            "recent_users": recent_users,
-            "recent_employees": recent_employees,
-            "recent_assets": recent_assets,
-            "recent_employee_skills": recent_employee_skills,
-            "recent_payslips": recent_payslips,
-
-            # search
+            "health": health,
+            "recent": recent,
             "search": search,
-
-            # urls
+            "search_all": search_all,
             "urls": urls,
         })
         return ctx
-
 
 # ------------------------------------------------------------
 # Company Switch (Multi-company like Odoo)
@@ -1392,12 +1547,20 @@ class CompanyListView(LoginRequiredMixin, BaseScopedListView):
             allowed_ids = self.request.user.companies.values_list("id", flat=True)
             qs = qs.filter(id__in=allowed_ids)
 
-        # Parent filter
+        # -----------------------------------
+        # Parent company filter (hierarchy-aware)
+        # -----------------------------------
         parent_id = self.request.GET.get("parent")
         if parent_id:
             try:
-                qs = qs.filter(parent_id=int(parent_id))
-            except (TypeError, ValueError):
+                parent = Company.objects.get(pk=int(parent_id))
+
+                # Include selected parent + all its descendants
+                qs = qs.filter(
+                    parent_path__startswith=parent.parent_path
+                )
+
+            except (Company.DoesNotExist, ValueError, TypeError):
                 pass
 
         qs = apply_search_filters(
@@ -1405,6 +1568,13 @@ class CompanyListView(LoginRequiredMixin, BaseScopedListView):
             qs,
             search_fields=["name"],
         )
+
+        # -----------------------------------
+        # Active / Inactive filter
+        # -----------------------------------
+        active = self.request.GET.get("active")
+        if active in ("0", "1"):
+            qs = qs.filter(active=(active == "1"))
 
         order_key = self.request.GET.get("order") or "name"
         ordering = self.ORDERING_MAP.get(order_key)
@@ -1424,17 +1594,14 @@ class CompanyListView(LoginRequiredMixin, BaseScopedListView):
         # Parent companies for filter dropdown
         allowed_ids = get_allowed_company_ids(self.request)
 
-        parent_qs = Company.objects.filter(parent__isnull=True)
+        parent_qs = Company.objects.filter(active=True)
 
         # تطبيق Company Scope
         if allowed_ids:
             parent_qs = parent_qs.filter(id__in=allowed_ids)
 
-        # (اختياري لكن موصى به)
-        # عدم عرض شركات غير نشطة في الفلتر
-        parent_qs = parent_qs.filter(active=True)
-
-        ctx["parent_companies"] = parent_qs.order_by("name")
+        # ترتيب هرمي صحيح (يعتمد على parent_path)
+        ctx["parent_companies"] = parent_qs.order_by("parent_path", "name")
 
         # 🔍 Search panel configuration (بديل with)
         ctx["search_config"] = {
@@ -1478,10 +1645,6 @@ class CompanyDetailView(LoginRequiredMixin, DetailView):
         if self.request.user.is_superuser:
             return obj
 
-        # Superuser can access everything
-        if self.request.user.is_superuser:
-            return obj
-
         # Allowed companies = user.companies (NOT active context)
         allowed_ids = self.request.user.companies.values_list("id", flat=True)
 
@@ -1502,7 +1665,53 @@ class CompanyDetailView(LoginRequiredMixin, DetailView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
+
+        company = self.object
+        partner = company.partner
+
+        # ----------------------------------
+        # Permissions / actions
+        # ----------------------------------
         ctx["can_edit_object"] = True
+
+        # ----------------------------------
+        # Identity data (read-only, from Partner)
+        # ----------------------------------
+        ctx["company_identity"] = {
+            "email": company.email,
+            "phone": company.phone,
+            "website": company.website,
+            "vat": company.vat,
+            "company_registry": company.company_registry,
+        }
+
+        ctx["company_address"] = {
+            "street": company.street,
+            "street2": company.street2,
+            "city": company.city,
+            "state": company.state,
+            "zip": company.zip,
+            "country": company.country,
+        }
+
+        # ----------------------------------
+        # Hierarchy info
+        # ----------------------------------
+        ctx["company_parent"] = company.parent
+        ctx["company_children"] = company.children.filter(active=True).order_by("name")
+
+        # ----------------------------------
+        # Company state
+        # ----------------------------------
+        ctx["company_state"] = {
+            "active": company.active,
+            "is_current": (
+                hasattr(self.request, "current_company")
+                and self.request.current_company
+                and self.request.current_company.id == company.id
+            ),
+        }
+
         return ctx
 
 
@@ -1628,3 +1837,19 @@ class CompanyCreateView(LoginRequiredMixin, CreateView):
             raise PermissionDenied("Parent company is outside allowed scope.")
 
         return super().form_valid(form)
+
+    def get_initial(self):
+        initial = super().get_initial()
+        initial.setdefault("active", True)
+        return initial
+
+
+
+# -----------terms_of_service and privacy_policy ------------
+
+class TermsOfServiceView(TemplateView):
+    template_name = "pages/terms_of_service.html"
+
+
+class PrivacyPolicyView(TemplateView):
+    template_name = "pages/privacy_policy.html"

@@ -128,10 +128,26 @@
                 <div class="inline-flex items-center justify-end gap-2">
 
                   {% if p.id in partner_change_ids %}
+                    <!-- Edit Partner -->
                     <a href="{% url 'base:partner_edit' p.pk %}"
-                       class="btn btn-xs btn-ghost">
-                      Edit
+                       class="tooltip tooltip-left"
+                       data-tip="Edit">
+                      <div class="btn btn-ghost btn-xs text-primary hover:bg-primary/10">
+                        <svg xmlns="http://www.w3.org/2000/svg"
+                             class="h-4 w-4"
+                             fill="none"
+                             viewBox="0 0 24 24"
+                             stroke="currentColor">
+                          <path stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M15.232 5.232l3.536 3.536
+                                   M9 11l6.232-6.232a2.5 2.5 0 013.536 3.536
+                                   L12.536 14.536 9 15l.464-3.464z" />
+                        </svg>
+                      </div>
                     </a>
+
                   {% endif %}
 
                 </div>

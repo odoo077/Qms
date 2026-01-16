@@ -364,25 +364,48 @@ class Company(UserStampedMixin,TimeStampedMixin, ActivableMixin):
         # - أي عدم اتساق يتم تصحيحه تلقائيًا عبر signals بعد الحفظ
 
     def save(self, *args, **kwargs):
-        """
-        Company.save (Odoo-like):
-          - لا ننشئ Partner هنا (توليده منوط بالـ signal بعد اكتمال المعاملة لضمان الاتساق).
-          - نحسب parent_path دومًا بعد توفّر pk وبعد أي تعديل على parent.
-        """
-        # 1) احفظ أولاً للحصول على PK
+        is_new = self.pk is None
+        old_parent_path = None
+
+        if not is_new:
+            old_parent_path = (
+                Company.objects
+                .filter(pk=self.pk)
+                .values_list("parent_path", flat=True)
+                .first()
+            )
+
         super().save(*args, **kwargs)
 
-        # 2) حساب المسار المادّي بعد وجود pk وربما بعد ضبط parent
-        new_path = f"{self.pk}/"
-        if self.parent and self.parent.parent_path:
-            new_path = f"{self.parent.parent_path}{self.pk}/"
-        elif self.parent:
-            new_path = f"{self.parent.pk}/{self.pk}/"
+        # Compute new parent_path
+        if self.parent:
+            if self.parent.parent_path:
+                new_path = f"{self.parent.parent_path}{self.pk}/"
+            else:
+                new_path = f"{self.parent.pk}/{self.pk}/"
+        else:
+            new_path = f"{self.pk}/"
 
         if self.parent_path != new_path:
             self.parent_path = new_path
             super().save(update_fields=["parent_path"])
 
+            # ------------------------------------------
+            # Update descendants paths if parent changed
+            # ------------------------------------------
+            if old_parent_path:
+                descendants = Company.objects.filter(
+                    parent_path__startswith=old_parent_path
+                ).exclude(pk=self.pk)
+
+                for child in descendants:
+                    child.parent_path = child.parent_path.replace(
+                        old_parent_path,
+                        new_path,
+                        1
+                    )
+
+                Company.objects.bulk_update(descendants, ["parent_path"])
 
     class Meta:
         db_table = "company"

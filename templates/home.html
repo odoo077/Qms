@@ -2,100 +2,203 @@
 {% extends "base.html" %}
 
 {% block title %}Dashboard · 360 Manager{% endblock %}
-
-{% block header_title %}Dashboard{% endblock %}
-
+{% block page_title %}Dashboard{% endblock %}
 
 {% block page_actions %}
 <form method="get" class="flex items-center gap-2">
-  <label class="input input-sm input-bordered flex items-center gap-2 w-72">
+  <label class="input input-sm input-bordered flex items-center gap-2 w-80">
     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 opacity-60" viewBox="0 0 24 24" fill="none">
-      <path d="M21 21l-4.3-4.3m1.8-5.2a7 7 0 11-14 0 7 7 0 0114 0z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      <path d="M21 21l-4.3-4.3m1.8-5.2a7 7 0 11-14 0 7 7 0 0114 0z"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
     </svg>
-    <input name="q" value="{{ search.q }}" class="grow" placeholder="Quick search (employee, asset, partner)..." />
+    <input name="q" value="{{ search.q }}" class="grow"
+           placeholder="Quick search (users, employees, assets, partners)..." />
   </label>
+
   <button class="btn btn-sm btn-primary">Search</button>
+
   {% if search.q %}
     <a href="?" class="btn btn-sm btn-ghost">Reset</a>
   {% endif %}
 </form>
 {% endblock %}
+
 {% block content %}
-<div class="space-y-6">
+<div class="w-full px-6 py-6 space-y-6">
 
-
-  {# ========================================================= #}
-  {# QUICK ACTIONS #}
-  {# ========================================================= #}
-  <section class="rounded-2xl border border-base-200 bg-base-100">
-    <div class="p-4 border-b border-base-200">
-      <h2 class="font-semibold">Quick Actions</h2>
-      <p class="text-sm opacity-70">Common operations</p>
+  <!-- ===================================================== -->
+  <!-- PAGE HEADER (Hybrid like your Asset Categories page) -->
+  <!-- ===================================================== -->
+  <section class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+    <div>
+      <h1 class="text-3xl font-semibold tracking-tight">Dashboard</h1>
+      <p class="text-sm text-base-content/60">
+        Overview based on selected companies in the navbar.
+        {% if current_company %}
+          <span class="ml-2 badge badge-outline">Current: {{ current_company.name }}</span>
+        {% endif %}
+      </p>
     </div>
-    <div class="p-4 flex flex-wrap gap-2">
-      <a href="{{ urls.employees_create }}" class="btn btn-sm btn-outline">Add Employee</a>
-      <a href="{{ urls.assets_create }}" class="btn btn-sm btn-outline">Add Asset</a>
-      <a href="{{ urls.payslips_create }}" class="btn btn-sm btn-outline">Create Payslip</a>
-      <a href="{{ urls.partners_create }}" class="btn btn-sm btn-outline">Add Partner</a>
+
+    <div class="flex flex-wrap gap-2">
+      <a href="{{ urls.employees_create }}" class="btn btn-primary btn-sm">+ Add Employee</a>
+      <a href="{{ urls.assets_create }}" class="btn btn-outline btn-sm">+ Add Asset</a>
+      <a href="{{ urls.payslips_create }}" class="btn btn-outline btn-sm">+ Create Payslip</a>
+      <a href="{{ urls.partners_create }}" class="btn btn-outline btn-sm">+ Add Partner</a>
+      <a href="{{ urls.users_create }}" class="btn btn-outline btn-sm">+ Add User</a>
     </div>
   </section>
 
-  {# ========================================================= #}
-  {# KPI STRIP (Compact) #}
-  {# ========================================================= #}
+  <!-- ===================================================== -->
+  <!-- SCOPE PREVIEW -->
+  <!-- ===================================================== -->
+  <section class="card bg-base-100 border border-base-200 shadow-sm">
+    <div class="p-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+      <div>
+        <div class="text-xs text-base-content/60 uppercase tracking-wide">Scope</div>
+        <div class="font-medium">
+          Selected companies: <span class="text-primary">{{ kpis.companies|default:"0" }}</span>
+        </div>
+        <div class="text-sm text-base-content/60 mt-1">
+          {% if selected_companies %}
+            {% for c in selected_companies %}
+              <span class="badge badge-ghost mr-1 mb-1">{{ c.name }}</span>
+            {% endfor %}
+          {% else %}
+            <span class="text-base-content/50">No company selected.</span>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="text-sm text-base-content/60">
+        Change selection from navbar (Active Companies).
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================================================== -->
+  <!-- KPI STRIP -->
+  <!-- ===================================================== -->
   <section class="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-3">
     <div class="rounded-xl border border-base-200 bg-base-100 p-3">
       <div class="text-xs uppercase tracking-wide opacity-60">Companies</div>
-      <div class="mt-1 text-2xl font-semibold text-primary">{{ companies_count|default:"0" }}</div>
+      <div class="mt-1 text-2xl font-semibold text-primary">{{ kpis.companies|default:"0" }}</div>
     </div>
 
     <div class="rounded-xl border border-base-200 bg-base-100 p-3">
       <div class="text-xs uppercase tracking-wide opacity-60">Partners</div>
-      <div class="mt-1 text-2xl font-semibold">{{ partners_count|default:"0" }}</div>
+      <div class="mt-1 text-2xl font-semibold">{{ kpis.partners|default:"0" }}</div>
     </div>
 
     <div class="rounded-xl border border-base-200 bg-base-100 p-3">
       <div class="text-xs uppercase tracking-wide opacity-60">Users</div>
-      <div class="mt-1 text-2xl font-semibold">{{ users_count|default:"0" }}</div>
+      <div class="mt-1 text-2xl font-semibold">{{ kpis.users|default:"0" }}</div>
     </div>
 
     <div class="rounded-xl border border-base-200 bg-base-100 p-3">
       <div class="text-xs uppercase tracking-wide opacity-60">Employees</div>
-      <div class="mt-1 text-2xl font-semibold text-secondary">{{ employees_count|default:"0" }}</div>
+      <div class="mt-1 text-2xl font-semibold text-secondary">{{ kpis.employees|default:"0" }}</div>
     </div>
 
     <div class="rounded-xl border border-base-200 bg-base-100 p-3">
       <div class="text-xs uppercase tracking-wide opacity-60">Assets</div>
-      <div class="mt-1 text-2xl font-semibold text-secondary">{{ assets_count|default:"0" }}</div>
+      <div class="mt-1 text-2xl font-semibold text-secondary">{{ kpis.assets|default:"0" }}</div>
     </div>
 
     <div class="rounded-xl border border-base-200 bg-base-100 p-3">
       <div class="text-xs uppercase tracking-wide opacity-60">Skills</div>
-      <div class="mt-1 text-2xl font-semibold">{{ skills_count|default:"0" }}</div>
+      <div class="mt-1 text-2xl font-semibold">{{ kpis.skills|default:"0" }}</div>
     </div>
 
     <div class="rounded-xl border border-base-200 bg-base-100 p-3">
       <div class="text-xs uppercase tracking-wide opacity-60">Employee Skills</div>
-      <div class="mt-1 text-2xl font-semibold">{{ employee_skills_count|default:"0" }}</div>
+      <div class="mt-1 text-2xl font-semibold">{{ kpis.employee_skills|default:"0" }}</div>
     </div>
 
     <div class="rounded-xl border border-base-200 bg-base-100 p-3">
       <div class="text-xs uppercase tracking-wide opacity-60">Payslips</div>
-      <div class="mt-1 text-2xl font-semibold text-accent">{{ payslips_count|default:"0" }}</div>
+      <div class="mt-1 text-2xl font-semibold text-accent">{{ kpis.payslips|default:"0" }}</div>
       <div class="text-xs opacity-60 mt-1">All states</div>
     </div>
   </section>
 
-  {# ========================================================= #}
-  {# STATUS SNAPSHOTS (Assets / Payslips) #}
-  {# ========================================================= #}
+  <!-- ===================================================== -->
+  <!-- HEALTH INDICATORS -->
+  <!-- ===================================================== -->
+  <section class="card bg-base-100 border border-base-200 shadow-sm">
+    <div class="p-4 border-b border-base-200">
+      <h2 class="font-semibold">Health Indicators</h2>
+      <p class="text-sm text-base-content/60">Data quality & follow-up signals</p>
+    </div>
+
+    <div class="p-5 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 text-sm">
+
+      <div class="rounded-xl bg-base-200/40 p-4">
+        <div class="opacity-70 text-xs uppercase">Employees without Department</div>
+        <div class="text-2xl font-semibold mt-1">{{ health.employees_without_department|default:"0" }}</div>
+        <div class="text-xs opacity-60 mt-2">Review HR structure assignments.</div>
+      </div>
+
+      <div class="rounded-xl bg-base-200/40 p-4">
+        <div class="opacity-70 text-xs uppercase">Employees without Skills</div>
+        <div class="text-2xl font-semibold mt-1">{{ health.employees_without_skills|default:"0" }}</div>
+        <div class="text-xs opacity-60 mt-2">Add skill records for completeness.</div>
+      </div>
+
+      <div class="rounded-xl bg-base-200/40 p-4">
+        <div class="opacity-70 text-xs uppercase">Unassigned Assets</div>
+        <div class="text-2xl font-semibold mt-1">{{ health.assets_unassigned|default:"0" }}</div>
+        <div class="text-xs opacity-60 mt-2">Assets missing a holder.</div>
+      </div>
+
+      <div class="rounded-xl bg-base-200/40 p-4">
+        <div class="opacity-70 text-xs uppercase">Partners missing Contact</div>
+        <div class="text-2xl font-semibold mt-1">{{ health.partners_missing_contact|default:"0" }}</div>
+        <div class="text-xs opacity-60 mt-2">No email/phone/mobile.</div>
+      </div>
+
+      <div class="rounded-xl bg-base-200/40 p-4">
+        <div class="opacity-70 text-xs uppercase">Users without Partner</div>
+        <div class="text-2xl font-semibold mt-1">{{ health.users_without_partner|default:"0" }}</div>
+        <div class="text-xs opacity-60 mt-2">Consider linking user to partner.</div>
+      </div>
+
+      <div class="rounded-xl bg-base-200/40 p-4">
+        <div class="opacity-70 text-xs uppercase">Inactive Users</div>
+        <div class="text-2xl font-semibold mt-1">{{ health.users_inactive|default:"0" }}</div>
+        <div class="text-xs opacity-60 mt-2">Audit access & offboarding.</div>
+      </div>
+
+      <div class="rounded-xl bg-base-200/40 p-4">
+        <div class="opacity-70 text-xs uppercase">Unverified Emails</div>
+        <div class="text-2xl font-semibold mt-1">{{ health.users_unverified_email|default:"0" }}</div>
+        <div class="text-xs opacity-60 mt-2">Improve authentication hygiene.</div>
+      </div>
+
+      <div class="rounded-xl bg-base-200/40 p-4">
+        <div class="opacity-70 text-xs uppercase">Payslips not Paid</div>
+        <div class="text-2xl font-semibold mt-1">{{ health.payslips_unpaid|default:"0" }}</div>
+        <div class="text-xs opacity-60 mt-2">Check payroll cycle states.</div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ===================================================== -->
+  <!-- STATUS SNAPSHOTS (Assets / Payslips) -->
+  <!-- ===================================================== -->
   <section class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-    <div class="rounded-2xl border border-base-200 bg-base-100">
+
+    <div class="card bg-base-100 border border-base-200 shadow-sm">
       <div class="p-4 border-b border-base-200 flex items-center justify-between">
-        <div class="font-semibold">Assets by Status</div>
+        <div>
+          <div class="font-semibold">Assets by Status</div>
+          <div class="text-sm text-base-content/60">Snapshot per selected companies</div>
+        </div>
         <a href="{{ urls.assets_list }}" class="link link-hover text-sm">Open Assets</a>
       </div>
-      <div class="p-4">
+
+      <div class="p-5">
         <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
           <div class="rounded-xl bg-base-200/40 p-3">
             <div class="opacity-70 text-xs uppercase">Available</div>
@@ -117,12 +220,16 @@
       </div>
     </div>
 
-    <div class="rounded-2xl border border-base-200 bg-base-100">
+    <div class="card bg-base-100 border border-base-200 shadow-sm">
       <div class="p-4 border-b border-base-200 flex items-center justify-between">
-        <div class="font-semibold">Payslips by State</div>
+        <div>
+          <div class="font-semibold">Payslips by State</div>
+          <div class="text-sm text-base-content/60">Snapshot per selected companies</div>
+        </div>
         <a href="{{ urls.payslips_list }}" class="link link-hover text-sm">Open Payslips</a>
       </div>
-      <div class="p-4">
+
+      <div class="p-5">
         <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
           <div class="rounded-xl bg-base-200/40 p-3">
             <div class="opacity-70 text-xs uppercase">Draft</div>
@@ -143,30 +250,35 @@
         </div>
       </div>
     </div>
+
   </section>
 
-  {# ========================================================= #}
-  {# QUICK SEARCH RESULTS (only when q exists) #}
-  {# ========================================================= #}
+  <!-- ===================================================== -->
+  <!-- GLOBAL SEARCH RESULTS -->
+  <!-- ===================================================== -->
   {% if search.q %}
-  <section class="rounded-2xl border border-base-200 bg-base-100">
+  <section class="card bg-base-100 border border-base-200 shadow-sm">
     <div class="p-4 border-b border-base-200">
       <h2 class="font-semibold">Search Results</h2>
-      <p class="text-sm opacity-70">Top matches for “{{ search.q }}”</p>
+      <p class="text-sm text-base-content/60">Top matches for “{{ search.q }}”</p>
     </div>
 
-    <div class="p-4 grid grid-cols-1 lg:grid-cols-3 gap-4">
+    <div class="p-5 grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-4">
 
+      <!-- Users -->
       <div>
-        <div class="text-sm font-semibold mb-2">Partners</div>
+        <div class="flex items-center justify-between mb-2">
+          <div class="text-sm font-semibold">Users</div>
+          <a href="{{ search_all.users }}" class="link link-hover text-xs">View all</a>
+        </div>
         <div class="space-y-2">
-          {% for p in search.partners %}
+          {% for r in search.users %}
             <div class="flex items-center justify-between rounded-xl border border-base-200 p-3">
               <div class="min-w-0">
-                <div class="truncate font-medium">{{ p.name }}</div>
-                <div class="text-xs opacity-60 truncate">{{ p.company }}</div>
+                <div class="truncate font-medium">{{ r.title }}</div>
+                <div class="text-xs opacity-60 truncate">{{ r.subtitle }}</div>
               </div>
-              <a class="btn btn-xs btn-ghost" href="{{ p.open_url }}">Open</a>
+              <a class="btn btn-xs btn-ghost" href="{{ r.open_url }}">Open</a>
             </div>
           {% empty %}
             <div class="text-sm opacity-60">No matches</div>
@@ -174,16 +286,20 @@
         </div>
       </div>
 
+      <!-- Employees -->
       <div>
-        <div class="text-sm font-semibold mb-2">Employees</div>
+        <div class="flex items-center justify-between mb-2">
+          <div class="text-sm font-semibold">Employees</div>
+          <a href="{{ search_all.employees }}" class="link link-hover text-xs">View all</a>
+        </div>
         <div class="space-y-2">
-          {% for e in search.employees %}
+          {% for r in search.employees %}
             <div class="flex items-center justify-between rounded-xl border border-base-200 p-3">
               <div class="min-w-0">
-                <div class="truncate font-medium">{{ e.name }}</div>
-                <div class="text-xs opacity-60 truncate">{{ e.department }}</div>
+                <div class="truncate font-medium">{{ r.title }}</div>
+                <div class="text-xs opacity-60 truncate">{{ r.subtitle }}</div>
               </div>
-              <a class="btn btn-xs btn-ghost" href="{{ e.open_url }}">Open</a>
+              <a class="btn btn-xs btn-ghost" href="{{ r.open_url }}">Open</a>
             </div>
           {% empty %}
             <div class="text-sm opacity-60">No matches</div>
@@ -191,16 +307,41 @@
         </div>
       </div>
 
+      <!-- Assets -->
       <div>
-        <div class="text-sm font-semibold mb-2">Assets</div>
+        <div class="flex items-center justify-between mb-2">
+          <div class="text-sm font-semibold">Assets</div>
+          <a href="{{ search_all.assets }}" class="link link-hover text-xs">View all</a>
+        </div>
         <div class="space-y-2">
-          {% for a in search.assets %}
+          {% for r in search.assets %}
             <div class="flex items-center justify-between rounded-xl border border-base-200 p-3">
               <div class="min-w-0">
-                <div class="truncate font-medium">{{ a.code }} — {{ a.name }}</div>
-                <div class="text-xs opacity-60 truncate">{{ a.company }}</div>
+                <div class="truncate font-medium">{{ r.title }}</div>
+                <div class="text-xs opacity-60 truncate">{{ r.subtitle }}</div>
               </div>
-              <a class="btn btn-xs btn-ghost" href="{{ a.open_url }}">Open</a>
+              <a class="btn btn-xs btn-ghost" href="{{ r.open_url }}">Open</a>
+            </div>
+          {% empty %}
+            <div class="text-sm opacity-60">No matches</div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Partners -->
+      <div>
+        <div class="flex items-center justify-between mb-2">
+          <div class="text-sm font-semibold">Partners</div>
+          <a href="{{ search_all.partners }}" class="link link-hover text-xs">View all</a>
+        </div>
+        <div class="space-y-2">
+          {% for r in search.partners %}
+            <div class="flex items-center justify-between rounded-xl border border-base-200 p-3">
+              <div class="min-w-0">
+                <div class="truncate font-medium">{{ r.title }}</div>
+                <div class="text-xs opacity-60 truncate">{{ r.subtitle }}</div>
+              </div>
+              <a class="btn btn-xs btn-ghost" href="{{ r.open_url }}">Open</a>
             </div>
           {% empty %}
             <div class="text-sm opacity-60">No matches</div>
@@ -212,120 +353,107 @@
   </section>
   {% endif %}
 
-  {# ========================================================= #}
-  {# RECENT ACTIVITY (compact lists, no big cards) #}
-  {# ========================================================= #}
+  <!-- ===================================================== -->
+  <!-- RECENT ACTIVITY (Hybrid compact tables) -->
+  <!-- ===================================================== -->
   <section class="grid grid-cols-1 xl:grid-cols-2 gap-4">
 
-    <div class="rounded-2xl border border-base-200 bg-base-100">
+    <div class="card bg-base-100 border border-base-200 shadow-sm">
       <div class="p-4 border-b border-base-200 flex items-center justify-between">
-        <div>
-          <div class="font-semibold">Recent Employees</div>
-        </div>
+        <div class="font-semibold">Recent Employees</div>
         <a href="{{ urls.employees_list }}" class="link link-hover text-sm">View all</a>
       </div>
-      <div class="p-2">
-        <div class="overflow-x-auto">
-          <table class="table table-sm">
-            <tbody>
-              {% for e in recent_employees %}
-              <tr>
+      <div class="p-2 overflow-x-auto">
+        <table class="table table-sm w-full">
+          <tbody>
+            {% for e in recent.employees %}
+              <tr class="hover">
                 <td class="font-medium">{{ e.name }}</td>
-                <td class="opacity-70">{{ e.department }}</td>
+                <td class="opacity-70">{{ e.department|default:"—" }}</td>
                 <td class="text-right">
                   <a class="btn btn-xs btn-ghost" href="{{ e.open_url }}">Open</a>
                 </td>
               </tr>
-              {% empty %}
+            {% empty %}
               <tr><td class="opacity-60">No recent employees</td></tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
+            {% endfor %}
+          </tbody>
+        </table>
       </div>
     </div>
 
-    <div class="rounded-2xl border border-base-200 bg-base-100">
+    <div class="card bg-base-100 border border-base-200 shadow-sm">
       <div class="p-4 border-b border-base-200 flex items-center justify-between">
-        <div>
-          <div class="font-semibold">Recent Assets</div>
-        </div>
+        <div class="font-semibold">Recent Assets</div>
         <a href="{{ urls.assets_list }}" class="link link-hover text-sm">View all</a>
       </div>
-      <div class="p-2">
-        <div class="overflow-x-auto">
-          <table class="table table-sm">
-            <tbody>
-              {% for a in recent_assets %}
-              <tr>
+      <div class="p-2 overflow-x-auto">
+        <table class="table table-sm w-full">
+          <tbody>
+            {% for a in recent.assets %}
+              <tr class="hover">
                 <td class="font-medium">{{ a.code }}</td>
                 <td class="truncate">{{ a.name }}</td>
-                <td class="opacity-70">{{ a.status }}</td>
+                <td class="opacity-70">{{ a.status|default:"—" }}</td>
                 <td class="text-right">
                   <a class="btn btn-xs btn-ghost" href="{{ a.open_url }}">Open</a>
                 </td>
               </tr>
-              {% empty %}
+            {% empty %}
               <tr><td class="opacity-60">No recent assets</td></tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
+            {% endfor %}
+          </tbody>
+        </table>
       </div>
     </div>
 
-    <div class="rounded-2xl border border-base-200 bg-base-100">
+    <div class="card bg-base-100 border border-base-200 shadow-sm">
       <div class="p-4 border-b border-base-200 flex items-center justify-between">
         <div class="font-semibold">Recent Partners</div>
         <a href="{{ urls.partners_list }}" class="link link-hover text-sm">View all</a>
       </div>
-      <div class="p-2">
-        <table class="table table-sm">
+      <div class="p-2 overflow-x-auto">
+        <table class="table table-sm w-full">
           <tbody>
-            {% for p in recent_partners %}
-            <tr>
-              <td class="font-medium">{{ p.name }}</td>
-              <td class="opacity-70">{{ p.company }}</td>
-              <td class="text-right">
-                <a class="btn btn-xs btn-ghost" href="{{ p.open_url }}">Open</a>
-              </td>
-            </tr>
+            {% for p in recent.partners %}
+              <tr class="hover">
+                <td class="font-medium">{{ p.display_name|default:p.name }}</td>
+                <td class="opacity-70">{{ p.company|default:"—" }}</td>
+                <td class="text-right">
+                  <a class="btn btn-xs btn-ghost" href="{{ p.open_url }}">Open</a>
+                </td>
+              </tr>
             {% empty %}
-            <tr><td class="opacity-60">No recent partners</td></tr>
+              <tr><td class="opacity-60">No recent partners</td></tr>
             {% endfor %}
           </tbody>
         </table>
       </div>
     </div>
 
-    <div class="rounded-2xl border border-base-200 bg-base-100">
+    <div class="card bg-base-100 border border-base-200 shadow-sm">
       <div class="p-4 border-b border-base-200 flex items-center justify-between">
-        <div class="font-semibold">Recent Payslips</div>
-        <a href="{{ urls.payslips_list }}" class="link link-hover text-sm">View all</a>
+        <div class="font-semibold">Recent Users</div>
+        <a href="{{ urls.users_list }}" class="link link-hover text-sm">View all</a>
       </div>
-      <div class="p-2">
-        <table class="table table-sm">
+      <div class="p-2 overflow-x-auto">
+        <table class="table table-sm w-full">
           <tbody>
-            {% for ps in recent_payslips %}
-            <tr>
-              <td class="font-medium">{{ ps.employee }}</td>
-              <td class="opacity-70">{{ ps.period }}</td>
-              <td class="opacity-70">{{ ps.state }}</td>
-              <td class="text-right">
-                <a class="btn btn-xs btn-ghost" href="{{ ps.open_url }}">Open</a>
-              </td>
-            </tr>
+            {% for u in recent.users %}
+              <tr class="hover">
+                <td class="font-medium">{{ u.email }}</td>
+                <td class="opacity-70">{{ u.get_full_name|default:"" }}</td>
+                <td class="text-right">
+                  <a class="btn btn-xs btn-ghost" href="{{ u.open_url }}">Open</a>
+                </td>
+              </tr>
             {% empty %}
-            <tr><td class="opacity-60">No recent payslips</td></tr>
+              <tr><td class="opacity-60">No recent users</td></tr>
             {% endfor %}
           </tbody>
         </table>
       </div>
     </div>
-
   </section>
-
-
-
 </div>
 {% endblock %}

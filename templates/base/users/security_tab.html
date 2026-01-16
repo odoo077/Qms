@@ -1,0 +1,53 @@
+{# ===================================================== #}
+{# User Security Tab                                     #}
+{# Context: object = User                                #}
+{# ===================================================== #}
+
+<div class="px-6">
+
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
+
+    <!-- Active -->
+    <div>
+      <div class="text-base-content/60">Active</div>
+      <span class="badge {{ object.is_active|yesno:'badge-success,badge-error' }}">
+        {{ object.is_active|yesno:"Yes,No" }}
+      </span>
+    </div>
+
+    <!-- Staff -->
+    <div>
+      <div class="text-base-content/60">Staff</div>
+      <div class="font-medium">
+        {{ object.is_staff|yesno:"Yes,No" }}
+      </div>
+    </div>
+
+    <!-- Superuser -->
+    <div>
+      <div class="text-base-content/60">Superuser</div>
+      <div class="font-medium">
+        {{ object.is_superuser|yesno:"Yes,No" }}
+      </div>
+    </div>
+
+    <!-- Email verified -->
+    <div>
+      <div class="text-base-content/60">Email verified</div>
+      <div class="font-medium">
+        {{ object.email_verified|yesno:"Yes,No" }}
+      </div>
+    </div>
+
+    <!-- Password -->
+    <div>
+      <div class="text-base-content/60">Password</div>
+      <a href="{% url 'base:password_change' %}"
+         class="link link-hover text-sm">
+        Change password
+      </a>
+    </div>
+
+  </div>
+
+</div>

@@ -16,10 +16,12 @@
 {% block content %}
 <div class="space-y-6">
 
+  {# ================= Search & Filters ================= #}
   {% include "base/includes/search/_search_panel_user.html" %}
 
   {% if object_list %}
 
+    {# ================= Result summary ================= #}
     <div class="flex items-center justify-between">
       <p class="text-sm text-base-content/60">
         Showing
@@ -34,16 +36,19 @@
       </p>
     </div>
 
+    {# ================= Users table ================= #}
     <div class="overflow-x-auto rounded-xl border border-base-300 bg-base-100">
       <table class="table table-zebra w-full">
 
         <thead>
           <tr>
-            <th class="w-[28%]">User</th>
-            <th class="w-[22%]">Name</th>
+            <th class="w-[26%]">User</th>
+            <th class="w-[18%]">Name</th>
             <th>Companies</th>
+            <th class="w-[8%] text-center">Verified</th>
+            <th class="w-[10%]">Role</th>
             <th class="w-[10%]">Status</th>
-            <th class="text-right w-[14%]">Actions</th>
+            <th class="w-[12%] text-right">Actions</th>
           </tr>
         </thead>
 
@@ -60,8 +65,8 @@
                   </a>
 
                   {% if u.partner %}
-                    <div class="text-xs text-base-content/60 truncate max-w-[30ch]">
-                      Partner: {{ u.partner.name }}
+                    <div class="text-xs text-base-content/60 truncate max-w-[32ch]">
+                      {{ u.partner.name }}
                     </div>
                   {% endif %}
                 </div>
@@ -78,40 +83,54 @@
                 {% endif %}
               </td>
 
-              {# ---------- Companies (Primary + Allowed) ---------- #}
+              {# ---------- Companies ---------- #}
               <td class="align-top">
                 <div class="flex flex-wrap gap-2">
 
                   {# Primary company #}
                   {% if u.company %}
                     <a href="{% url 'base:company_detail' u.company.pk %}"
-                       class="badge badge-outline hover:badge-primary transition-colors"
+                       class="badge badge-outline badge-primary"
                        title="Primary company">
                       {{ u.company.name }}
-                      {% if not u.company.active %} · Inactive{% endif %}
                     </a>
                   {% endif %}
 
-                  {# Allowed companies (M2M, excluding primary) #}
+                  {# Allowed companies (excluding primary) #}
                   {% for c in u.companies.all %}
                     {% if not u.company or c.id != u.company.id %}
                       <a href="{% url 'base:company_detail' c.pk %}"
-                         class="badge badge-ghost hover:badge-primary transition-colors"
+                         class="badge badge-ghost"
                          title="Allowed company">
                         {{ c.name }}
-                        {% if not c.active %} · Inactive{% endif %}
                       </a>
-                    {% endif %}
-                  {% empty %}
-                    {% if not u.company %}
-                      <span class="text-sm text-base-content/50">—</span>
                     {% endif %}
                   {% endfor %}
                 </div>
 
                 <div class="text-[11px] text-base-content/50 mt-1">
-                  Primary company and allowed companies.
+                  Primary & allowed companies
                 </div>
+              </td>
+
+              {# ---------- Email Verified ---------- #}
+              <td class="align-top text-center">
+                {% if u.email_verified %}
+                  <span class="badge badge-success badge-sm">Yes</span>
+                {% else %}
+                  <span class="badge badge-ghost badge-sm">No</span>
+                {% endif %}
+              </td>
+
+              {# ---------- Role ---------- #}
+              <td class="align-top">
+                {% if u.is_superuser %}
+                  <span class="badge badge-error badge-outline">Superuser</span>
+                {% elif u.is_staff %}
+                  <span class="badge badge-warning badge-outline">Staff</span>
+                {% else %}
+                  <span class="badge badge-ghost">User</span>
+                {% endif %}
               </td>
 
               {# ---------- Status ---------- #}
@@ -125,13 +144,30 @@
 
               {# ---------- Actions ---------- #}
               <td class="text-right align-top">
-                <div class="inline-flex items-center justify-end gap-2">
+                <div class="inline-flex items-center gap-2 justify-end">
+
 
                   {% if u.id in user_change_ids %}
+                    <!-- Edit User -->
                     <a href="{% url 'base:user_edit' u.pk %}"
-                       class="btn btn-xs btn-ghost">
-                      Edit
+                       class="tooltip tooltip-left"
+                       data-tip="Edit">
+                      <div class="btn btn-ghost btn-xs text-primary hover:bg-primary/10">
+                        <svg xmlns="http://www.w3.org/2000/svg"
+                             class="h-4 w-4"
+                             fill="none"
+                             viewBox="0 0 24 24"
+                             stroke="currentColor">
+                          <path stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M15.232 5.232l3.536 3.536
+                                   M9 11l6.232-6.232a2.5 2.5 0 013.536 3.536
+                                   L12.536 14.536 9 15l.464-3.464z" />
+                        </svg>
+                      </div>
                     </a>
+
                   {% endif %}
 
                 </div>
@@ -144,10 +180,12 @@
       </table>
     </div>
 
+    {# ================= Pagination ================= #}
     {% include "partials/paginator.html" %}
 
   {% else %}
 
+    {# ================= Empty state ================= #}
     <section
       class="max-w-xl mx-auto rounded-xl border border-dashed
              border-base-300 bg-base-100 p-10 text-center space-y-3">

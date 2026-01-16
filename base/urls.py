@@ -35,7 +35,7 @@ from .views import (
     profile_view,
     edit_profile_view,
     password_change_view,
-    password_change_done_view,
+    password_change_done_view, TermsOfServiceView, PrivacyPolicyView,
 )
 
 
@@ -141,4 +141,10 @@ urlpatterns = [
     path("companies/new/", CompanyCreateView.as_view(), name="company_create"),
     path("companies/<int:pk>/", CompanyDetailView.as_view(), name="company_detail"),
     path("companies/<int:pk>/edit/", CompanyUpdateView.as_view(), name="company_edit"),
+
+    # ==========================================================
+    # terms_of_service and privacy_policy
+    # ==========================================================
+    path("terms/", TermsOfServiceView.as_view(), name="terms"),
+    path("privacy/", PrivacyPolicyView.as_view(), name="privacy"),
 ]

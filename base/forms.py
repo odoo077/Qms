@@ -577,3 +577,19 @@ class CompanyForm(forms.ModelForm):
 
         # parent اختياري
         self.fields["parent"].required = False
+
+    def clean_name(self):
+        name = self.cleaned_data.get("name", "")
+        name = name.strip()
+
+        if not name:
+            raise forms.ValidationError("Company name cannot be empty.")
+
+        qs = Company.objects.filter(name__iexact=name)
+        if self.instance.pk:
+            qs = qs.exclude(pk=self.instance.pk)
+
+        if qs.exists():
+            raise forms.ValidationError("A company with this name already exists.")
+
+        return name

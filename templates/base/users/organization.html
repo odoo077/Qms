@@ -1,0 +1,45 @@
+<section class="px-6">
+  <h3 class="text-sm font-semibold mb-4">Organization</h3>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
+
+    <div>
+      <div class="text-base-content/60">Default company</div>
+      <div class="font-medium">
+        <a href="{% url 'base:company_detail' object.company.pk %}"
+           class="link link-hover">
+          {{ object.company.name }}
+        </a>
+      </div>
+    </div>
+
+    <div>
+      <div class="text-base-content/60">Allowed companies</div>
+      <div class="flex flex-wrap gap-2 mt-1">
+        {% for c in object.companies.all %}
+          <a href="{% url 'base:company_detail' c.pk %}"
+             class="badge badge-outline">
+            {{ c.name }}
+          </a>
+        {% empty %}
+          <span class="text-base-content/50">—</span>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div>
+      <div class="text-base-content/60">Linked partner</div>
+      <div class="font-medium">
+        {% if object.partner %}
+          <a href="{% url 'base:partner_detail' object.partner.pk %}"
+             class="link link-hover">
+            {{ object.partner.name }}
+          </a>
+        {% else %}
+          —
+        {% endif %}
+      </div>
+    </div>
+
+  </div>
+</section>

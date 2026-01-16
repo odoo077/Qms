@@ -1,5 +1,7 @@
 {% if page_obj and page_obj.paginator.num_pages > 1 %}
-{% with request.GET.urlencode as qs %}
+{% with request.GET.urlencode as full_qs %}
+{% with full_qs|cut:'page='|cut:'&page=' as qs %}
+
 <div class="mt-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
 
   <!-- ===================================================== -->
@@ -76,5 +78,7 @@
 
   </div>
 </div>
+
+{% endwith %}
 {% endwith %}
 {% endif %}

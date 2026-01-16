@@ -1,10 +1,19 @@
-<form method="get" class="grid gap-4 mb-6">
+<form method="get"
+      class="rounded-xl border border-base-300 bg-base-100
+             p-4 sm:p-5 mb-6 space-y-4">
 
-  <div class="grid gap-3 sm:grid-cols-4">
+  <!-- ===================================================== -->
+  <!-- Filters row -->
+  <!-- ===================================================== -->
+  <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 items-end">
 
     <!-- 🔍 Search -->
-    <div>
-      <label class="label-text text-xs font-medium">Search</label>
+    <div class="form-control">
+      <label class="label py-0">
+        <span class="label-text text-xs font-medium text-base-content/70">
+          Search
+        </span>
+      </label>
       <input
         type="text"
         name="q"
@@ -16,8 +25,12 @@
 
     <!-- 🏢 Company -->
     {% if search_config.show_company_filter %}
-    <div>
-      <label class="label-text text-xs font-medium">Company</label>
+    <div class="form-control">
+      <label class="label py-0">
+        <span class="label-text text-xs font-medium text-base-content/70">
+          Company
+        </span>
+      </label>
       <select name="company" class="select select-bordered select-sm w-full">
         <option value="">All allowed</option>
         {% for c in allowed_companies %}
@@ -32,8 +45,12 @@
 
     <!-- ✅ Status -->
     {% if search_config.show_active_filter %}
-    <div>
-      <label class="label-text text-xs font-medium">Status</label>
+    <div class="form-control">
+      <label class="label py-0">
+        <span class="label-text text-xs font-medium text-base-content/70">
+          Status
+        </span>
+      </label>
       <select name="active" class="select select-bordered select-sm w-full">
         <option value="">All</option>
         <option value="1" {% if filters.active == "1" %}selected{% endif %}>Active</option>
@@ -44,8 +61,12 @@
 
     <!-- ⏱ Range -->
     {% if search_config.show_range_filter %}
-    <div>
-      <label class="label-text text-xs font-medium">Date range</label>
+    <div class="form-control">
+      <label class="label py-0">
+        <span class="label-text text-xs font-medium text-base-content/70">
+          Date range
+        </span>
+      </label>
       <select name="range" class="select select-bordered select-sm w-full">
         <option value="">—</option>
         <option value="today" {% if filters.range == "today" %}selected{% endif %}>Today</option>
@@ -58,12 +79,29 @@
 
   </div>
 
+  <!-- ===================================================== -->
+  <!-- Advanced filters (extended by child templates) -->
+  <!-- ===================================================== -->
   {% block advanced_filters %}{% endblock %}
 
-  <div class="flex gap-2">
-    <button type="submit" class="btn btn-primary btn-sm">Apply</button>
-    {% if request.GET %}
-      <a href="{{ request.path }}" class="btn btn-ghost btn-sm">Reset</a>
-    {% endif %}
+  <!-- ===================================================== -->
+  <!-- Actions -->
+  <!-- ===================================================== -->
+  <div class="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-base-200">
+
+    <div class="flex gap-2">
+      <button type="submit" class="btn btn-primary btn-sm">
+        Apply filters
+      </button>
+
+      {% if request.GET %}
+        <a href="{{ request.path }}"
+           class="btn btn-ghost btn-sm">
+          Reset
+        </a>
+      {% endif %}
+    </div>
+
   </div>
+
 </form>

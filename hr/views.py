@@ -579,10 +579,11 @@ class CareerPolicyDeleteView(LoginRequiredMixin, DeleteView):
 # Career Path
 # ==========================================================
 
-class JobCareerPathListView(ListView):
+class JobCareerPathListView(LoginRequiredMixin, ListView):
     model = JobCareerPath
     template_name = "hr/jobcareerpath_list.html"
     paginate_by = 50
+    login_url = "base:login"
 
     def get_queryset(self):
         return (
@@ -592,24 +593,27 @@ class JobCareerPathListView(ListView):
         )
 
 
-class JobCareerPathCreateView(CreateView):
+class JobCareerPathCreateView(LoginRequiredMixin, CreateView):
     model = JobCareerPath
     form_class = JobCareerPathForm
     template_name = "hr/jobcareerpath_form.html"
     success_url = reverse_lazy("hr:jobcareerpath_list")
+    login_url = "base:login"
 
 
-class JobCareerPathUpdateView(UpdateView):
+class JobCareerPathUpdateView(LoginRequiredMixin, UpdateView):
     model = JobCareerPath
     form_class = JobCareerPathForm
     template_name = "hr/jobcareerpath_form.html"
     success_url = reverse_lazy("hr:jobcareerpath_list")
+    login_url = "base:login"
 
 
-class JobCareerPathDeleteView(DeleteView):
+class JobCareerPathDeleteView(LoginRequiredMixin, DeleteView):
     model = JobCareerPath
     template_name = "partials/confirm_delete.html"
     success_url = reverse_lazy("hr:jobcareerpath_list")
+    login_url = "base:login"
 
 
 # ==========================================================
@@ -644,26 +648,6 @@ class AjaxDepartmentOptionsView(LoginRequiredMixin, View):
         )
         html = render_to_string(self.template_name, {"departments": departments}, request=request)
         return HttpResponse(html)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -783,19 +767,6 @@ class EmployeeListView(LoginRequiredMixin, BaseScopedListView):
         ctx["statuses"] = EmployeeStatus.objects.filter(active=True).order_by("sequence")
 
         return ctx
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -1037,24 +1008,6 @@ class EmployeeDetailView(LoginRequiredMixin, BaseScopedDetailView):
         )
 
         return ctx
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

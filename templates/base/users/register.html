@@ -77,16 +77,38 @@
         {% render_field form.password2 class="input input-bordered w-full" %}
       </div>
 
-      <!-- Terms -->
+      {# ===================================================== #}
+      {# Terms & Privacy Agreement                             #}
+      {# ===================================================== #}
       <label class="flex items-start gap-3 text-sm">
-        <input type="checkbox" class="checkbox checkbox-sm mt-1" required>
-        <span>
+
+        <input
+          type="checkbox"
+          name="accept_terms"
+          class="checkbox checkbox-sm mt-1"
+          required
+          aria-required="true"
+        />
+
+        <span class="leading-relaxed">
           I agree to the
-          <a href="#" class="link link-primary">Terms of Service</a>
+          <a href="{% url 'base:terms' %}"
+             target="_blank"
+             rel="noopener noreferrer"
+             class="link link-primary font-medium">
+            Terms of Service
+          </a>
           and
-          <a href="#" class="link link-primary">Privacy Policy</a>
+          <a href="{% url 'base:privacy' %}"
+             target="_blank"
+             rel="noopener noreferrer"
+             class="link link-primary font-medium">
+            Privacy Policy
+          </a>.
         </span>
+
       </label>
+
 
       <!-- Submit -->
       <button type="submit" class="btn btn-primary w-full mt-2">

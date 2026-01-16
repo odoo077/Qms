@@ -15,7 +15,10 @@ class MultiCompanyMiddleware:
 
     Responsibilities:
     - Bootstrap company context (ContextVar-based)
-    - Inject read-only company attributes into request
+    - Inject BOTH:
+        * allowed companies (security scope)
+        * selected companies (user choice from Navbar)
+    - Inject current company
     - Bind current user to security context (ACL usage)
     - Ensure context cleanup after response
 
@@ -28,15 +31,33 @@ class MultiCompanyMiddleware:
     def __call__(self, request):
 
         # -------------------------------------------------
-        # 1) Bootstrap company context (single source of truth)
+        # 1) Bootstrap company context (ContextVar-based)
+        #    Reads from session if available
         # -------------------------------------------------
         bootstrap_from_request(request)
 
         # -------------------------------------------------
-        # 2) Inject context into request (read-only helpers)
+        # 2) Inject company context into request
         # -------------------------------------------------
+
+        # Current company (single)
         request.company_id = get_company_id()
+
+        # Allowed companies (security scope)
+        # This usually comes from user.companies
         request.allowed_company_ids = get_allowed_company_ids()
+
+        # Selected companies (Navbar checkboxes)
+        # This MUST come from session set by CompanySwitchView
+        selected = request.session.get("active_company_ids")
+
+        if selected:
+            try:
+                request.selected_company_ids = [int(x) for x in selected]
+            except Exception:
+                request.selected_company_ids = None
+        else:
+            request.selected_company_ids = None
 
         # -------------------------------------------------
         # 3) Bind current user to security context (ACL)

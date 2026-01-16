@@ -324,3 +324,125 @@
     box-shadow: var(--ui-shadow-md);
   }
 }
+
+/* =========================================================
+ * DASHBOARD – GLASS VIBRANT UI (NO BORDERS, HIGH ENERGY)
+ * Used ONLY for dashboards & analytics
+ * =======================================================*/
+@layer components {
+
+  /* ========== Base Glass Card ========== */
+  .glass-card {
+    @apply relative overflow-hidden
+           rounded-[2rem]
+           backdrop-blur-xl
+           transition-all duration-300 ease-out;
+    background:
+      linear-gradient(
+        135deg,
+        rgba(255,255,255,0.45),
+        rgba(255,255,255,0.20)
+      );
+    box-shadow:
+      0 25px 70px rgba(0,0,0,0.18);
+  }
+
+  .glass-card:hover {
+    transform: translateY(-4px) scale(1.015);
+    box-shadow:
+      0 35px 90px rgba(0,0,0,0.22);
+  }
+
+  /* Soft internal glow */
+  .glass-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(
+      circle at top right,
+      rgba(255,255,255,0.45),
+      transparent 60%
+    );
+    pointer-events: none;
+  }
+
+  /* Floating glow blob */
+  .glass-glow {
+    @apply absolute rounded-full blur-3xl opacity-70;
+    width: 10rem;
+    height: 10rem;
+    top: -3rem;
+    right: -3rem;
+  }
+
+  /* ========== Color Variants (Vibrant) ========== */
+  .glass-primary {
+    background-image:
+      linear-gradient(135deg,
+        rgba(99,102,241,0.55),
+        rgba(56,189,248,0.35),
+        rgba(255,255,255,0.15)
+      );
+  }
+
+  .glass-success {
+    background-image:
+      linear-gradient(135deg,
+        rgba(52,211,153,0.55),
+        rgba(34,211,238,0.35),
+        rgba(255,255,255,0.15)
+      );
+  }
+
+  .glass-warning {
+    background-image:
+      linear-gradient(135deg,
+        rgba(251,191,36,0.55),
+        rgba(251,146,60,0.35),
+        rgba(255,255,255,0.15)
+      );
+  }
+
+  .glass-danger {
+    background-image:
+      linear-gradient(135deg,
+        rgba(244,63,94,0.55),
+        rgba(236,72,153,0.35),
+        rgba(255,255,255,0.15)
+      );
+  }
+
+  .glass-info {
+    background-image:
+      linear-gradient(135deg,
+        rgba(56,189,248,0.55),
+        rgba(99,102,241,0.35),
+        rgba(255,255,255,0.15)
+      );
+  }
+
+  .glass-purple {
+    background-image:
+      linear-gradient(135deg,
+        rgba(192,132,252,0.55),
+        rgba(139,92,246,0.35),
+        rgba(255,255,255,0.15)
+      );
+  }
+
+  /* ========== Text Contrast Helpers ========== */
+  .glass-title {
+    @apply text-xs uppercase tracking-widest font-semibold;
+    color: rgba(15,23,42,0.75);
+  }
+
+  .glass-value {
+    @apply text-4xl font-black mt-2;
+    color: rgba(15,23,42,0.9);
+  }
+
+  .glass-sub {
+    @apply text-xs mt-1;
+    color: rgba(15,23,42,0.55);
+  }
+}

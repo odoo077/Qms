@@ -15,9 +15,17 @@
 {% endblock %}
 
 {% block content %}
-<div class="space-y-6">
+<div class="space-y-8">
+
+  <!-- =============================================== -->
+  <!-- Section spacer (separates actions from filters) -->
+  <!-- =============================================== -->
+  <div class="pt-2">
+    <div class="border-t border-base-200"></div>
+  </div>
 
   {% include "base/includes/search/_search_panel_company.html" %}
+
 
   {% if object_list %}
 

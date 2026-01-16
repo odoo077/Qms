@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+
+{% block title %}
+My Profile · 360 Manager
+{% endblock %}
+
+{# ===================================================== #}
+{# Page Header                                           #}
+{# ===================================================== #}
+{% block page_title %}My Profile{% endblock %}
+
+{% block header_title %}
+My profile
+{% endblock %}
+
+{% block header_subtitle %}
+View and manage your personal account information.
+{% endblock %}
+
+{% block page_actions %}
+<div class="flex items-center gap-2">
+  <a href="{% url 'base:edit_profile' %}"
+     class="btn btn-primary btn-sm">
+    Edit profile
+  </a>
+
+  <a href="{% url 'base:password_change' %}"
+     class="btn btn-outline btn-sm">
+    Change password
+  </a>
+</div>
+{% endblock %}
+
+{# ===================================================== #}
+{# Page Content                                          #}
+{# ===================================================== #}
+{% block content %}
+
+<div class="space-y-6">
+
+  {# ===================================================== #}
+  {# Profile Tabs — DaisyUI (CORRECT STRUCTURE)           #}
+  {# ===================================================== #}
+
+  <div class="tabs tabs-bordered">
+
+    {# ================= Profile ================= #}
+    <input
+      type="radio"
+      name="profile_tabs"
+      class="tab"
+      aria-label="Profile"
+      checked
+    />
+    <div class="tab-content bg-base-100 border border-base-300 rounded-box p-0 mt-4">
+      {% with object=request.user %}
+        {% include "base/users/profile_tab_in_user_details.html" %}
+      {% endwith %}
+    </div>
+
+    {# ================= Security ================= #}
+    <input
+      type="radio"
+      name="profile_tabs"
+      class="tab"
+      aria-label="Security"
+    />
+    <div class="tab-content bg-base-100 border border-base-300 rounded-box p-6 mt-4">
+      {% with object=request.user %}
+        {% include "base/users/security_tab.html" %}
+      {% endwith %}
+    </div>
+
+    {# ================= Preferences ================= #}
+    <input
+      type="radio"
+      name="profile_tabs"
+      class="tab"
+      aria-label="Preferences"
+    />
+    <div class="tab-content bg-base-100 border border-base-300 rounded-box p-6 mt-4">
+      {% with object=request.user %}
+        {% include "base/users/preferences_tab.html" %}
+      {% endwith %}
+    </div>
+
+  </div>
+
+</div>
+
+{% endblock %}

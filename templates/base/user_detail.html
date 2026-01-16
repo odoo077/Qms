@@ -1,210 +1,184 @@
 {% extends "base.html" %}
 
-{% block title %}
-  User · {{ object.email }}
-{% endblock %}
+{% block title %}User · {{ object.email }}{% endblock %}
 
 {% block content %}
-<div class="px-4 py-6 space-y-8 max-w-5xl mx-auto">
+<div class="px-4 py-6 space-y-8 mx-auto">
 
-  {# ===================================================== #}
-  {# Breadcrumbs                                          #}
-  {# ===================================================== #}
+  {# ================= Breadcrumbs ================= #}
   <nav class="text-sm breadcrumbs">
     <ul>
       <li>
-        <a href="{% url 'base:user_list' %}" class="link link-hover">
-          Users
-        </a>
+        <a href="{% url 'base:user_list' %}" class="link link-hover">Users</a>
       </li>
-      <li class="font-semibold">
-        Details
+      <li class="font-semibold truncate max-w-xs">
+        {{ object.email }}
       </li>
     </ul>
   </nav>
 
-  {# ===================================================== #}
-  {# Header                                               #}
-  {# ===================================================== #}
-  <div class="flex items-start justify-between gap-4">
-    <div class="space-y-1">
-      <h1 class="text-2xl font-bold break-all">
-        {{ object.email }}
-      </h1>
+  {# ================= Header ================= #}
+  <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+
+    <div class="min-w-0 space-y-2">
+      <div class="flex flex-wrap items-center gap-2">
+        <h1 class="text-2xl font-bold break-all">
+          {{ object.email }}
+        </h1>
+
+        {% if object.is_superuser %}
+          <span class="badge badge-error badge-outline">Superuser</span>
+        {% elif object.is_staff %}
+          <span class="badge badge-warning badge-outline">Staff</span>
+        {% else %}
+          <span class="badge badge-ghost">User</span>
+        {% endif %}
+
+        {% if object.is_active %}
+          <span class="badge badge-success badge-sm">Active</span>
+        {% else %}
+          <span class="badge badge-error badge-sm">Inactive</span>
+        {% endif %}
+
+        {% if object.email_verified %}
+          <span class="badge badge-success badge-outline">Email verified</span>
+        {% else %}
+          <span class="badge badge-ghost">Email not verified</span>
+        {% endif %}
+      </div>
+
       <p class="text-sm text-base-content/60">
         User profile and system-related information.
       </p>
+
+      {% if object.partner and object.partner.name %}
+        <div class="text-sm text-base-content/70">
+          <span class="text-base-content/50">Display name:</span>
+          <span class="font-medium">{{ object.partner.name }}</span>
+        </div>
+      {% elif object.first_name or object.last_name %}
+        <div class="text-sm text-base-content/70">
+          <span class="text-base-content/50">Display name:</span>
+          <span class="font-medium">{{ object.first_name }} {{ object.last_name }}</span>
+        </div>
+      {% endif %}
     </div>
 
-    {% if can_edit_object %}
-      <a href="{% url 'base:user_edit' object.pk %}"
-         class="btn btn-sm btn-primary">
-        Edit User
+    <div class="flex items-center gap-2">
+      {% if can_edit_object %}
+        <a href="{% url 'base:user_edit' object.pk %}" class="btn btn-primary btn-sm">
+          Edit
+        </a>
+      {% endif %}
+      <a href="{% url 'base:user_list' %}" class="btn btn-ghost btn-sm">
+        Back
       </a>
-    {% endif %}
+    </div>
   </div>
 
-  {# ===================================================== #}
-  {# Basic Information                                    #}
-  {# ===================================================== #}
+  {# ================= KPI cards ================= #}
+  <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+
+    <div class="card bg-base-100 border border-base-300">
+      <div class="card-body p-5">
+        <div class="text-xs uppercase tracking-wide text-base-content/60">User ID</div>
+        <div class="mt-1 font-mono text-sm">#{{ object.id }}</div>
+      </div>
+    </div>
+
+    <div class="card bg-base-100 border border-base-300">
+      <div class="card-body p-5">
+        <div class="text-xs uppercase tracking-wide text-base-content/60">Default company</div>
+        <div class="mt-1 font-medium truncate">
+          {% if object.company %}
+            <a class="link link-hover" href="{% url 'base:company_detail' object.company.pk %}">
+              {{ object.company.name }}
+            </a>
+          {% else %}
+            <span class="text-base-content/50">—</span>
+          {% endif %}
+        </div>
+        {% if object.company and not object.company.active %}
+          <div class="mt-1 text-xs text-error">Company is inactive</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="card bg-base-100 border border-base-300">
+      <div class="card-body p-5">
+        <div class="text-xs uppercase tracking-wide text-base-content/60">Allowed companies</div>
+        <div class="mt-1 font-medium">
+          {{ object.companies.count }}
+        </div>
+        <div class="mt-1 text-xs text-base-content/50">
+          Includes default company automatically
+        </div>
+      </div>
+    </div>
+
+    <div class="card bg-base-100 border border-base-300">
+      <div class="card-body p-5">
+        <div class="text-xs uppercase tracking-wide text-base-content/60">Last login</div>
+        <div class="mt-1 font-medium">
+          {% if object.last_login %}
+            {{ object.last_login|date:"Y-m-d H:i" }}
+          {% else %}
+            <span class="text-base-content/50">—</span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+  </section>
+
+  {# ================= Tabs ================= #}
   <section class="card bg-base-100 border border-base-300">
-    <div class="card-body p-6 space-y-6">
+    <div class="card-body p-0">
 
-      <h2 class="text-sm font-semibold text-base-content/70">
-        Basic Information
-      </h2>
+      <div role="tablist" class="tabs tabs-bordered px-6 pt-5">
 
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- ================= Profile ================= -->
+        <input type="radio" name="user_tabs" role="tab"
+               class="tab" aria-label="Profile" checked />
+        <div role="tabpanel" class="tab-content px-0 py-6">
 
-        <div>
-          <div class="text-xs uppercase text-base-content/50">
-            Email
-          </div>
-          <div class="font-medium break-all">
-            {{ object.email }}
-          </div>
+          <!-- Profile content -->
+          {% include "base/users/profile_tab_in_user_details.html" %}
         </div>
 
-        <div>
-          <div class="text-xs uppercase text-base-content/50">
-            Username
-          </div>
-          <div class="font-medium">
-            {{ object.username }}
-          </div>
+        <!-- ================= Organization ================= -->
+        <input type="radio" name="user_tabs" role="tab"
+               class="tab" aria-label="Organization" />
+        <div role="tabpanel" class="tab-content px-0 py-6">
+
+          {% include "base/users/organization.html" %}
         </div>
 
-        <div>
-          <div class="text-xs uppercase text-base-content/50">
-            First Name
-          </div>
-          <div class="font-medium">
-            {{ object.first_name|default:"—" }}
-          </div>
+        <!-- ================= Security ================= -->
+        <input type="radio" name="user_tabs" role="tab"
+               class="tab" aria-label="Security" />
+        <div role="tabpanel" class="tab-content px-0 py-6">
+
+          {% include "base/users/security_tab.html" %}
         </div>
 
-        <div>
-          <div class="text-xs uppercase text-base-content/50">
-            Last Name
-          </div>
-          <div class="font-medium">
-            {{ object.last_name|default:"—" }}
-          </div>
+        <!-- ================= Metadata ================= -->
+        <input type="radio" name="user_tabs" role="tab"
+               class="tab" aria-label="Metadata" />
+        <div role="tabpanel" class="tab-content px-0 py-6">
+
+          {% include "base/users/metadata.html" %}
         </div>
 
       </div>
     </div>
   </section>
 
-  {# ===================================================== #}
-  {# Company & Partner                                    #}
-  {# ===================================================== #}
-  <section class="card bg-base-100 border border-base-300">
-    <div class="card-body p-6 space-y-6">
 
-      <h2 class="text-sm font-semibold text-base-content/70">
-        Organization
-      </h2>
-
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-        <div>
-          <div class="text-xs uppercase text-base-content/50">
-            Default Company
-          </div>
-          <div class="font-medium">
-            {% if object.company %}
-              <a href="{% url 'base:company_detail' object.company.pk %}"
-                 class="link link-hover">
-                {{ object.company.name }}
-              </a>
-            {% else %}
-              —
-            {% endif %}
-          </div>
-        </div>
-
-        <div>
-          <div class="text-xs uppercase text-base-content/50">
-            Linked Partner
-          </div>
-          <div class="font-medium">
-            {% if object.partner %}
-              <a href="{% url 'base:partner_detail' object.partner.pk %}"
-                 class="link link-hover">
-                {{ object.partner.name }}
-              </a>
-            {% else %}
-              —
-            {% endif %}
-          </div>
-        </div>
-
-      </div>
-    </div>
-  </section>
-
-  {# ===================================================== #}
-  {# System Status                                        #}
-  {# ===================================================== #}
-  <section class="card bg-base-100 border border-base-300">
-    <div class="card-body p-6 space-y-6">
-
-      <h2 class="text-sm font-semibold text-base-content/70">
-        System Status
-      </h2>
-
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-
-        <div>
-          <div class="text-xs uppercase text-base-content/50">
-            Active
-          </div>
-          <div class="font-medium">
-            {% if object.is_active %}
-              <span class="text-success">Yes</span>
-            {% else %}
-              <span class="text-error">No</span>
-            {% endif %}
-          </div>
-        </div>
-
-        <div>
-          <div class="text-xs uppercase text-base-content/50">
-            Staff
-          </div>
-          <div class="font-medium">
-            {{ object.is_staff|yesno:"Yes,No" }}
-          </div>
-        </div>
-
-        <div>
-          <div class="text-xs uppercase text-base-content/50">
-            Superuser
-          </div>
-          <div class="font-medium">
-            {{ object.is_superuser|yesno:"Yes,No" }}
-          </div>
-        </div>
-
-      </div>
-    </div>
-  </section>
-
-  {# ===================================================== #}
-  {# Footer                                               #}
-  {# ===================================================== #}
+  {# ================= Footer ================= #}
   <div class="flex items-center justify-between text-xs text-base-content/60 pt-2">
-
-    <a href="{% url 'base:user_list' %}"
-       class="link link-hover">
-      ← Back to Users
-    </a>
-
-    <span>
-      User ID: #{{ object.id }}
-    </span>
-
+    <a href="{% url 'base:user_list' %}" class="link link-hover">← Back to Users</a>
+    <span>User ID: #{{ object.id }}</span>
   </div>
 
 </div>
