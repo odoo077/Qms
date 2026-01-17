@@ -4,88 +4,144 @@
 {% block content %}
 <div class="w-full px-6 py-6 space-y-6">
 
-  <!-- Header -->
-  <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+  <!-- ===================================================== -->
+  <!-- PAGE HEADER -->
+  <!-- ===================================================== -->
+  <section class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
     <div>
-      <h1 class="text-3xl font-bold tracking-tight">Company Skills</h1>
-      <p class="text-sm opacity-70">{{ page_obj.paginator.count }} records</p>
+      <h1 class="text-3xl font-semibold tracking-tight">
+        Company Skills
+      </h1>
+      <p class="text-sm text-base-content/60">
+        {{ page_obj.paginator.count }} records
+      </p>
     </div>
 
-    <div class="flex items-center gap-2">
-      <a href="{% url 'skills:companyskill_create' %}" class="btn btn-primary btn-sm">
+    <div>
+      <a href="{% url 'skills:companyskill_create' %}"
+         class="btn btn-primary btn-sm">
         + New
       </a>
     </div>
-  </div>
+  </section>
 
-  <!-- Filters -->
-  <form method="get" class="bg-base-100 p-4 rounded-xl shadow-sm border border-base-200">
-    <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-end">
+  <!-- ===================================================== -->
+  <!-- FILTERS -->
+  <!-- ===================================================== -->
+  <section class="card bg-base-100 border border-base-200 shadow-sm">
+    <form method="get" class="p-5">
+      <div class="grid grid-cols-1 md:grid-cols-6 gap-4 items-end">
 
-      <div class="lg:col-span-4">
-        <label class="label p-0 mb-1"><span class="label-text text-xs font-medium opacity-70">Search</span></label>
-        <input name="q" value="{{ request.GET.q }}" class="input input-bordered w-full"
-               placeholder="Skill, Skill Type, Company..." />
-      </div>
+        <!-- Search -->
+        <div class="md:col-span-3">
+          <label class="label p-0 mb-1">
+            <span class="label-text text-xs text-base-content/60">
+              Search
+            </span>
+          </label>
+          <input type="text"
+                 name="q"
+                 value="{{ request.GET.q|default:'' }}"
+                 placeholder="Skill, Skill Type, Company..."
+                 class="input input-bordered w-full">
+        </div>
 
-      <div class="lg:col-span-3">
-        <label class="label p-0 mb-1"><span class="label-text text-xs opacity-70">Company</span></label>
-        <select name="company" class="select select-bordered w-full">
-          <option value="">All</option>
-          {% for c in companies %}
-            <option value="{{ c.id }}" {% if request.GET.company == c.id|stringformat:"s" %}selected{% endif %}>
-              {{ c.name }}
+        <!-- Company -->
+        <div class="md:col-span-2">
+          <label class="label p-0 mb-1">
+            <span class="label-text text-xs text-base-content/60">
+              Company
+            </span>
+          </label>
+          <select name="company" class="select select-bordered w-full">
+            <option value="">All</option>
+            {% for c in companies %}
+              <option value="{{ c.id }}"
+                {% if request.GET.company == c.id|stringformat:"s" %}selected{% endif %}>
+                {{ c.name }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <!-- Status -->
+        <div class="md:col-span-1">
+          <label class="label p-0 mb-1">
+            <span class="label-text text-xs text-base-content/60">
+              Status
+            </span>
+          </label>
+          <select name="active" class="select select-bordered w-full">
+            <option value="">All</option>
+            <option value="1" {% if request.GET.active == "1" %}selected{% endif %}>
+              Active
             </option>
-          {% endfor %}
-        </select>
+            <option value="0" {% if request.GET.active == "0" %}selected{% endif %}>
+              Inactive
+            </option>
+          </select>
+        </div>
+
+        <!-- Actions -->
+        <div class="md:col-span-6 flex justify-end gap-2 pt-2">
+          <button type="submit"
+                  class="btn btn-primary btn-sm px-4 shadow-sm hover:shadow-md transition-all">
+            Apply
+          </button>
+
+          <a href="{% url 'skills:companyskill_list' %}"
+             class="btn btn-ghost btn-sm text-base-content/60 hover:text-base-content hover:bg-base-200">
+            Reset
+          </a>
+        </div>
+
       </div>
+    </form>
+  </section>
 
-      <div class="lg:col-span-2">
-        <label class="label p-0 mb-1"><span class="label-text text-xs opacity-70">Active</span></label>
-        <select name="active" class="select select-bordered w-full">
-          <option value="">All</option>
-          <option value="1" {% if request.GET.active == "1" %}selected{% endif %}>Active</option>
-          <option value="0" {% if request.GET.active == "0" %}selected{% endif %}>Inactive</option>
-        </select>
-      </div>
-
-      <div class="lg:col-span-3 flex gap-2 justify-end">
-        <button class="btn btn-primary btn-sm" type="submit">Apply</button>
-        <a class="btn btn-ghost btn-sm" href="{% url 'skills:companyskill_list' %}">Reset</a>
-      </div>
-
-    </div>
-  </form>
-
-  <!-- Table -->
-  <div class="card bg-base-100 shadow overflow-x-auto">
-    <table class="table table-zebra w-full text-sm">
-      <thead>
+  <!-- ===================================================== -->
+  <!-- TABLE -->
+  <!-- ===================================================== -->
+  <section class="card bg-base-100 border border-base-200 shadow-sm overflow-x-auto">
+    <table class="table w-full text-sm">
+      <thead class="bg-base-200/60">
         <tr>
           <th>Company</th>
           <th>Skill Type</th>
           <th>Skill</th>
           <th>Status</th>
-          <th class="text-right">Actions</th>
+          <th class="text-right w-24">Actions</th>
         </tr>
       </thead>
-      <tbody>
-        {% for row in rows %}
-          <tr>
-            <td class="font-medium">{{ row.company.name }}</td>
-            <td>{{ row.skill.skill_type.name|default:"—" }}</td>
-            <td>{{ row.skill.name }}</td>
-            <td>
-              {% if row.active %}
-                <span class="badge badge-success">Active</span>
-              {% else %}
-                <span class="badge badge-ghost">Inactive</span>
-              {% endif %}
-            </td>
-            <td class="text-right">
-              <div class="flex justify-end gap-1">
 
-              <!-- Edit  -->
+      <tbody class="[&>tr]:border-base-200">
+        {% for row in rows %}
+        <tr class="hover">
+
+          <td class="font-medium">
+            {{ row.company.name }}
+          </td>
+
+          <td class="text-base-content/70">
+            {{ row.skill.skill_type.name|default:"—" }}
+          </td>
+
+          <td class="text-base-content/70">
+            {{ row.skill.name }}
+          </td>
+
+          <td class="text-sm">
+            {% if row.active %}
+              <span class="text-success font-medium">Active</span>
+            {% else %}
+              <span class="text-base-content/40">Inactive</span>
+            {% endif %}
+          </td>
+
+          <td class="text-right">
+            <div class="inline-flex items-center gap-2">
+
+              <!-- Edit -->
               <a href="{% url 'skills:companyskill_edit' row.id %}"
                  class="tooltip tooltip-left"
                  data-tip="Edit">
@@ -105,8 +161,7 @@
                 </div>
               </a>
 
-
-              <!-- Delete  -->
+              <!-- Delete -->
               <a href="{% url 'skills:companyskill_delete' row.id %}"
                  class="tooltip tooltip-left"
                  data-tip="Delete">
@@ -129,18 +184,33 @@
                 </div>
               </a>
 
-              </div>
-            </td>
-          </tr>
+            </div>
+          </td>
+
+        </tr>
         {% empty %}
-          <tr>
-            <td colspan="5" class="text-center opacity-70 py-6">No records found.</td>
-          </tr>
+        <tr>
+          <td colspan="5" class="py-16 text-center">
+            <p class="font-medium text-base-content/70">
+              No company skills found
+            </p>
+            <p class="text-sm text-base-content/50 mt-1">
+              Assign skills to companies to manage competency frameworks.
+            </p>
+            <a href="{% url 'skills:companyskill_create' %}"
+               class="btn btn-primary btn-sm mt-4">
+              + Add Company Skill
+            </a>
+          </td>
+        </tr>
         {% endfor %}
       </tbody>
     </table>
-  </div>
+  </section>
 
+  <!-- ===================================================== -->
+  <!-- PAGINATION -->
+  <!-- ===================================================== -->
   {% include "partials/paginator.html" %}
 
 </div>

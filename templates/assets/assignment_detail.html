@@ -10,17 +10,18 @@ Asset Assignment · Details
   <!-- ===================================================== -->
   <!-- PAGE HEADER -->
   <!-- ===================================================== -->
-  <section class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+  <section class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+
     <div>
-      <h1 class="text-3xl font-bold tracking-tight">
+      <h1 class="text-3xl font-semibold tracking-tight">
         Asset Assignment
       </h1>
       <p class="text-sm text-base-content/60">
-        Assignment record (read-only).
+        Read-only assignment record details.
       </p>
     </div>
 
-    <div class="flex gap-2">
+    <div class="flex flex-wrap gap-2">
       <a href="{% url 'assets:assignment_list' %}"
          class="btn btn-ghost btn-sm">
         Back
@@ -36,20 +37,27 @@ Asset Assignment · Details
         Delete
       </a>
     </div>
+
   </section>
 
   <!-- ===================================================== -->
   <!-- STATUS -->
   <!-- ===================================================== -->
-  <section class="flex gap-2">
+  <section>
     {% if object.date_to %}
-      <span class="badge badge-ghost badge-sm">
-        Closed
-      </span>
+      <div class="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-base-200">
+        <span class="badge badge-ghost badge-sm">Closed</span>
+        <span class="text-sm text-base-content/60">
+          This assignment has been completed.
+        </span>
+      </div>
     {% else %}
-      <span class="badge badge-success badge-sm">
-        Open (Current)
-      </span>
+      <div class="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-success/10">
+        <span class="badge badge-success badge-sm">Open</span>
+        <span class="text-sm text-success">
+          This is the active assignment.
+        </span>
+      </div>
     {% endif %}
   </section>
 
@@ -66,54 +74,38 @@ Asset Assignment · Details
       <dl class="grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-4 text-sm">
 
         <!-- Asset -->
-        <div class="text-base-content/60">
-          Asset
-        </div>
-        <div class="font-medium md:col-span-2">
+        <dt class="text-base-content/60">Asset</dt>
+        <dd class="font-medium md:col-span-2">
           {{ object.asset.code }} — {{ object.asset.name }}
-        </div>
+        </dd>
 
         <!-- Employee -->
-        <div class="text-base-content/60">
-          Employee
-        </div>
-        <div class="md:col-span-2">
+        <dt class="text-base-content/60">Employee</dt>
+        <dd class="md:col-span-2">
           {{ object.employee }}
-        </div>
+        </dd>
 
         <!-- Company -->
-        <div class="text-base-content/60">
-          Company
-        </div>
-        <div class="md:col-span-2">
+        <dt class="text-base-content/60">Company</dt>
+        <dd class="md:col-span-2">
           {{ object.company|default:"—" }}
-        </div>
+        </dd>
 
         <!-- Assigned From -->
-        <div class="text-base-content/60">
-          Assigned From
-        </div>
-        <div class="md:col-span-2">
+        <dt class="text-base-content/60">Assigned From</dt>
+        <dd class="md:col-span-2">
           {{ object.date_from|date:"Y-m-d"|default:"—" }}
-        </div>
+        </dd>
 
         <!-- Assigned To -->
-        <div class="text-base-content/60">
-          Assigned To
-        </div>
-        <div class="md:col-span-2">
-          {% if object.date_to %}
-            {{ object.date_to|date:"Y-m-d" }}
-          {% else %}
-            —
-          {% endif %}
-        </div>
+        <dt class="text-base-content/60">Assigned To</dt>
+        <dd class="md:col-span-2">
+          {{ object.date_to|date:"Y-m-d"|default:"—" }}
+        </dd>
 
         <!-- Duration -->
-        <div class="text-base-content/60">
-          Duration
-        </div>
-        <div class="md:col-span-2">
+        <dt class="text-base-content/60">Duration</dt>
+        <dd class="md:col-span-2">
           {% if object.date_from %}
             {% if object.date_to %}
               {{ object.date_from|timesince:object.date_to }}
@@ -123,15 +115,13 @@ Asset Assignment · Details
           {% else %}
             —
           {% endif %}
-        </div>
+        </dd>
 
         <!-- Note -->
-        <div class="text-base-content/60">
-          Note
-        </div>
-        <div class="md:col-span-2 break-all text-base-content/70">
+        <dt class="text-base-content/60">Note</dt>
+        <dd class="md:col-span-2 text-base-content/70 break-words">
           {{ object.note|default:"—" }}
-        </div>
+        </dd>
 
       </dl>
 

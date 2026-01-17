@@ -1417,6 +1417,10 @@ class UserUpdateView(LoginRequiredMixin, UpdateView):
         if "companies" in form.fields:
             form.fields["companies"].queryset = companies_qs.order_by("name")
 
+        if "is_active" in form.fields:
+            form.fields["is_active"].label = "Active"
+            form.fields["is_active"].required = False
+
         return form
 
     def form_valid(self, form):
@@ -1433,6 +1437,9 @@ class UserUpdateView(LoginRequiredMixin, UpdateView):
                 bad = [c.pk for c in m2m_companies if c.pk not in allowed_ids]
                 if bad:
                     raise PermissionDenied("One or more companies are outside allowed scope.")
+
+            if not form.cleaned_data.get("is_active", True) and form.instance.is_superuser:
+                raise PermissionDenied("Superuser cannot be deactivated.")
 
         return super().form_valid(form)
 

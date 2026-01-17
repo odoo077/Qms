@@ -2,14 +2,11 @@
 {% block title %}Employees{% endblock %}
 
 {% block content %}
-<div class="w-full px-6 py-6 space-y-8">
+<div class="w-full px-6 py-6 space-y-6">
 
-  <!-- ===================================================== -->
-  <!-- Page Header -->
-  <!-- ===================================================== -->
-  <section class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+  <section class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
     <div>
-      <h1 class="text-3xl font-bold tracking-tight">
+      <h1 class="text-3xl font-semibold tracking-tight">
         Employees
       </h1>
       <p class="text-sm text-base-content/60">
@@ -23,17 +20,13 @@
     </a>
   </section>
 
-  <!-- ===================================================== -->
-  <!-- Filters -->
-  <!-- ===================================================== -->
-  <section class="card bg-base-100 border border-base-200 shadow-sm p-5">
-    <form method="get">
+  <section class="card bg-base-100 border border-base-200 shadow-sm">
+    <form method="get" class="p-5">
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-end">
 
-        <!-- Search -->
         <div class="lg:col-span-3">
           <label class="label p-0 mb-1">
-            <span class="label-text text-xs font-medium text-base-content/60">
+            <span class="label-text text-xs text-base-content/60">
               Search
             </span>
           </label>
@@ -41,13 +34,14 @@
                  name="q"
                  value="{{ request.GET.q }}"
                  placeholder="Name, email, job, department, manager…"
-                 class="input input-bordered w-full" />
+                 class="input input-bordered w-full">
         </div>
 
-        <!-- Company -->
         <div class="lg:col-span-2">
           <label class="label p-0 mb-1">
-            <span class="label-text text-xs text-base-content/60">Company</span>
+            <span class="label-text text-xs text-base-content/60">
+              Company
+            </span>
           </label>
           <select name="company" class="select select-bordered w-full">
             <option value="">All</option>
@@ -60,10 +54,11 @@
           </select>
         </div>
 
-        <!-- Department -->
         <div class="lg:col-span-2">
           <label class="label p-0 mb-1">
-            <span class="label-text text-xs text-base-content/60">Department</span>
+            <span class="label-text text-xs text-base-content/60">
+              Department
+            </span>
           </label>
           <select name="department" class="select select-bordered w-full">
             <option value="">All</option>
@@ -76,10 +71,11 @@
           </select>
         </div>
 
-        <!-- Job -->
         <div class="lg:col-span-1">
           <label class="label p-0 mb-1">
-            <span class="label-text text-xs text-base-content/60">Job</span>
+            <span class="label-text text-xs text-base-content/60">
+              Job
+            </span>
           </label>
           <select name="job" class="select select-bordered w-full">
             <option value="">All</option>
@@ -92,10 +88,11 @@
           </select>
         </div>
 
-        <!-- Manager -->
         <div class="lg:col-span-1">
           <label class="label p-0 mb-1">
-            <span class="label-text text-xs text-base-content/60">Manager</span>
+            <span class="label-text text-xs text-base-content/60">
+              Manager
+            </span>
           </label>
           <select name="manager" class="select select-bordered w-full">
             <option value="">All</option>
@@ -108,10 +105,11 @@
           </select>
         </div>
 
-        <!-- Employee Status -->
         <div class="lg:col-span-1">
           <label class="label p-0 mb-1">
-            <span class="label-text text-xs text-base-content/60">Employee Status</span>
+            <span class="label-text text-xs text-base-content/60">
+              Employee Status
+            </span>
           </label>
           <select name="status" class="select select-bordered w-full">
             <option value="">All</option>
@@ -124,10 +122,11 @@
           </select>
         </div>
 
-        <!-- Record -->
         <div class="lg:col-span-1">
           <label class="label p-0 mb-1">
-            <span class="label-text text-xs text-base-content/60">Record</span>
+            <span class="label-text text-xs text-base-content/60">
+              Record
+            </span>
           </label>
           <select name="record" class="select select-bordered w-full">
             <option value="">All</option>
@@ -136,19 +135,20 @@
           </select>
         </div>
 
-        <!-- Actions -->
-        <div class="lg:col-span-1 flex gap-2 justify-end">
-          <button type="submit" class="btn btn-primary btn-sm">Apply</button>
-          <a href="{% url 'hr:employee_list' %}" class="btn btn-ghost btn-sm">Reset</a>
+        <div class="lg:col-span-1 flex justify-end gap-2">
+          <button type="submit" class="btn btn-primary btn-sm">
+            Apply
+          </button>
+          <a href="{% url 'hr:employee_list' %}"
+             class="btn btn-ghost btn-sm">
+            Reset
+          </a>
         </div>
 
       </div>
     </form>
   </section>
 
-  <!-- ===================================================== -->
-  <!-- Bulk Actions -->
-  <!-- ===================================================== -->
   <form id="bulk-form" method="post" action="{% url 'hr:employee_bulk' %}">
     {% csrf_token %}
     <input type="hidden" name="action" id="bulk-action">
@@ -168,15 +168,12 @@
       </div>
     </div>
 
-    <!-- ===================================================== -->
-    <!-- Employees Table -->
-    <!-- ===================================================== -->
     <section class="card bg-base-100 border border-base-200 shadow-sm overflow-x-auto">
-      <table class="table table-zebra w-full text-sm">
-        <thead>
+      <table class="table w-full text-sm">
+        <thead class="bg-base-200/60">
           <tr>
             <th class="w-10">
-              <input id="check-all" type="checkbox" class="checkbox checkbox-sm" />
+              <input id="check-all" type="checkbox" class="checkbox checkbox-sm">
             </th>
             <th>Name</th>
             <th>Status</th>
@@ -187,13 +184,14 @@
             <th>Manager</th>
             <th>Company</th>
             <th>User</th>
-            <th class="text-right">Actions</th>
+            <th class="text-right w-24">Actions</th>
           </tr>
         </thead>
 
-        <tbody>
+        <tbody class="[&>tr]:border-base-200">
         {% for emp in employees %}
-          <tr data-active="{% if emp.active %}1{% else %}0{% endif %}">
+          <tr class="hover" data-active="{% if emp.active %}1{% else %}0{% endif %}">
+
             <td>
               <input type="checkbox"
                      class="row-check checkbox checkbox-sm"
@@ -201,7 +199,8 @@
             </td>
 
             <td>
-              <a href="{{ emp.get_absolute_url }}" class="font-medium link link-hover">
+              <a href="{{ emp.get_absolute_url }}"
+                 class="font-medium link link-hover">
                 {{ emp.name }}
               </a>
             </td>
@@ -249,9 +248,9 @@
 
             <td>
               {% if emp.active %}
-                <span class="badge badge-success">Active</span>
+                <span class="text-success font-medium">Active</span>
               {% else %}
-                <span class="badge badge-ghost">Archived</span>
+                <span class="text-base-content/40">Archived</span>
               {% endif %}
             </td>
 
@@ -259,36 +258,36 @@
             <td>{{ emp.department.complete_name|default:"—" }}</td>
             <td>{{ emp.manager.name|default:"—" }}</td>
             <td>{{ emp.company.name }}</td>
-            <td class="truncate max-w-[180px]">{{ emp.user.email|default:"—" }}</td>
+            <td class="truncate max-w-[180px]">
+              {{ emp.user.email|default:"—" }}
+            </td>
 
             <td class="text-right">
-              <div class="flex justify-end gap-1">
-                <!-- Edit Employee -->
-                <a href="{{ emp.get_edit_url }}"
-                   class="tooltip tooltip-left"
-                   data-tip="Edit">
-                  <div class="btn btn-ghost btn-xs text-primary hover:bg-primary/10">
-                    <svg xmlns="http://www.w3.org/2000/svg"
-                         class="h-4 w-4"
-                         fill="none"
-                         viewBox="0 0 24 24"
-                         stroke="currentColor">
-                      <path stroke-linecap="round"
-                            stroke-linejoin="round"
-                            stroke-width="2"
-                            d="M15.232 5.232l3.536 3.536
-                               M9 11l6.232-6.232a2.5 2.5 0 013.536 3.536
-                               L12.536 14.536 9 15l.464-3.464z" />
-                    </svg>
-                  </div>
-                </a>
-              </div>
+              <a href="{{ emp.get_edit_url }}"
+                 class="tooltip tooltip-left"
+                 data-tip="Edit">
+                <div class="btn btn-ghost btn-xs text-primary hover:bg-primary/10">
+                  <svg xmlns="http://www.w3.org/2000/svg"
+                       class="h-4 w-4"
+                       fill="none"
+                       viewBox="0 0 24 24"
+                       stroke="currentColor">
+                    <path stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M15.232 5.232l3.536 3.536
+                             M9 11l6.232-6.232a2.5 2.5 0 013.536 3.536
+                             L12.536 14.536 9 15l.464-3.464z" />
+                  </svg>
+                </div>
+              </a>
             </td>
+
           </tr>
         {% empty %}
           <tr>
-            <td colspan="11" class="text-center py-8 text-base-content/60">
-              No employees found.
+            <td colspan="11" class="py-16 text-center text-base-content/60">
+              No employees found
             </td>
           </tr>
         {% endfor %}

@@ -1,249 +1,237 @@
 {% extends "base.html" %}
-
 {% block title %}Skill Levels{% endblock %}
 
 {% block content %}
-<div class="w-full px-6 py-8 space-y-8">
+<div class="w-full px-6 py-6 space-y-6">
 
   <!-- ===================================================== -->
-  <!-- Page Header -->
+  <!-- PAGE HEADER -->
   <!-- ===================================================== -->
-  <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-    <div class="space-y-1">
+  <section class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+    <div>
       <h1 class="text-3xl font-semibold tracking-tight">
         Skill Levels
       </h1>
       <p class="text-sm text-base-content/60">
-        {{ page_obj.paginator.count }} levels defined across skill types
+        {{ page_obj.paginator.count }} levels defined across all skill types
       </p>
     </div>
 
-    <a href="{% url 'skills:skilllevel_create' %}"
-       class="btn btn-primary btn-sm gap-2">
-      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4"
-           fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round"
-              stroke-width="2" d="M12 4v16m8-8H4"/>
-      </svg>
-      New Skill Level
-    </a>
-  </div>
+    <div class="flex gap-2">
+      <a href="{% url 'skills:skilllevel_create' %}"
+         class="btn btn-primary btn-sm">
+        + New Skill Level
+      </a>
+    </div>
+  </section>
 
-  <!-- ===================================================== -->
-  <!-- Filters -->
-  <!-- ===================================================== -->
-  <form method="get"
-        class="card bg-base-100 border border-base-200">
-    <div class="card-body p-5 space-y-4">
+<!-- ===================================================== -->
+<!-- FILTERS -->
+<!-- ===================================================== -->
+<section class="card bg-base-100 border border-base-200 shadow-sm p-4">
+  <form method="get">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-3 items-end">
 
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-
-        <!-- Search -->
-        <div class="md:col-span-2">
-          <label class="label pb-1">
-            <span class="label-text text-xs text-base-content/60">Search</span>
-          </label>
-          <input type="text"
-                 name="q"
-                 value="{{ current_params.q }}"
-                 placeholder="Level name or skill type"
-                 class="input input-bordered w-full" />
-        </div>
-
-        <!-- Skill Type -->
-        <div>
-          <label class="label pb-1">
-            <span class="label-text text-xs text-base-content/60">Skill Type</span>
-          </label>
-          <select name="skill_type" class="select select-bordered w-full">
-            <option value="">All</option>
-            {% for t in skilltypes %}
-              <option value="{{ t.id }}"
-                {% if current_params.skill_type == t.id|stringformat:"s" %}selected{% endif %}>
-                {{ t.name }}
-              </option>
-            {% endfor %}
-          </select>
-        </div>
-
-        <!-- Default -->
-        <div>
-          <label class="label pb-1">
-            <span class="label-text text-xs text-base-content/60">Default</span>
-          </label>
-          <select name="default" class="select select-bordered w-full">
-            <option value="">All</option>
-            <option value="1" {% if current_params.default == "1" %}selected{% endif %}>Yes</option>
-            <option value="0" {% if current_params.default == "0" %}selected{% endif %}>No</option>
-          </select>
-        </div>
-
-        <!-- Status -->
-        <div>
-          <label class="label pb-1">
-            <span class="label-text text-xs text-base-content/60">Status</span>
-          </label>
-          <select name="active" class="select select-bordered w-full">
-            <option value="">All</option>
-            <option value="1" {% if current_params.active == "1" %}selected{% endif %}>Active</option>
-            <option value="0" {% if current_params.active == "0" %}selected{% endif %}>Inactive</option>
-          </select>
-        </div>
-
+      <!-- Search -->
+      <div class="lg:col-span-4">
+        <label class="label p-0 mb-1">
+          <span class="label-text text-xs font-medium text-base-content/60">
+            Search
+          </span>
+        </label>
+        <input type="text"
+               name="q"
+               value="{{ current_params.q }}"
+               placeholder="Level name or skill type"
+               class="input input-bordered input-sm w-full">
       </div>
 
-      <div class="flex justify-end gap-2 pt-2">
+      <!-- Skill Type -->
+      <div class="lg:col-span-3">
+        <label class="label p-0 mb-1">
+          <span class="label-text text-xs text-base-content/60">
+            Skill Type
+          </span>
+        </label>
+        <select name="skill_type" class="select select-bordered select-sm w-full">
+          <option value="">All</option>
+          {% for t in skilltypes %}
+            <option value="{{ t.id }}"
+              {% if current_params.skill_type == t.id|stringformat:"s" %}selected{% endif %}>
+              {{ t.name }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <!-- Default -->
+      <div class="lg:col-span-2">
+        <label class="label p-0 mb-1">
+          <span class="label-text text-xs text-base-content/60">
+            Default
+          </span>
+        </label>
+        <select name="default_level" class="select select-bordered select-sm w-full">
+          <option value="">All</option>
+          <option value="1" {% if current_params.default_level == "1" %}selected{% endif %}>
+            Default only
+          </option>
+          <option value="0" {% if current_params.default_level == "0" %}selected{% endif %}>
+            Non-default
+          </option>
+        </select>
+      </div>
+
+      <!-- Status -->
+      <div class="lg:col-span-2">
+        <label class="label p-0 mb-1">
+          <span class="label-text text-xs text-base-content/60">
+            Status
+          </span>
+        </label>
+        <select name="active" class="select select-bordered select-sm w-full">
+          <option value="">All</option>
+          <option value="1" {% if current_params.active == "1" %}selected{% endif %}>
+            Active
+          </option>
+          <option value="0" {% if current_params.active == "0" %}selected{% endif %}>
+            Inactive
+          </option>
+        </select>
+      </div>
+
+      <!-- Actions -->
+      <div class="lg:col-span-1 flex justify-end gap-2">
         <button type="submit" class="btn btn-primary btn-sm">
-          Apply Filters
+          Apply
         </button>
-        <a href="{% url 'skills:skilllevel_list' %}"
-           class="btn btn-ghost btn-sm">
+        <a href="{% url 'skills:skilllevel_list' %}?reset=1"
+           class="btn btn-ghost btn-sm text-base-content/60 hover:text-base-content hover:bg-base-200">
           Reset
         </a>
       </div>
 
     </div>
   </form>
+</section>
+
 
   <!-- ===================================================== -->
-  <!-- Active Filters -->
+  <!-- TABLE -->
   <!-- ===================================================== -->
-  {% if active_filters %}
-    <div class="flex flex-wrap gap-2">
-      {% for f in active_filters %}
-        <span class="badge badge-outline text-xs">
-          <span class="text-base-content/60">{{ f.label }}:</span>
-          <span class="font-medium ml-1">{{ f.value }}</span>
-        </span>
-      {% endfor %}
-    </div>
-  {% endif %}
-
-  <!-- ===================================================== -->
-  <!-- Table -->
-  <!-- ===================================================== -->
-  <div class="card bg-base-100 border border-base-200 overflow-x-auto">
-
-    <table class="table w-full text-sm">
-      <thead class="bg-base-200/60">
+  <section class="card bg-base-100 border border-base-200 shadow-sm overflow-x-auto">
+    <table class="table table-zebra w-full text-sm">
+      <thead class="bg-base-200">
         <tr>
           <th>Skill Type</th>
           <th>Level</th>
-          <th class="w-64">Progress</th>
-          <th class="w-28">Default</th>
-          <th class="w-28">Status</th>
-          <th class="w-40 text-right">Actions</th>
+          <th class="w-56">Progress</th>
+          <th class="w-24">Default</th>
+          <th class="w-24">Status</th>
+          <th class="text-right w-28">Actions</th>
         </tr>
       </thead>
 
       <tbody>
         {% for obj in object_list %}
-          <tr class="hover">
+        <tr class="hover">
 
-            <td class="font-medium">{{ obj.skill_type.name }}</td>
-            <td>{{ obj.name }}</td>
+          <!-- Skill Type -->
+          <td class="font-medium">
+            {{ obj.skill_type.name }}
+          </td>
 
-            <td>
-              <div class="flex items-center gap-3">
-                <progress class="progress progress-primary w-full"
-                          value="{{ obj.level_progress }}" max="100"></progress>
-                <span class="text-xs text-base-content/60 tabular-nums">
-                  {{ obj.level_progress }}%
-                </span>
-              </div>
-            </td>
+          <!-- Level -->
+          <td>
+            {{ obj.name }}
+          </td>
 
-            <td>
-              {% if obj.default_level %}
-                <span class="badge badge-info badge-sm">Default</span>
-              {% else %}
-                <span class="badge badge-ghost badge-sm">—</span>
-              {% endif %}
-            </td>
+          <!-- Progress -->
+          <td>
+            <div class="flex items-center gap-2">
+              <progress class="progress progress-primary w-full"
+                        value="{{ obj.level_progress }}"
+                        max="100"></progress>
+              <span class="text-xs tabular-nums text-base-content/60">
+                {{ obj.level_progress }}%
+              </span>
+            </div>
+          </td>
 
-            <td>
-              {% if obj.active %}
-                <span class="badge badge-success badge-sm">Active</span>
-              {% else %}
-                <span class="badge badge-ghost badge-sm">Inactive</span>
-              {% endif %}
-            </td>
+          <!-- Default -->
+          <td>
+            {% if obj.default_level %}
+              <span class="badge badge-info badge-sm">
+                Default
+              </span>
+            {% else %}
+              <span class="badge badge-ghost badge-sm">
+                —
+              </span>
+            {% endif %}
+          </td>
 
-            <td class="text-right">
-              <div class="flex justify-end gap-1">
-                <!-- Edit  -->
+          <!-- Status -->
+          <td>
+            {% if obj.active %}
+              <span class="badge badge-success badge-sm">
+                Active
+              </span>
+            {% else %}
+              <span class="badge badge-ghost badge-sm">
+                Inactive
+              </span>
+            {% endif %}
+          </td>
+
+          <!-- Actions -->
+          <td class="text-right">
+            <div class="inline-flex items-center gap-2">
+
+              <!-- Edit -->
               <a href="{% url 'skills:skilllevel_update' obj.id %}"
                  class="tooltip tooltip-left"
                  data-tip="Edit">
                 <div class="btn btn-ghost btn-xs text-primary hover:bg-primary/10">
-                  <svg xmlns="http://www.w3.org/2000/svg"
-                       class="h-4 w-4"
-                       fill="none"
-                       viewBox="0 0 24 24"
-                       stroke="currentColor">
-                    <path stroke-linecap="round"
-                          stroke-linejoin="round"
-                          stroke-width="2"
-                          d="M15.232 5.232l3.536 3.536
-                             M9 11l6.232-6.232a2.5 2.5 0 013.536 3.536
-                             L12.536 14.536 9 15l.464-3.464z" />
-                  </svg>
+                  ✎
                 </div>
               </a>
 
-
-              <!-- Delete  -->
+              <!-- Delete -->
               <a href="{% url 'skills:skilllevel_delete' obj.id %}"
                  class="tooltip tooltip-left"
                  data-tip="Delete">
                 <div class="btn btn-ghost btn-xs text-error hover:bg-error/10">
-                  <svg xmlns="http://www.w3.org/2000/svg"
-                       class="h-4 w-4"
-                       fill="none"
-                       viewBox="0 0 24 24"
-                       stroke="currentColor">
-                    <path stroke-linecap="round"
-                          stroke-linejoin="round"
-                          stroke-width="2"
-                          d="M19 7l-.867 12.142A2 2 0 0116.138 21
-                             H7.862a2 2 0 01-1.995-1.858L5 7
-                             m5-4h4
-                             m-4 0a1 1 0 00-1 1v1h6V4
-                             a1 1 0 00-1-1
-                             m-4 0h4" />
-                  </svg>
+                  🗑
                 </div>
               </a>
 
+            </div>
+          </td>
 
-              </div>
-            </td>
-
-          </tr>
+        </tr>
         {% empty %}
-          <tr>
-            <td colspan="6" class="py-16">
-              <div class="flex flex-col items-center text-center gap-2 text-base-content/70">
-                <p class="font-medium">No Skill Levels found</p>
-                <p class="text-sm text-base-content/60 max-w-md">
-                  Create skill levels to define progression and proficiency across skill types.
-                </p>
-                <a href="{% url 'skills:skilllevel_create' %}"
-                   class="btn btn-primary btn-sm mt-3">
-                  Create Skill Level
-                </a>
-              </div>
-            </td>
-          </tr>
+        <tr>
+          <td colspan="6" class="py-16 text-center">
+            <p class="font-medium text-base-content/70">
+              No skill levels found
+            </p>
+            <p class="text-sm text-base-content/50 mt-1">
+              Define skill progression levels to enable evaluations and career paths
+            </p>
+            <a href="{% url 'skills:skilllevel_create' %}"
+               class="btn btn-primary btn-sm mt-4">
+              + Add Skill Level
+            </a>
+          </td>
+        </tr>
         {% endfor %}
       </tbody>
-
     </table>
-
-  </div>
+  </section>
 
   <!-- ===================================================== -->
-  <!-- Pagination -->
+  <!-- PAGINATION -->
   <!-- ===================================================== -->
   {% include "partials/paginator.html" %}
 

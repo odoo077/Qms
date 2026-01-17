@@ -187,10 +187,21 @@ class CRUDMessagesMixin:
 
 
 # ============================================================
-# Skill Type
+# Skill Types (Configuration – Enterprise-ready)
 # ============================================================
 
+
 class SkillTypeListView(LoginRequiredMixin, SavedFiltersListMixin, ListView):
+    """
+    Configuration list for Skill Types.
+
+    Features:
+    - Persistent filters (session-based)
+    - Instant reset (clears session filters)
+    - Search by name
+    - Active / Certification filters
+    - Safe ordering
+    """
     model = SkillType
     template_name = "skills/skilltype_list.html"
     paginate_by = 25
@@ -198,18 +209,29 @@ class SkillTypeListView(LoginRequiredMixin, SavedFiltersListMixin, ListView):
 
     allowed_ordering = {
         "name": ("name",),
+        "-name": ("-name",),
         "seq": ("sequence", "name"),
         "-seq": ("-sequence", "name"),
-        "-name": ("-name",),
     }
 
     def get_queryset(self):
+        # --------------------------------------------------
+        # RESET: clear saved filters immediately (SESSION)
+        # --------------------------------------------------
+        if self.request.GET.get("reset"):
+            if self.session_key in self.request.session:
+                del self.request.session[self.session_key]
+
+            return SkillType.objects.all().order_by("sequence", "name")
+
         qs = SkillType.objects.all()
 
-        self._params = self._get_params()
-        params = self._params
+        # Load persisted / current params
+        params = self._get_params()
 
+        # --------------------------------------------------
         # Filters
+        # --------------------------------------------------
         active = (params.get("active") or "").strip()
         if active == "1":
             qs = qs.filter(active=True)
@@ -222,11 +244,35 @@ class SkillTypeListView(LoginRequiredMixin, SavedFiltersListMixin, ListView):
         elif is_cert == "0":
             qs = qs.filter(is_certification=False)
 
+        # --------------------------------------------------
         # Search
-        qs = self._apply_search(qs, params, fields=["name"])
+        # --------------------------------------------------
+        qs = self._apply_search(
+            qs,
+            params,
+            fields=["name"],
+        )
 
+        # --------------------------------------------------
         # Ordering
-        return self._apply_ordering(qs, params, default=("sequence", "name"))
+        # --------------------------------------------------
+        return self._apply_ordering(
+            qs,
+            params,
+            default=("sequence", "name"),
+        )
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+
+        base = SkillType.objects.all()
+        ctx.update({
+            "active_count": base.filter(active=True).count(),
+            "inactive_count": base.filter(active=False).count(),
+            "cert_count": base.filter(is_certification=True).count(),
+            "non_cert_count": base.filter(is_certification=False).count(),
+        })
+        return ctx
 
 
 class SkillTypeCreateView(LoginRequiredMixin, CRUDMessagesMixin, CreateView):
@@ -234,6 +280,7 @@ class SkillTypeCreateView(LoginRequiredMixin, CRUDMessagesMixin, CreateView):
     form_class = SkillTypeForm
     template_name = "skills/skilltype_form.html"
     success_url = reverse_lazy("skills:skilltype_list")
+
     success_message_create = "Skill type created successfully."
 
 
@@ -242,6 +289,7 @@ class SkillTypeUpdateView(LoginRequiredMixin, CRUDMessagesMixin, UpdateView):
     form_class = SkillTypeForm
     template_name = "skills/skilltype_form.html"
     success_url = reverse_lazy("skills:skilltype_list")
+
     success_message_update = "Skill type updated successfully."
 
 
@@ -249,14 +297,26 @@ class SkillTypeDeleteView(LoginRequiredMixin, CRUDMessagesMixin, DeleteView):
     model = SkillType
     template_name = CONFIRM_DELETE_TEMPLATE
     success_url = reverse_lazy("skills:skilltype_list")
+
     success_message_delete = "Skill type deleted successfully."
+
 
 
 # ============================================================
 # Skill Level
 # ============================================================
 
-class SkillLevelListView(LoginRequiredMixin, SavedFiltersListMixin, ListView):
+
+class SkillLevelListView(LoginRequiredMixin, ListView):
+    """
+    Production-ready list for Skill Levels.
+
+    - Search (name + skill type)
+    - Filters (skill_type, active, default_level)
+    - Safe ordering
+    - Session-persisted filters
+    - Instant reset via ?reset=1
+    """
     model = SkillLevel
     template_name = "skills/skilllevel_list.html"
     paginate_by = 25
@@ -270,41 +330,103 @@ class SkillLevelListView(LoginRequiredMixin, SavedFiltersListMixin, ListView):
         "-name": ("-name",),
     }
 
+    # ----------------------------
+    # Internal: param handling
+    # ----------------------------
+    def _filter_keys(self) -> list[str]:
+        return ["q", "skill_type", "active", "default_level", "o"]
+
+    def _clean_params(self, raw: dict) -> dict:
+        params = {}
+        for k in self._filter_keys():
+            v = (raw.get(k) or "").strip()
+            if v != "":
+                params[k] = v
+        return params
+
+    def _get_params(self) -> dict:
+        """
+        Rules:
+        - if reset=1 => clear session and return {}
+        - if GET has filter keys (even if empty) => treat as user intent, store cleaned params
+        - if GET only has page => use session params
+        - default => use session params
+        """
+        request = self.request
+
+        # Reset request: clear and return empty
+        if request.GET.get("reset") == "1":
+            request.session.pop(self.session_key, None)
+            return {}
+
+        filter_keys = set(self._filter_keys())
+        get_keys = set(request.GET.keys())
+
+        # Ignore pagination key when deciding intent
+        get_keys_no_page = {k for k in get_keys if k != "page"}
+
+        # If user submitted filters/search (keys present), store cleaned params
+        if get_keys_no_page & filter_keys:
+            params = self._clean_params(request.GET)
+            request.session[self.session_key] = params
+            return params
+
+        # If only page is present (pagination), use session params
+        if get_keys == {"page"}:
+            return request.session.get(self.session_key, {}) or {}
+
+        # Default: use session params (if any)
+        return request.session.get(self.session_key, {}) or {}
+
+    def _apply_ordering(self, qs, params: dict):
+        key = (params.get("o") or "").strip()
+        ordering = self.allowed_ordering.get(key)
+        if ordering:
+            return qs.order_by(*ordering)
+        return qs.order_by("skill_type__sequence", "level_progress", "name")
+
+    # ----------------------------
+    # Django CBV
+    # ----------------------------
     def get_queryset(self):
         qs = SkillLevel.objects.select_related("skill_type")
 
-        self._params = self._get_params()
-        params = self._params
+        params = self._get_params()
+        self.current_params = params  # for template
 
         # Filters
-        skill_type_id = (params.get("skill_type") or "").strip()
+        skill_type_id = params.get("skill_type")
         if skill_type_id:
             qs = qs.filter(skill_type_id=skill_type_id)
 
-        active = (params.get("active") or "").strip()
+        active = params.get("active")
         if active == "1":
             qs = qs.filter(active=True)
         elif active == "0":
             qs = qs.filter(active=False)
 
-        default_level = (params.get("default_level") or "").strip()
+        default_level = params.get("default_level")
         if default_level == "1":
             qs = qs.filter(default_level=True)
         elif default_level == "0":
             qs = qs.filter(default_level=False)
 
         # Search
-        qs = self._apply_search(qs, params, fields=["name", "skill_type__name"])
+        q = params.get("q")
+        if q:
+            qs = qs.filter(
+                Q(name__icontains=q) | Q(skill_type__name__icontains=q)
+            )
 
         # Ordering
-        return self._apply_ordering(
-            qs,
-            params,
-            default=("skill_type__sequence", "level_progress", "name"),
-        )
+        return self._apply_ordering(qs, params)
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
+
+        # what your template expects
+        ctx["current_params"] = getattr(self, "current_params", {}) or {}
+
         ctx["skilltypes"] = SkillType.objects.filter(active=True).order_by("sequence", "name")
         return ctx
 
@@ -327,7 +449,7 @@ class SkillLevelUpdateView(LoginRequiredMixin, CRUDMessagesMixin, UpdateView):
 
 class SkillLevelDeleteView(LoginRequiredMixin, CRUDMessagesMixin, DeleteView):
     model = SkillLevel
-    template_name = CONFIRM_DELETE_TEMPLATE
+    template_name = "partials/confirm_delete.html"
     success_url = reverse_lazy("skills:skilllevel_list")
     success_message_delete = "Skill level deleted successfully."
 
@@ -337,15 +459,26 @@ class SkillLevelDeleteView(LoginRequiredMixin, CRUDMessagesMixin, DeleteView):
 # ============================================================
 
 class SkillListView(LoginRequiredMixin, SavedFiltersListMixin, ListView):
+    """
+    Production-ready Skill list.
+
+    Features:
+    - Search (skill name, skill type)
+    - Filters: Skill Type, Active
+    - Persistent filters (session)
+    - Instant reset (NO apply needed)
+    - Safe ordering
+    """
+
     model = Skill
     template_name = "skills/skill_list.html"
     paginate_by = 25
     context_object_name = "skills"
 
-    # Session key for saved filters
+    # Session key for SavedFiltersListMixin
     session_key = "skills_skill_list_filters"
 
-    # Allowed ordering (Odoo-like)
+    # Allowed ordering (safe)
     allowed_ordering = {
         "type": ("skill_type__sequence", "skill_type__name", "sequence", "name"),
         "seq": ("sequence", "name"),
@@ -361,31 +494,25 @@ class SkillListView(LoginRequiredMixin, SavedFiltersListMixin, ListView):
         qs = Skill.objects.select_related("skill_type")
 
         # --------------------------------------------------
-        # Load params (GET or session)
+        # Reset handling (CRITICAL)
         # --------------------------------------------------
-        self._params = self._get_params()
-        params = self._params
-
-        # --------------------------------------------------
-        # Store params as view attributes (USED EVERYWHERE)
-        # --------------------------------------------------
-        self.q = (params.get("q") or "").strip()
-        self.active = (params.get("active") or "").strip()
-
-        skill_type_id = (params.get("skill_type") or "").strip()
-        self.skill_type = None
-        if skill_type_id:
-            self.skill_type = SkillType.objects.filter(pk=skill_type_id).first()
+        if self.request.GET.get("reset") == "1":
+            self.request.session.pop(self.session_key, None)
+            params = {}
+        else:
+            params = self._get_params()
 
         # --------------------------------------------------
         # Filters
         # --------------------------------------------------
-        if self.skill_type:
-            qs = qs.filter(skill_type=self.skill_type)
+        skill_type_id = (params.get("skill_type") or "").strip()
+        if skill_type_id:
+            qs = qs.filter(skill_type_id=skill_type_id)
 
-        if self.active == "1":
+        active = (params.get("active") or "").strip()
+        if active == "1":
             qs = qs.filter(active=True)
-        elif self.active == "0":
+        elif active == "0":
             qs = qs.filter(active=False)
 
         # --------------------------------------------------
@@ -415,9 +542,10 @@ class SkillListView(LoginRequiredMixin, SavedFiltersListMixin, ListView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
 
-        # --------------------------------------------------
-        # Filter choices (خاص بهذه الصفحة فقط)
-        # --------------------------------------------------
+        # Current params (for template)
+        ctx["current_params"] = self._get_params()
+
+        # Skill types for filter dropdown
         ctx["skilltypes"] = SkillType.objects.filter(active=True).order_by(
             "sequence", "name"
         )
@@ -448,11 +576,21 @@ class SkillDeleteView(LoginRequiredMixin, CRUDMessagesMixin, DeleteView):
     success_message_delete = "Skill deleted successfully."
 
 
+
 # ============================================================
 # Employee Skill (Services-driven, Odoo-like)
 # ============================================================
 
 class EmployeeSkillListView(LoginRequiredMixin, SavedFiltersListMixin, ListView):
+    """
+    Employee Skills – Production-ready list
+
+    Features:
+    - Persistent filters
+    - Full search
+    - Multi filters
+    - Instant reset (?reset=1)
+    """
     model = EmployeeSkill
     template_name = "skills/employeeskill_list.html"
     paginate_by = 25
@@ -475,69 +613,93 @@ class EmployeeSkillListView(LoginRequiredMixin, SavedFiltersListMixin, ListView)
             "skill_level",
         )
 
-        self._params = self._get_params()
-        params = self._params
+        # --------------------------------------------------
+        # RESET (critical)
+        # --------------------------------------------------
+        if self.request.GET.get("reset") == "1":
+            self.request.session.pop(self.session_key, None)
+            return qs.order_by(
+                "employee__name",
+                "skill_type__sequence",
+                "skill__name",
+            )
 
+        params = self._get_params()
+
+        # --------------------------------------------------
         # Filters
-        employee_id = (params.get("employee") or "").strip()
-        if employee_id:
-            qs = qs.filter(employee_id=employee_id)
+        # --------------------------------------------------
+        if params.get("employee"):
+            qs = qs.filter(employee_id=params["employee"])
 
-        skill_type_id = (params.get("skill_type") or "").strip()
-        if skill_type_id:
-            qs = qs.filter(skill_type_id=skill_type_id)
+        if params.get("skill_type"):
+            qs = qs.filter(skill_type_id=params["skill_type"])
 
-        skill_id = (params.get("skill") or "").strip()
-        if skill_id:
-            qs = qs.filter(skill_id=skill_id)
+        if params.get("skill"):
+            qs = qs.filter(skill_id=params["skill"])
 
-        level_id = (params.get("skill_level") or "").strip()
-        if level_id:
-            qs = qs.filter(skill_level_id=level_id)
+        if params.get("skill_level"):
+            qs = qs.filter(skill_level__name=params["skill_level"])
 
-        active = (params.get("active") or "").strip()
+        active = params.get("active")
         if active == "1":
             qs = qs.filter(active=True)
         elif active == "0":
             qs = qs.filter(active=False)
 
+        # --------------------------------------------------
         # Search
+        # --------------------------------------------------
         qs = self._apply_search(
             qs,
             params,
             fields=[
                 "employee__name",
-                "skill__name",
-                "skill_type__name",
-                "skill_level__name",
                 "employee__company__name",
+                "skill_type__name",
+                "skill__name",
+                "skill_level__name",
             ],
         )
 
+        # --------------------------------------------------
         # Ordering
-        return self._apply_ordering(qs, params, default=("employee__name", "skill_type__sequence", "skill__name"))
+        # --------------------------------------------------
+        return self._apply_ordering(
+            qs,
+            params,
+            default=("employee__name", "skill_type__sequence", "skill__name"),
+        )
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
 
-        # هذه القوائم تُفيد UI لاحقًا (dropdowns/filters)
-        # ملاحظة: لم أستورد Employee هنا لتجنب اعتماديات إضافية؛
-        # إن أردت فلتر employee كقائمة، أخبرني وأربطه بشكل محسوب (مع select_related).
-        ctx["skilltypes"] = SkillType.objects.filter(active=True).order_by("sequence", "name")
-        ctx["skills"] = Skill.objects.filter(active=True).select_related("skill_type").order_by("skill_type__sequence", "name")
-        ctx["levels"] = SkillLevel.objects.filter(active=True).select_related("skill_type").order_by("skill_type__sequence", "level_progress")
+        ctx["skilltypes"] = SkillType.objects.filter(active=True).order_by(
+            "sequence", "name"
+        )
+        ctx["skills"] = Skill.objects.filter(active=True).select_related(
+            "skill_type"
+        ).order_by("skill_type__sequence", "name")
+        ctx["levels"] = (
+            SkillLevel.objects
+            .filter(active=True)
+            .values_list("name", flat=True)
+            .distinct()
+            .order_by("name")
+        )
+
         return ctx
 
 
 class EmployeeSkillCreateView(LoginRequiredMixin, View):
-    """
-    Create via services.add_employee_skill (Odoo-like strict create)
-    """
     template_name = "skills/employeeskill_form.html"
 
     def get(self, request):
         form = EmployeeSkillForm()
-        return render(request, self.template_name, {"form": form})
+        return render(request, self.template_name, {
+            "form": form,
+            "object": None,
+        })
 
     def post(self, request):
         form = EmployeeSkillForm(request.POST)
@@ -548,11 +710,7 @@ class EmployeeSkillCreateView(LoginRequiredMixin, View):
 
         cd = form.cleaned_data
 
-        # ==================================================
-        # Guard: prevent partial submit (BEST PRACTICE)
-        # ==================================================
         if not cd.get("skill") or not cd.get("skill_level"):
-            # هذا ليس خطأ، بل إعادة عرض فورم (reload state)
             return render(request, self.template_name, {"form": form})
 
         try:
@@ -571,11 +729,6 @@ class EmployeeSkillCreateView(LoginRequiredMixin, View):
             )
         except ValidationError as exc:
             form.add_error(None, exc)
-            messages.error(request, "Validation error.")
-            return render(request, self.template_name, {"form": form})
-        except Exception as exc:
-            form.add_error(None, str(exc))
-            messages.error(request, "An unexpected error occurred.")
             return render(request, self.template_name, {"form": form})
 
         messages.success(request, "Employee skill added successfully.")

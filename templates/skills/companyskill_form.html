@@ -1,51 +1,146 @@
 {% extends "base.html" %}
-{% block title %}{% if object %}Edit Company Skill{% else %}New Company Skill{% endif %}{% endblock %}
+
+{% block title %}
+  {% if object %}Edit Company Skill{% else %}Create Company Skill{% endif %}
+{% endblock %}
 
 {% block content %}
-<div class="mx-auto px-6 py-8 space-y-6">
+<div class="w-full px-6 py-8 space-y-8">
 
-  <div class="flex items-center justify-between">
-    <div>
-      <h1 class="text-2xl font-bold">
-        {% if object %}Edit Company Skill{% else %}New Company Skill{% endif %}
-      </h1>
-      <p class="text-sm opacity-70">Enable/disable skills per company</p>
-    </div>
-
-    <a href="{% url 'skills:companyskill_list' %}" class="btn btn-ghost btn-sm">
-      ← Back
-    </a>
+  <!-- ===================================================== -->
+  <!-- PAGE HEADER (Form Standard) -->
+  <!-- ===================================================== -->
+  <div class="space-y-1">
+    <h1 class="text-3xl font-semibold tracking-tight">
+      {% if object %}
+        Edit Company Skill
+      {% else %}
+        Create Company Skill
+      {% endif %}
+    </h1>
+    <p class="text-sm text-base-content/60">
+      Enable or disable specific skills per company.
+    </p>
   </div>
 
-  <form method="post" class="card bg-base-100 shadow border border-base-200 p-6 space-y-4">
+  <!-- ===================================================== -->
+  <!-- FORM -->
+  <!-- ===================================================== -->
+  <form method="post" class="space-y-8">
     {% csrf_token %}
 
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <div>
-        <label class="label"><span class="label-text">Company</span></label>
-        {{ form.company }}
-        {% if form.company.errors %}<p class="text-error text-xs mt-1">{{ form.company.errors|striptags }}</p>{% endif %}
+    <!-- Global Errors -->
+    {% if form.non_field_errors %}
+      <div class="alert alert-error text-sm">
+        {{ form.non_field_errors }}
       </div>
+    {% endif %}
 
-      <div>
-        <label class="label"><span class="label-text">Skill</span></label>
-        {{ form.skill }}
-        {% if form.skill.errors %}<p class="text-error text-xs mt-1">{{ form.skill.errors|striptags }}</p>{% endif %}
+    {% for hidden in form.hidden_fields %}
+      {{ hidden }}
+    {% endfor %}
+
+    <!-- ===================================================== -->
+    <!-- MAIN CARD -->
+    <!-- ===================================================== -->
+    <div class="card bg-base-100 border border-base-200 shadow-sm">
+      <div class="card-body p-8 space-y-10">
+
+        <!-- ================================================= -->
+        <!-- Assignment -->
+        <!-- ================================================= -->
+        <section class="space-y-4">
+          <h2 class="text-xs font-semibold uppercase tracking-wider text-base-content/60">
+            Assignment
+          </h2>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+            <!-- Company -->
+            <div>
+              <label class="label pb-1">
+                <span class="label-text font-medium">
+                  {{ form.company.label }}
+                  <span class="text-error">*</span>
+                </span>
+              </label>
+              {{ form.company }}
+              {% for error in form.company.errors %}
+                <p class="text-error text-xs mt-1">{{ error }}</p>
+              {% endfor %}
+            </div>
+
+            <!-- Skill -->
+            <div>
+              <label class="label pb-1">
+                <span class="label-text font-medium">
+                  {{ form.skill.label }}
+                  <span class="text-error">*</span>
+                </span>
+              </label>
+              {{ form.skill }}
+              {% for error in form.skill.errors %}
+                <p class="text-error text-xs mt-1">{{ error }}</p>
+              {% endfor %}
+            </div>
+
+          </div>
+        </section>
+
+        <!-- ================================================= -->
+        <!-- Status -->
+        <!-- ================================================= -->
+        <section class="space-y-4">
+          <h2 class="text-xs font-semibold uppercase tracking-wider text-base-content/60">
+            Status
+          </h2>
+
+          <label class="flex items-center gap-3 p-4 border border-base-200 rounded-lg
+                        hover:bg-base-200/40 transition-colors cursor-pointer">
+            {{ form.active }}
+            <span class="label-text font-medium">
+              Active
+            </span>
+          </label>
+
+          {% for error in form.active.errors %}
+            <p class="text-error text-xs mt-1">{{ error }}</p>
+          {% endfor %}
+        </section>
+
       </div>
     </div>
 
-    <div class="flex items-center gap-3">
-      {{ form.active }}
-      <span class="text-sm">Active</span>
-      {% if form.active.errors %}<p class="text-error text-xs">{{ form.active.errors|striptags }}</p>{% endif %}
-    </div>
+    <!-- ===================================================== -->
+    <!-- ACTIONS (Form Standard) -->
+    <!-- ===================================================== -->
+    <div class="flex justify-between items-center pt-4 border-t border-base-200">
 
-    <div class="flex justify-end gap-2 pt-2">
-      <a href="{% url 'skills:companyskill_list' %}" class="btn btn-ghost">Cancel</a>
-      <button type="submit" class="btn btn-primary">
-        {% if object %}Save{% else %}Create{% endif %}
+      <div class="flex gap-3">
+        <a href="{% url 'skills:companyskill_list' %}"
+           class="btn btn-ghost">
+          Back to list
+        </a>
+
+        {% if object %}
+          <a href="{% url 'skills:companyskill_delete' object.id %}"
+             class="btn btn-ghost text-error">
+            Delete
+          </a>
+        {% endif %}
+      </div>
+
+      <button type="submit"
+              class="btn btn-primary shadow-sm min-w-[160px]">
+        {% if object %}
+          Save Changes
+        {% else %}
+          Create Company Skill
+        {% endif %}
       </button>
+
     </div>
+
   </form>
 
 </div>

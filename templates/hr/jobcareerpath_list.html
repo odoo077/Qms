@@ -1,19 +1,13 @@
 {% extends "base.html" %}
 
-{% block title %}
-Career Paths
-{% endblock %}
+{% block title %}Career Paths{% endblock %}
 
 {% block content %}
 <div class="w-full px-6 py-6 space-y-6">
 
-  <!-- ===================================================== -->
-  <!-- PAGE HEADER -->
-  <!-- ===================================================== -->
   <section class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-
     <div>
-      <h1 class="text-3xl font-bold tracking-tight">
+      <h1 class="text-3xl font-semibold tracking-tight">
         Career Paths
       </h1>
       <p class="text-sm text-base-content/60">
@@ -21,37 +15,32 @@ Career Paths
       </p>
     </div>
 
-    <div class="flex gap-2">
+    <div>
       <a href="{% url 'hr:jobcareerpath_create' %}"
          class="btn btn-primary btn-sm">
         + New Career Path
       </a>
     </div>
-
   </section>
 
-  <!-- ===================================================== -->
-  <!-- TABLE CARD -->
-  <!-- ===================================================== -->
   <section class="card bg-base-100 border border-base-200 shadow-sm overflow-x-auto">
 
-    <table class="table table-zebra w-full text-sm">
-
-      <thead class="bg-base-200">
+    <table class="table w-full text-sm">
+      <thead class="bg-base-200/60">
         <tr>
           <th>From Job</th>
           <th>To Job</th>
           <th>Sequence</th>
           <th>Status</th>
-          <th class="text-right">Actions</th>
+          <th class="text-right w-24">Actions</th>
         </tr>
       </thead>
 
-      <tbody>
+      <tbody class="[&>tr]:border-base-200">
         {% for obj in object_list %}
-        <tr>
+        <tr class="hover">
 
-          <td class="text-base-content/80">
+          <td class="text-base-content/70">
             {{ obj.from_job.name }}
           </td>
 
@@ -65,21 +54,19 @@ Career Paths
 
           <td>
             {% if obj.active %}
-              <span class="badge badge-success badge-sm">
+              <span class="text-success font-medium">
                 Active
               </span>
             {% else %}
-              <span class="badge badge-ghost badge-sm">
+              <span class="text-base-content/40">
                 Inactive
               </span>
             {% endif %}
           </td>
 
-          <!-- ACTIONS -->
           <td class="text-right">
-            <div class="inline-flex gap-1">
+            <div class="inline-flex items-center gap-2 justify-end">
 
-                            <!-- Edit  -->
               <a href="{% url 'hr:jobcareerpath_update' obj.id %}"
                  class="tooltip tooltip-left"
                  data-tip="Edit">
@@ -99,8 +86,6 @@ Career Paths
                 </div>
               </a>
 
-
-              <!-- Delete  -->
               <a href="{% url 'hr:jobcareerpath_delete' obj.id %}"
                  class="tooltip tooltip-left"
                  data-tip="Delete">
@@ -130,7 +115,7 @@ Career Paths
         {% empty %}
         <tr>
           <td colspan="5" class="py-16 text-center">
-            <p class="text-base font-medium text-base-content/70">
+            <p class="font-medium text-base-content/70">
               No career paths defined
             </p>
             <p class="text-sm text-base-content/50 mt-1">
@@ -144,7 +129,6 @@ Career Paths
         </tr>
         {% endfor %}
       </tbody>
-
     </table>
 
   </section>

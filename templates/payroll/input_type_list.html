@@ -1,152 +1,202 @@
-<!-- templates/payroll/input_type_list.html -->
 {% extends "base.html" %}
-
-{% block page_title %}Input Types{% endblock %}
-{% block title %}Payroll · Input Types{% endblock %}
-
-{% block page_actions %}
-  <a href="{% url 'payroll:input_type_create' %}"
-     class="btn btn-primary btn-sm gap-2">
-    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none"
-         viewBox="0 0 24 24" stroke="currentColor">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-            d="M12 4v16m8-8H4"/>
-    </svg>
-    New Input Type
-  </a>
-{% endblock %}
+{% block title %}Input Types{% endblock %}
 
 {% block content %}
-<div class="w-full px-6 py-8">
-  <div class="mx-auto w-full space-y-6">
+<div class="w-full px-6 py-6 space-y-6">
 
-    <!-- Header -->
-    <div class="space-y-1">
-      <h1 class="text-2xl font-semibold">Input Types</h1>
+  <!-- ===================================================== -->
+  <!-- PAGE HEADER -->
+  <!-- ===================================================== -->
+  <section class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+    <div>
+      <h1 class="text-3xl font-semibold tracking-tight">
+        Input Types
+      </h1>
       <p class="text-sm text-base-content/60">
-        Manual or monthly inputs applied to payslips.
+        Manual or monthly inputs applied to payslips
       </p>
     </div>
 
+    <div>
+      <a href="{% url 'payroll:input_type_create' %}"
+         class="btn btn-primary btn-sm">
+        + New Input Type
+      </a>
+    </div>
+  </section>
 
-    <div class="card bg-base-100 border border-base-300">
-      <div class="card-body p-0">
+  <!-- ===================================================== -->
+  <!-- FILTERS -->
+  <!-- ===================================================== -->
+  <section class="card bg-base-100 border border-base-200 shadow-sm">
+    <form method="get" class="p-5">
+      <div class="grid grid-cols-1 md:grid-cols-6 gap-4 items-end">
 
-        {% if object_list %}
-
-        <!-- Meta -->
-        <div class="px-6 pt-5 pb-3 flex items-center justify-between text-sm text-base-content/60">
-          <div>
-            {{ page_obj.paginator.count }}
-            result{{ page_obj.paginator.count|pluralize }}
-          </div>
-          <div>
-            Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
-          </div>
+        <!-- Search -->
+        <div class="md:col-span-3">
+          <label class="label p-0 mb-1">
+            <span class="label-text text-xs text-base-content/60">
+              Search
+            </span>
+          </label>
+          <input type="text"
+                 name="q"
+                 value="{{ request.GET.q|default:'' }}"
+                 placeholder="Search by name or code"
+                 class="input input-bordered w-full">
         </div>
 
-        <!-- Table -->
-        <div class="overflow-x-auto">
-          <table class="table table-zebra w-full">
-            <thead>
-              <tr class="bg-base-200">
-                <th class="w-[26%]">Name</th>
-                <th class="w-[16%]">Code</th>
-                <th class="w-[20%]">Company</th>
-                <th class="w-[12%]">Quantity</th>
-                <th class="w-[12%]">Status</th>
-                <th class="w-[14%] text-right">Actions</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {% for it in object_list %}
-              <tr>
-                <td class="font-medium">
-                  <div class="flex flex-col">
-                    <span>{{ it.name }}</span>
-                    <span class="text-xs text-base-content/60">
-                      ID: {{ it.pk }}
-                    </span>
-                  </div>
-                </td>
-
-                <td>
-                  <span class="font-mono text-sm">
-                    {{ it.code }}
-                  </span>
-                </td>
-
-                <td class="text-sm">
-                  {{ it.company }}
-                </td>
-
-                <td>
-                  {% if it.is_quantity %}
-                    <span class="badge badge-info badge-outline">
-                      Quantity
-                    </span>
-                  {% else %}
-                    <span class="badge badge-ghost">
-                      Amount
-                    </span>
-                  {% endif %}
-                </td>
-
-                <td>
-                  {% if it.active %}
-                    <span class="badge badge-success badge-outline">
-                      Active
-                    </span>
-                  {% else %}
-                    <span class="badge badge-error badge-outline">
-                      Inactive
-                    </span>
-                  {% endif %}
-                </td>
-
-                <td class="text-right">
-                  <div class="inline-flex gap-2">
-                    <a href="{% url 'payroll:input_type_edit' it.pk %}"
-                       class="btn btn-xs btn-outline btn-primary">
-                      Edit
-                    </a>
-                    <a href="{% url 'payroll:input_type_delete' it.pk %}"
-                       class="btn btn-xs btn-outline btn-error">
-                      Delete
-                    </a>
-                  </div>
-                </td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
+        <!-- Status -->
+        <div class="md:col-span-2">
+          <label class="label p-0 mb-1">
+            <span class="label-text text-xs text-base-content/60">
+              Status
+            </span>
+          </label>
+          <select name="active" class="select select-bordered w-full">
+            <option value="">All</option>
+            <option value="1" {% if request.GET.active == "1" %}selected{% endif %}>
+              Active
+            </option>
+            <option value="0" {% if request.GET.active == "0" %}selected{% endif %}>
+              Inactive
+            </option>
+          </select>
         </div>
 
-        <!-- Pagination -->
-        <div class="px-6 py-4 border-t border-base-300">
-          {% include "partials/paginator.html" %}
-        </div>
+        <!-- Actions -->
+        <div class="md:col-span-1 flex justify-end items-center gap-2">
+          <button type="submit"
+                  class="btn btn-primary btn-sm px-4 shadow-sm hover:shadow-md transition-all">
+            Apply
+          </button>
 
-        {% else %}
-
-        <!-- Empty State -->
-        <div class="p-12 text-center space-y-3">
-          <h3 class="text-lg font-semibold">No Input Types</h3>
-          <p class="text-sm text-base-content/60">
-            Define input types to use in payslips.
-          </p>
-          <a href="{% url 'payroll:input_type_create' %}"
-             class="btn btn-primary btn-sm">
-            Create first input type
+          <a href="{% url 'payroll:input_type_list' %}"
+             class="btn btn-ghost btn-sm text-base-content/60 hover:text-base-content hover:bg-base-200">
+            Reset
           </a>
         </div>
 
-        {% endif %}
-
       </div>
-    </div>
+    </form>
+  </section>
 
-  </div>
+  <!-- ===================================================== -->
+  <!-- TABLE -->
+  <!-- ===================================================== -->
+  <section class="card bg-base-100 border border-base-200 shadow-sm overflow-x-auto">
+    <table class="table w-full text-sm">
+      <thead class="bg-base-200/60">
+        <tr>
+          <th>Name</th>
+          <th>Code</th>
+          <th>Company</th>
+          <th>Type</th>
+          <th>Status</th>
+          <th class="text-right w-24">Actions</th>
+        </tr>
+      </thead>
+
+      <tbody class="[&>tr]:border-base-200">
+        {% for it in object_list %}
+        <tr class="hover">
+
+          <td class="font-medium">
+            {{ it.name }}
+          </td>
+
+          <td class="font-mono text-sm">
+            {{ it.code }}
+          </td>
+
+          <td class="text-base-content/70">
+            {{ it.company|default:"—" }}
+          </td>
+
+          <td class="text-sm">
+            {% if it.is_quantity %}
+              <span class="text-info font-medium">Quantity</span>
+            {% else %}
+              <span class="text-base-content/60">Amount</span>
+            {% endif %}
+          </td>
+
+          <td class="text-sm">
+            {% if it.active %}
+              <span class="text-success font-medium">Active</span>
+            {% else %}
+              <span class="text-base-content/40">Inactive</span>
+            {% endif %}
+          </td>
+
+          <td class="text-right">
+            <div class="inline-flex items-center gap-2">
+
+              <!-- Edit -->
+              <a href="{% url 'payroll:input_type_edit' it.id %}"
+                 class="tooltip tooltip-left"
+                 data-tip="Edit">
+                <div class="btn btn-ghost btn-xs text-primary hover:bg-primary/10">
+                  <svg xmlns="http://www.w3.org/2000/svg"
+                       class="h-4 w-4"
+                       fill="none"
+                       viewBox="0 0 24 24"
+                       stroke="currentColor">
+                    <path stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M15.232 5.232l3.536 3.536M9 11l6.232-6.232a2.5 2.5 0 013.536 3.536L12.536 14.536
+                             9 15l.464-3.464z" />
+                  </svg>
+                </div>
+              </a>
+
+              <!-- Delete -->
+              <a href="{% url 'payroll:input_type_delete' it.id %}"
+                 class="tooltip tooltip-left"
+                 data-tip="Delete">
+                <div class="btn btn-ghost btn-xs text-error hover:bg-error/10">
+                  <svg xmlns="http://www.w3.org/2000/svg"
+                       class="h-4 w-4"
+                       fill="none"
+                       viewBox="0 0 24 24"
+                       stroke="currentColor">
+                    <path stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5-4h4m-4 0a1 1 0 00-1 1v1h6V4a1 1 0 00-1-1m-4 0h4" />
+                  </svg>
+                </div>
+              </a>
+
+            </div>
+          </td>
+
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="6" class="py-16 text-center">
+            <p class="font-medium text-base-content/70">
+              No input types found
+            </p>
+            <p class="text-sm text-base-content/50 mt-1">
+              Define input types to use in payslips
+            </p>
+            <a href="{% url 'payroll:input_type_create' %}"
+               class="btn btn-primary btn-sm mt-4">
+              + Add Input Type
+            </a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ===================================================== -->
+  <!-- PAGINATION -->
+  <!-- ===================================================== -->
+  {% include "partials/paginator.html" %}
+
 </div>
 {% endblock %}

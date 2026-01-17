@@ -5,12 +5,12 @@
 {% endblock %}
 
 {% block content %}
-<div class="w-full px-6 py-8 space-y-8">
+<div class="w-full px-6 py-6 space-y-6">
 
   <!-- ===================================================== -->
-  <!-- Page Header (Form Standard) -->
+  <!-- PAGE HEADER (Form Standard) -->
   <!-- ===================================================== -->
-  <div class="space-y-1">
+  <section class="space-y-1">
     <h1 class="text-3xl font-semibold tracking-tight">
       {% if object %}
         Edit Resume Line
@@ -19,12 +19,12 @@
       {% endif %}
     </h1>
     <p class="text-sm text-base-content/60">
-      Manage employee resume information such as education, experience, or certifications.
+      Manage employee resume information such as education, experience, or certifications
     </p>
-  </div>
+  </section>
 
   <!-- ===================================================== -->
-  <!-- Form -->
+  <!-- FORM -->
   <!-- ===================================================== -->
   <form method="post"
         enctype="multipart/form-data"
@@ -44,50 +44,58 @@
     {% endfor %}
 
     <!-- ===================================================== -->
-    <!-- Main Card -->
+    <!-- MAIN CARD -->
     <!-- ===================================================== -->
-    <div class="card bg-base-100 border border-base-200 shadow-sm">
+    <section class="card bg-base-100 border border-base-200 shadow-sm">
       <div class="card-body p-8 space-y-10">
 
         <!-- ================================================= -->
-        <!-- Fields -->
+        <!-- Resume Line Information -->
         <!-- ================================================= -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="space-y-4">
+          <h2 class="text-xs font-semibold uppercase tracking-wider text-base-content/60">
+            Resume Line Information
+          </h2>
 
-          {% for field in form.visible_fields %}
-            <div class="{% if field.field.widget.input_type == 'textarea' %}md:col-span-2{% endif %}">
-              <label class="label pb-1">
-                <span class="label-text font-medium">
-                  {{ field.label }}
-                  {% if field.field.required %}
-                    <span class="text-error">*</span>
-                  {% endif %}
-                </span>
-              </label>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
 
-              {{ field }}
+            {% for field in form.visible_fields %}
+              <div class="{% if field.field.widget.input_type == 'textarea' %}md:col-span-2{% endif %}">
 
-              {% if field.help_text %}
-                <p class="text-xs text-base-content/60 mt-1">
-                  {{ field.help_text }}
-                </p>
-              {% endif %}
+                <label class="label pb-1">
+                  <span class="label-text font-medium">
+                    {{ field.label }}
+                    {% if field.field.required %}
+                      <span class="text-error">*</span>
+                    {% endif %}
+                  </span>
+                </label>
 
-              {% for error in field.errors %}
-                <p class="text-xs text-error mt-1">
-                  {{ error }}
-                </p>
-              {% endfor %}
-            </div>
-          {% endfor %}
+                {{ field }}
 
+                {% if field.help_text %}
+                  <p class="text-xs text-base-content/60 mt-1">
+                    {{ field.help_text }}
+                  </p>
+                {% endif %}
+
+                {% for error in field.errors %}
+                  <p class="text-xs text-error mt-1">
+                    {{ error }}
+                  </p>
+                {% endfor %}
+
+              </div>
+            {% endfor %}
+
+          </div>
         </div>
 
       </div>
-    </div>
+    </section>
 
     <!-- ===================================================== -->
-    <!-- Actions (Form Standard) -->
+    <!-- ACTIONS (Form Standard) -->
     <!-- ===================================================== -->
     <div class="flex justify-between items-center pt-4 border-t border-base-200">
 
@@ -105,16 +113,14 @@
         {% endif %}
       </div>
 
-      <div>
-        <button type="submit"
-                class="btn btn-primary shadow-sm min-w-[160px]">
-          {% if object %}
-            Save Changes
-          {% else %}
-            Create Resume Line
-          {% endif %}
-        </button>
-      </div>
+      <button type="submit"
+              class="btn btn-primary shadow-sm min-w-[160px]">
+        {% if object %}
+          Save Changes
+        {% else %}
+          Create Resume Line
+        {% endif %}
+      </button>
 
     </div>
 

@@ -1,249 +1,222 @@
 {% extends "base.html" %}
-
 {% block title %}Skill Types{% endblock %}
 
 {% block content %}
-<div class="w-full px-6 py-8 space-y-8">
+<div class="w-full px-6 py-6 space-y-6">
 
   <!-- ===================================================== -->
-  <!-- Page Header -->
+  <!-- PAGE HEADER -->
   <!-- ===================================================== -->
-  <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+  <section class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
     <div class="space-y-1">
       <h1 class="text-3xl font-semibold tracking-tight">
         Skill Types
       </h1>
-      <p class="text-sm text-base-content/60">
-        Manage skill categories used for evaluations, career paths, and certifications
+      <p class="text-sm text-base-content/60 max-w-2xl">
+        Configure skill categories used across evaluations, career paths,
+        training plans, and certifications.
       </p>
     </div>
 
-    <a href="{% url 'skills:skilltype_create' %}"
-       class="btn btn-primary btn-sm gap-2">
-      <svg xmlns="http://www.w3.org/2000/svg"
-           class="h-4 w-4"
-           fill="none"
-           viewBox="0 0 24 24"
-           stroke="currentColor">
-        <path stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M12 4v16m8-8H4" />
-      </svg>
-      New Skill Type
-    </a>
-  </div>
+    <div class="flex items-center gap-2">
+      <a href="{% url 'skills:skilltype_create' %}"
+         class="btn btn-primary btn-sm gap-2 shadow-sm">
+        <span class="text-lg leading-none">+</span>
+        New Skill Type
+      </a>
+    </div>
+  </section>
 
-  <!-- ===================================================== -->
-  <!-- Filters -->
-  <!-- ===================================================== -->
-  <form method="get"
-        class="card bg-base-100">
+<!-- ===================================================== -->
+<!-- FILTERS -->
+<!-- ===================================================== -->
+<section class="card bg-base-100 border border-base-200 shadow-sm p-4">
+  <form method="get">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-3 items-end">
 
-    <div class="card-body space-y-4">
-
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-
-        <!-- Search -->
-        <div class="md:col-span-2">
-          <label class="label pb-1">
-            <span class="label-text text-xs opacity-60">Search</span>
-          </label>
-          <input type="text"
-                 name="q"
-                 value="{{ current_params.q }}"
-                 placeholder="Search by skill type name"
-                 class="input input-bordered w-full">
-        </div>
-
-        <!-- Status -->
-        <div>
-          <label class="label pb-1">
-            <span class="label-text text-xs opacity-60">Status</span>
-          </label>
-          <select name="active"
-                  class="select select-bordered w-full">
-            <option value="">All</option>
-            <option value="1" {% if current_params.active == "1" %}selected{% endif %}>
-              Active
-            </option>
-            <option value="0" {% if current_params.active == "0" %}selected{% endif %}>
-              Inactive
-            </option>
-          </select>
-        </div>
-
-        <!-- Certification -->
-        <div>
-          <label class="label pb-1">
-            <span class="label-text text-xs opacity-60">Certification</span>
-          </label>
-          <select name="is_certification"
-                  class="select select-bordered w-full">
-            <option value="">All</option>
-            <option value="1" {% if current_params.is_certification == "1" %}selected{% endif %}>
-              Yes
-            </option>
-            <option value="0" {% if current_params.is_certification == "0" %}selected{% endif %}>
-              No
-            </option>
-          </select>
-        </div>
-
+      <!-- Search -->
+      <div class="lg:col-span-5">
+        <label class="label p-0 mb-1">
+          <span class="label-text text-xs font-medium text-base-content/60">
+            Search
+          </span>
+        </label>
+        <input type="text"
+               name="q"
+               value="{{ request.GET.q|default:'' }}"
+               placeholder="Skill type name…"
+               class="input input-bordered input-sm w-full">
       </div>
 
-      <!-- Filter Actions -->
-      <div class="flex justify-end gap-2 pt-2">
-        <button type="submit"
-                class="btn btn-primary btn-sm">
-          Apply Filters
+      <!-- Status -->
+      <div class="lg:col-span-3">
+        <label class="label p-0 mb-1">
+          <span class="label-text text-xs text-base-content/60">
+            Status
+          </span>
+        </label>
+        <select name="active" class="select select-bordered select-sm w-full">
+          <option value="">All</option>
+          <option value="1" {% if request.GET.active == "1" %}selected{% endif %}>
+            Active
+          </option>
+          <option value="0" {% if request.GET.active == "0" %}selected{% endif %}>
+            Archived
+          </option>
+        </select>
+      </div>
+
+      <!-- Certification -->
+      <div class="lg:col-span-3">
+        <label class="label p-0 mb-1">
+          <span class="label-text text-xs text-base-content/60">
+            Certification
+          </span>
+        </label>
+        <select name="is_certification" class="select select-bordered select-sm w-full">
+          <option value="">All</option>
+          <option value="1" {% if request.GET.is_certification == "1" %}selected{% endif %}>
+            Certification
+          </option>
+          <option value="0" {% if request.GET.is_certification == "0" %}selected{% endif %}>
+            Non-certification
+          </option>
+        </select>
+      </div>
+
+      <!-- Actions -->
+      <div class="lg:col-span-1 flex justify-end gap-2">
+        <button type="submit" class="btn btn-primary btn-sm">
+          Apply
         </button>
-        <a href="?reset=1"
-           class="btn btn-ghost btn-sm opacity-70">
+        <a href="{% url 'skills:skilltype_list' %}?reset=1"
+           class="btn btn-ghost btn-sm">
           Reset
         </a>
       </div>
 
     </div>
   </form>
+</section>
+
 
   <!-- ===================================================== -->
-  <!-- Active Filters -->
+  <!-- TABLE -->
   <!-- ===================================================== -->
-  {% if active_filters %}
-    <div class="flex flex-wrap gap-2">
-      {% for f in active_filters %}
-        <span class="badge badge-outline text-xs gap-1">
-          <span class="opacity-60">{{ f.label }}:</span>
-          <span class="font-medium">{{ f.value }}</span>
-        </span>
-      {% endfor %}
-    </div>
-  {% endif %}
+  <section class="card bg-base-100 border border-base-200 shadow-sm overflow-x-auto">
+    <table class="table table-zebra w-full text-sm">
 
-  <!-- ===================================================== -->
-  <!-- Table -->
-  <!-- ===================================================== -->
-  <div class="card bg-base-100 overflow-x-auto">
-
-    <table class="table w-full text-sm table-sticky">
-      <thead>
+      <thead class="bg-base-200/70">
         <tr>
           <th>Name</th>
           <th class="w-24">Sequence</th>
           <th class="w-36">Certification</th>
-          <th class="w-28">Levels</th>
+          <th class="w-24 text-center">Levels</th>
           <th class="w-24">Status</th>
-          <th class="w-40">Actions</th>
+          <th class="text-right w-28">Actions</th>
         </tr>
       </thead>
 
       <tbody>
         {% for obj in object_list %}
-          <tr>
+        <tr class="hover">
 
-            <td class="font-medium">
-              {{ obj.name }}
-            </td>
+          <!-- Name -->
+          <td class="font-medium">
+            {{ obj.name }}
+          </td>
 
-            <td class="tabular-nums">
-              {{ obj.sequence }}
-            </td>
+          <!-- Sequence -->
+          <td class="text-base-content/70">
+            {{ obj.sequence }}
+          </td>
 
-            <td>
-              {% if obj.is_certification %}
-                <span class="badge badge-info badge-sm">Yes</span>
-              {% else %}
-                <span class="badge badge-ghost badge-sm">No</span>
-              {% endif %}
-            </td>
+          <!-- Certification -->
+          <td>
+            {% if obj.is_certification %}
+              <span class="badge badge-info badge-sm">
+                Certification
+              </span>
+            {% else %}
+              <span class="text-base-content/60">
+                No
+              </span>
+            {% endif %}
+          </td>
 
-            <td class="tabular-nums">
-              {{ obj.levels_count }}
-            </td>
+          <!-- Levels -->
+          <td class="text-center">
+            {% if obj.levels_count %}
+              <span class="badge badge-neutral badge-sm">
+                {{ obj.levels_count }}
+              </span>
+            {% else %}
+              <span class="text-base-content/40">0</span>
+            {% endif %}
+          </td>
 
-            <td>
-              {% if obj.active %}
-                <span class="badge badge-success badge-sm">Active</span>
-              {% else %}
-                <span class="badge badge-ghost badge-sm">Inactive</span>
-              {% endif %}
-            </td>
+          <!-- Status -->
+          <td>
+            {% if obj.active %}
+              <span class="badge badge-success badge-sm">
+                Active
+              </span>
+            {% else %}
+              <span class="badge badge-ghost badge-sm">
+                Archived
+              </span>
+            {% endif %}
+          </td>
 
-            <td>
-              <div class="inline-flex gap-1">
+          <!-- Actions -->
+          <td class="text-right">
+            <div class="inline-flex items-center gap-1">
 
-                                            <!-- Edit  -->
+              <!-- Edit -->
               <a href="{% url 'skills:skilltype_update' obj.id %}"
                  class="tooltip tooltip-left"
                  data-tip="Edit">
-                <div class="btn btn-ghost btn-xs text-primary hover:bg-primary/10">
-                  <svg xmlns="http://www.w3.org/2000/svg"
-                       class="h-4 w-4"
-                       fill="none"
-                       viewBox="0 0 24 24"
-                       stroke="currentColor">
-                    <path stroke-linecap="round"
-                          stroke-linejoin="round"
-                          stroke-width="2"
-                          d="M15.232 5.232l3.536 3.536
-                             M9 11l6.232-6.232a2.5 2.5 0 013.536 3.536
-                             L12.536 14.536 9 15l.464-3.464z" />
-                  </svg>
-                </div>
+                <span class="btn btn-ghost btn-xs text-primary hover:bg-primary/10">
+                  ✎
+                </span>
               </a>
 
-
-              <!-- Delete  -->
+              <!-- Delete -->
               <a href="{% url 'skills:skilltype_delete' obj.id %}"
                  class="tooltip tooltip-left"
                  data-tip="Delete">
-                <div class="btn btn-ghost btn-xs text-error hover:bg-error/10">
-                  <svg xmlns="http://www.w3.org/2000/svg"
-                       class="h-4 w-4"
-                       fill="none"
-                       viewBox="0 0 24 24"
-                       stroke="currentColor">
-                    <path stroke-linecap="round"
-                          stroke-linejoin="round"
-                          stroke-width="2"
-                          d="M19 7l-.867 12.142A2 2 0 0116.138 21
-                             H7.862a2 2 0 01-1.995-1.858L5 7
-                             m5-4h4
-                             m-4 0a1 1 0 00-1 1v1h6V4
-                             a1 1 0 00-1-1
-                             m-4 0h4" />
-                  </svg>
-                </div>
+                <span class="btn btn-ghost btn-xs text-error hover:bg-error/10">
+                  🗑
+                </span>
               </a>
 
-              </div>
-            </td>
+            </div>
+          </td>
 
-          </tr>
+        </tr>
         {% empty %}
-          <tr>
-            <td colspan="6" class="py-16 text-center">
-              <div class="flex flex-col items-center gap-2 opacity-70">
-                <p class="font-medium">No Skill Types found</p>
-                <p class="text-sm max-w-md">
-                  Create skill types to standardize evaluations and career progression.
-                </p>
-                <a href="{% url 'skills:skilltype_create' %}"
-                   class="btn btn-primary btn-sm mt-3">
-                  Create Skill Type
-                </a>
-              </div>
-            </td>
-          </tr>
+        <tr>
+          <td colspan="6" class="py-20 text-center">
+            <p class="text-base font-medium text-base-content/70">
+              No skill types found
+            </p>
+            <p class="text-sm text-base-content/50 mt-1">
+              Define skill categories to standardize evaluations and career growth.
+            </p>
+            <a href="{% url 'skills:skilltype_create' %}"
+               class="btn btn-primary btn-sm mt-5">
+              + Create Skill Type
+            </a>
+          </td>
+        </tr>
         {% endfor %}
       </tbody>
-    </table>
 
-  </div>
+    </table>
+  </section>
 
   <!-- ===================================================== -->
-  <!-- Pagination -->
+  <!-- PAGINATION -->
   <!-- ===================================================== -->
   {% include "partials/paginator.html" %}
 

@@ -1,190 +1,183 @@
-{# templates/base/partner_list.html #}
 {% extends "base.html" %}
 
-{% block title %}Partners · 360 Manager{% endblock %}
-{% block page_title %}Partners{% endblock %}
-
-{% block page_actions %}
-  {% if can_add_partner %}
-    <a href="{% url 'base:partner_create' %}"
-       class="btn btn-primary btn-sm gap-2">
-      <span class="text-lg leading-none">+</span>
-      <span>New Partner</span>
-    </a>
-  {% endif %}
-{% endblock %}
+{% block title %}Partners{% endblock %}
 
 {% block content %}
-<div class="space-y-6">
+<div class="w-full px-6 py-6 space-y-6">
 
-  {% include "base/includes/search/_search_panel_partner.html" %}
-
-  {% if object_list %}
-
-    <div class="flex items-center justify-between">
+  <section class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+    <div>
+      <h1 class="text-3xl font-semibold tracking-tight">
+        Partners
+      </h1>
       <p class="text-sm text-base-content/60">
-        Showing
-        <span class="font-semibold text-base-content">
-          {{ page_obj.start_index }}–{{ page_obj.end_index }}
-        </span>
-        of
-        <span class="font-semibold text-base-content">
-          {{ page_obj.paginator.count }}
-        </span>
-        partners
+        Manage companies and individual business partners
       </p>
     </div>
 
-    <div class="overflow-x-auto rounded-xl border border-base-300 bg-base-100">
-      <table class="table table-zebra w-full">
+    {% if can_add_partner %}
+      <div>
+        <a href="{% url 'base:partner_create' %}"
+           class="btn btn-primary btn-sm">
+          + New Partner
+        </a>
+      </div>
+    {% endif %}
+  </section>
 
-        <thead>
+  <section class="card bg-base-100 border border-base-200 shadow-sm">
+    <div class="p-5">
+      {% include "base/includes/search/_search_panel_partner.html" %}
+    </div>
+  </section>
+
+  {% if object_list %}
+
+    <section class="card bg-base-100 border border-base-200 shadow-sm overflow-x-auto">
+      <div class="px-5 pt-4 pb-2 text-sm text-base-content/60">
+        Showing
+        <span class="font-medium text-base-content">
+          {{ page_obj.start_index }}–{{ page_obj.end_index }}
+        </span>
+        of
+        <span class="font-medium text-base-content">
+          {{ page_obj.paginator.count }}
+        </span>
+        partners
+      </div>
+
+      <table class="table w-full text-sm">
+        <thead class="bg-base-200/60">
           <tr>
-            <th class="w-[28%]">Partner</th>
-            <th class="w-[14%]">Type</th>
-            <th class="w-[22%]">Company</th>
-            <th class="w-[18%]">Contact</th>
-            <th class="w-[8%]">Status</th>
-            <th class="text-right w-[10%]">Actions</th>
+            <th>Partner</th>
+            <th>Type</th>
+            <th>Company</th>
+            <th>Contact</th>
+            <th>Status</th>
+            <th class="text-right w-24">Actions</th>
           </tr>
         </thead>
 
-        <tbody>
+        <tbody class="[&>tr]:border-base-200">
           {% for p in object_list %}
-            <tr class="hover">
+          <tr class="hover">
 
-              <td class="align-top">
-                <div class="space-y-1">
-                  <a href="{% url 'base:partner_detail' p.pk %}"
-                     class="link link-hover font-semibold">
-                    {{ p.display_name|default:p.name }}
-                  </a>
+            <td class="font-medium">
+              <a href="{% url 'base:partner_detail' p.pk %}"
+                 class="link link-hover">
+                {{ p.display_name|default:p.name }}
+              </a>
 
-                  {% if p.parent %}
-                    <div class="text-xs text-base-content/60 truncate">
-                      Parent:
-                      <a href="{% url 'base:partner_detail' p.parent.pk %}"
-                         class="link link-hover">
-                        {{ p.parent.name }}
-                      </a>
-                    </div>
-                  {% endif %}
-                </div>
-              </td>
-
-              <td class="align-top">
-                {% if p.is_company %}
-                  <span class="badge badge-primary badge-outline">
-                    Company
-                  </span>
-                {% else %}
-                  <span class="badge badge-secondary badge-outline">
-                    Person
-                  </span>
-                {% endif %}
-
-                <div class="text-xs text-base-content/60 mt-1">
-                  {{ p.get_type_display }}
-                </div>
-              </td>
-
-              <td class="align-top text-sm">
-                {% if p.company %}
-                  <a href="{% url 'base:company_detail' p.company.pk %}"
+              {% if p.parent %}
+                <div class="text-xs text-base-content/60 mt-0.5">
+                  Parent:
+                  <a href="{% url 'base:partner_detail' p.parent.pk %}"
                      class="link link-hover">
-                    {{ p.company.name }}
+                    {{ p.parent.name }}
                   </a>
-                  <div class="text-xs text-base-content/60 mt-0.5">
-                    Managed automatically
-                  </div>
-                {% else %}
-                  <span class="text-base-content/50">—</span>
-                {% endif %}
-              </td>
-
-              <td class="align-top text-sm space-y-0.5">
-                <div>{{ p.email|default:"—" }}</div>
-                {% if p.phone %}
-                  <div class="text-xs text-base-content/60">
-                    {{ p.phone }}
-                  </div>
-                {% endif %}
-                {% if p.mobile %}
-                  <div class="text-xs text-base-content/60">
-                    {{ p.mobile }}
-                  </div>
-                {% endif %}
-              </td>
-
-              <td class="align-top">
-                {% if p.active %}
-                  <span class="badge badge-success badge-sm">Active</span>
-                {% else %}
-                  <span class="badge badge-error badge-sm">Inactive</span>
-                {% endif %}
-              </td>
-
-              <td class="text-right align-top">
-                <div class="inline-flex items-center justify-end gap-2">
-
-                  {% if p.id in partner_change_ids %}
-                    <!-- Edit Partner -->
-                    <a href="{% url 'base:partner_edit' p.pk %}"
-                       class="tooltip tooltip-left"
-                       data-tip="Edit">
-                      <div class="btn btn-ghost btn-xs text-primary hover:bg-primary/10">
-                        <svg xmlns="http://www.w3.org/2000/svg"
-                             class="h-4 w-4"
-                             fill="none"
-                             viewBox="0 0 24 24"
-                             stroke="currentColor">
-                          <path stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="2"
-                                d="M15.232 5.232l3.536 3.536
-                                   M9 11l6.232-6.232a2.5 2.5 0 013.536 3.536
-                                   L12.536 14.536 9 15l.464-3.464z" />
-                        </svg>
-                      </div>
-                    </a>
-
-                  {% endif %}
-
                 </div>
-              </td>
+              {% endif %}
+            </td>
 
-            </tr>
+            <td>
+              {% if p.is_company %}
+                <span class="badge badge-primary badge-outline">
+                  Company
+                </span>
+              {% else %}
+                <span class="badge badge-secondary badge-outline">
+                  Person
+                </span>
+              {% endif %}
+              <div class="text-xs text-base-content/60 mt-1">
+                {{ p.get_type_display }}
+              </div>
+            </td>
+
+            <td class="text-base-content/70">
+              {% if p.company %}
+                <a href="{% url 'base:company_detail' p.company.pk %}"
+                   class="link link-hover">
+                  {{ p.company.name }}
+                </a>
+              {% else %}
+                —
+              {% endif %}
+            </td>
+
+            <td class="text-base-content/70">
+              <div>{{ p.email|default:"—" }}</div>
+              {% if p.phone %}
+                <div class="text-xs">{{ p.phone }}</div>
+              {% endif %}
+              {% if p.mobile %}
+                <div class="text-xs">{{ p.mobile }}</div>
+              {% endif %}
+            </td>
+
+            <td class="text-sm">
+              {% if p.active %}
+                <span class="text-success font-medium">Active</span>
+              {% else %}
+                <span class="text-base-content/40">Inactive</span>
+              {% endif %}
+            </td>
+
+            <td class="text-right">
+              <div class="inline-flex items-center gap-2">
+
+                {% if p.id in partner_change_ids %}
+                  <a href="{% url 'base:partner_edit' p.pk %}"
+                     class="tooltip tooltip-left"
+                     data-tip="Edit">
+                    <div class="btn btn-ghost btn-xs text-primary hover:bg-primary/10">
+                      <svg xmlns="http://www.w3.org/2000/svg"
+                           class="h-4 w-4"
+                           fill="none"
+                           viewBox="0 0 24 24"
+                           stroke="currentColor">
+                        <path stroke-linecap="round"
+                              stroke-linejoin="round"
+                              stroke-width="2"
+                              d="M15.232 5.232l3.536 3.536M9 11l6.232-6.232a2.5 2.5 0 013.536 3.536L12.536 14.536
+                                 9 15l.464-3.464z" />
+                      </svg>
+                    </div>
+                  </a>
+                {% endif %}
+
+              </div>
+            </td>
+
+          </tr>
           {% endfor %}
         </tbody>
-
       </table>
-    </div>
+    </section>
 
     {% include "partials/paginator.html" %}
 
   {% else %}
 
-    <section
-      class="max-w-xl mx-auto rounded-xl border border-dashed
-             border-base-300 bg-base-100 p-10 text-center space-y-3">
+    <section class="card bg-base-100 border border-dashed border-base-300 shadow-sm">
+      <div class="py-16 text-center">
+        <p class="font-medium text-base-content/70">
+          No partners found
+        </p>
+        <p class="text-sm text-base-content/50 mt-1">
+          No partners match the current filters
+        </p>
 
-      <h2 class="text-lg font-semibold">
-        No partners found
-      </h2>
-
-      <p class="text-sm text-base-content/60">
-        No partners match the current filters,
-        or you may not have access in this scope.
-      </p>
-
-      {% if can_add_partner %}
-        <a href="{% url 'base:partner_create' %}"
-           class="btn btn-secondary btn-sm mt-4">
-          + Create Partner
-        </a>
-      {% endif %}
+        {% if can_add_partner %}
+          <a href="{% url 'base:partner_create' %}"
+             class="btn btn-primary btn-sm mt-4">
+            + Add Partner
+          </a>
+        {% endif %}
+      </div>
     </section>
 
   {% endif %}
+
 </div>
 {% endblock %}

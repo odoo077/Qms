@@ -2,15 +2,28 @@
 {% load widget_tweaks %}
 
 {% block title %}
-  {% if object %}Edit Partner · {{ object.name }}{% else %}New Partner{% endif %}
+  {% if object %}
+    Edit Partner · {{ object.name }}
+  {% else %}
+    New Partner
+  {% endif %}
 {% endblock %}
 
 {% block content %}
-<div class="px-4 py-6 space-y-8 mx-auto">
+<div class="w-full px-6 py-6 space-y-6">
 
-  {# ===================================================== #}
-  {# Breadcrumbs                                          #}
-  {# ===================================================== #}
+  <section class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+    <div>
+      <h1 class="text-3xl font-semibold tracking-tight">
+        {% if object %}Edit Partner{% else %}New Partner{% endif %}
+      </h1>
+      <p class="text-sm text-base-content/60 max-w-3xl">
+        Manage partner identity and contact details.
+        Company ownership and hierarchy are controlled from the Company profile.
+      </p>
+    </div>
+  </section>
+
   <nav class="text-sm breadcrumbs">
     <ul>
       <li>
@@ -24,26 +37,10 @@
     </ul>
   </nav>
 
-  {# ===================================================== #}
-  {# Header                                               #}
-  {# ===================================================== #}
-  <div class="space-y-1">
-    <h1 class="text-2xl font-bold">
-      {% if object %}Edit Partner{% else %}Create New Partner{% endif %}
-    </h1>
-    <p class="text-sm text-base-content/60 max-w-3xl">
-      This form allows editing partner identity and contact details only.
-      Company ownership and hierarchical relationships are managed exclusively from the Company profile and cannot be modified here.
-    </p>
-  </div>
-
-  <form method="post" class="space-y-8">
+  <form method="post" class="space-y-6">
     {% csrf_token %}
 
-    {# ===================================================== #}
-    {# Identity & Contact                                   #}
-    {# ===================================================== #}
-    <section class="card bg-base-100 border border-base-300">
+    <section class="card bg-base-100 border border-base-200 shadow-sm">
       <div class="card-body p-6 space-y-6">
 
         <h2 class="text-sm font-semibold text-base-content/70">
@@ -53,8 +50,8 @@
         <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
 
           <div class="form-control md:col-span-2">
-            <label class="label">
-              <span class="label-text font-medium">Name</span>
+            <label class="label p-0 mb-1">
+              <span class="label-text text-xs text-base-content/60">Name</span>
             </label>
             {{ form.name|add_class:"input input-bordered w-full" }}
             {% if form.name.errors %}
@@ -65,29 +62,31 @@
           </div>
 
           <div class="form-control">
-            <label class="label">
-              <span class="label-text font-medium">Email</span>
+            <label class="label p-0 mb-1">
+              <span class="label-text text-xs text-base-content/60">Email</span>
             </label>
             {{ form.email|add_class:"input input-bordered w-full" }}
           </div>
 
           <div class="form-control">
-            <label class="label">
-              <span class="label-text font-medium">Phone</span>
+            <label class="label p-0 mb-1">
+              <span class="label-text text-xs text-base-content/60">Phone</span>
             </label>
             {{ form.phone|add_class:"input input-bordered w-full" }}
           </div>
 
           <div class="form-control">
-            <label class="label">
-              <span class="label-text font-medium">Website</span>
+            <label class="label p-0 mb-1">
+              <span class="label-text text-xs text-base-content/60">Website</span>
             </label>
             {{ form.website|add_class:"input input-bordered w-full" }}
           </div>
 
           <div class="form-control">
-            <label class="label">
-              <span class="label-text font-medium">VAT / Company Registry</span>
+            <label class="label p-0 mb-1">
+              <span class="label-text text-xs text-base-content/60">
+                VAT / Company Registry
+              </span>
             </label>
             {{ form.vat|add_class:"input input-bordered w-full" }}
           </div>
@@ -96,10 +95,7 @@
       </div>
     </section>
 
-    {# ===================================================== #}
-    {# Address                                              #}
-    {# ===================================================== #}
-    <section class="card bg-base-100 border border-base-300">
+    <section class="card bg-base-100 border border-base-200 shadow-sm">
       <div class="card-body p-6 space-y-6">
 
         <h2 class="text-sm font-semibold text-base-content/70">
@@ -109,43 +105,45 @@
         <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
 
           <div class="form-control md:col-span-2">
-            <label class="label">
-              <span class="label-text font-medium">Street</span>
+            <label class="label p-0 mb-1">
+              <span class="label-text text-xs text-base-content/60">Street</span>
             </label>
             {{ form.street|add_class:"input input-bordered w-full" }}
           </div>
 
           <div class="form-control md:col-span-2">
-            <label class="label">
-              <span class="label-text font-medium">Street 2</span>
+            <label class="label p-0 mb-1">
+              <span class="label-text text-xs text-base-content/60">Street 2</span>
             </label>
             {{ form.street2|add_class:"input input-bordered w-full" }}
           </div>
 
           <div class="form-control">
-            <label class="label">
-              <span class="label-text font-medium">City</span>
+            <label class="label p-0 mb-1">
+              <span class="label-text text-xs text-base-content/60">City</span>
             </label>
             {{ form.city|add_class:"input input-bordered w-full" }}
           </div>
 
           <div class="form-control">
-            <label class="label">
-              <span class="label-text font-medium">ZIP / Postal Code</span>
+            <label class="label p-0 mb-1">
+              <span class="label-text text-xs text-base-content/60">
+                ZIP / Postal Code
+              </span>
             </label>
             {{ form.zip|add_class:"input input-bordered w-full" }}
           </div>
 
           <div class="form-control">
-            <label class="label">
-              <span class="label-text font-medium">State</span>
+            <label class="label p-0 mb-1">
+              <span class="label-text text-xs text-base-content/60">State</span>
             </label>
             {{ form.state|add_class:"input input-bordered w-full" }}
           </div>
 
           <div class="form-control">
-            <label class="label">
-              <span class="label-text font-medium">Country</span>
+            <label class="label p-0 mb-1">
+              <span class="label-text text-xs text-base-content/60">Country</span>
             </label>
             {{ form.country|add_class:"select select-bordered w-full" }}
           </div>
@@ -154,15 +152,31 @@
       </div>
     </section>
 
-    {# ===================================================== #}
-    {# Linked Company (Read-only)                            #}
-    {# ===================================================== #}
+    <section class="card bg-base-100 border border-base-200 shadow-sm">
+      <div class="card-body p-6 space-y-4">
+
+        <h2 class="text-sm font-semibold text-base-content/70">
+          Status
+        </h2>
+
+        <label class="flex items-center gap-3 cursor-pointer">
+          {{ form.active }}
+          <span class="text-sm font-medium">Active</span>
+        </label>
+
+        {% if form.active.errors %}
+          <p class="text-error text-xs">
+            {{ form.active.errors|striptags }}
+          </p>
+        {% endif %}
+
+      </div>
+    </section>
+
     {% if object and object.company %}
-      <section class="alert alert-info">
+      <section class="alert alert-info shadow-sm">
         <div>
-          <div class="font-medium">
-            Linked Company
-          </div>
+          <div class="font-medium">Linked Company</div>
           <div class="mt-1">
             <a href="{% url 'base:company_detail' object.company.pk %}"
                class="link link-hover">
@@ -170,15 +184,12 @@
             </a>
           </div>
           <div class="text-xs opacity-70 mt-1">
-            Company ownership and hierarchy are managed from the company profile.
+            Ownership and hierarchy are managed from the company profile.
           </div>
         </div>
       </section>
     {% endif %}
 
-    {# ===================================================== #}
-    {# Actions                                              #}
-    {# ===================================================== #}
     <div class="flex items-center gap-3 pt-2">
       <button type="submit" class="btn btn-primary">
         {% if object %}Save changes{% else %}Create partner{% endif %}
@@ -189,12 +200,13 @@
       </a>
 
       {% if object %}
-        <span class="text-xs text-base-content/60 ml-auto">
+        <span class="ml-auto text-xs text-base-content/60">
           Partner ID: #{{ object.id }}
         </span>
       {% endif %}
     </div>
 
   </form>
+
 </div>
 {% endblock %}

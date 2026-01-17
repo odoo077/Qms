@@ -288,24 +288,30 @@ class PartnerForm(forms.ModelForm):
     class Meta:
         model = Partner
         fields = (
-            # Identity & Contact (المعروض في UI)
+            # Identity & Contact
             "name",
             "email",
             "phone",
             "website",
             "vat",
 
-            # Address (المعروض في UI)
+            # Address
             "street",
             "street2",
             "zip",
             "city",
             "state",
             "country",
+
+            # Status
+            "active",
         )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
+        self.fields["active"].label = "Active"
+        self.fields["active"].required = False
 
         # 🔒 Safety: ensure hierarchy-related fields are NEVER exposed
         for forbidden in ("parent", "company", "is_company"):
@@ -430,6 +436,11 @@ class UserForm(forms.ModelForm):
             "email",
             "first_name",
             "last_name",
+
+            # Status
+            "is_active",
+
+            # Company scope
             "company",
             "companies",
         )

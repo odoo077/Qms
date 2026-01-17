@@ -1,211 +1,200 @@
 {% extends "base.html" %}
 
-{% block title %}Users · 360 Manager{% endblock %}
-{% block page_title %}Users{% endblock %}
-
-{% block page_actions %}
-  {% if can_add_user %}
-    <a href="{% url 'base:user_create' %}"
-       class="btn btn-primary btn-sm gap-2">
-      <span class="text-lg leading-none">+</span>
-      <span>New User</span>
-    </a>
-  {% endif %}
-{% endblock %}
+{% block title %}Users{% endblock %}
 
 {% block content %}
-<div class="space-y-6">
+<div class="w-full px-6 py-6 space-y-6">
 
-  {# ================= Search & Filters ================= #}
-  {% include "base/includes/search/_search_panel_user.html" %}
-
-  {% if object_list %}
-
-    {# ================= Result summary ================= #}
-    <div class="flex items-center justify-between">
+  <section class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+    <div>
+      <h1 class="text-3xl font-semibold tracking-tight">
+        Users
+      </h1>
       <p class="text-sm text-base-content/60">
-        Showing
-        <span class="font-semibold text-base-content">
-          {{ page_obj.start_index }}–{{ page_obj.end_index }}
-        </span>
-        of
-        <span class="font-semibold text-base-content">
-          {{ page_obj.paginator.count }}
-        </span>
-        users
+        Manage system users, access roles, and company assignments
       </p>
     </div>
 
-    {# ================= Users table ================= #}
-    <div class="overflow-x-auto rounded-xl border border-base-300 bg-base-100">
-      <table class="table table-zebra w-full">
+    {% if can_add_user %}
+      <div>
+        <a href="{% url 'base:user_create' %}"
+           class="btn btn-primary btn-sm">
+          + New User
+        </a>
+      </div>
+    {% endif %}
+  </section>
 
-        <thead>
+  <section class="card bg-base-100 border border-base-200 shadow-sm">
+    <div class="p-5">
+      {% include "base/includes/search/_search_panel_user.html" %}
+    </div>
+  </section>
+
+  {% if object_list %}
+
+    <section class="card bg-base-100 border border-base-200 shadow-sm overflow-x-auto">
+      <div class="px-5 pt-4 pb-2 text-sm text-base-content/60">
+        Showing
+        <span class="font-medium text-base-content">
+          {{ page_obj.start_index }}–{{ page_obj.end_index }}
+        </span>
+        of
+        <span class="font-medium text-base-content">
+          {{ page_obj.paginator.count }}
+        </span>
+        users
+      </div>
+
+      <table class="table w-full text-sm">
+        <thead class="bg-base-200/60">
           <tr>
-            <th class="w-[26%]">User</th>
-            <th class="w-[18%]">Name</th>
+            <th>User</th>
+            <th>Name</th>
             <th>Companies</th>
-            <th class="w-[8%] text-center">Verified</th>
-            <th class="w-[10%]">Role</th>
-            <th class="w-[10%]">Status</th>
-            <th class="w-[12%] text-right">Actions</th>
+            <th class="text-center">Verified</th>
+            <th>Role</th>
+            <th>Status</th>
+            <th class="text-right w-24">Actions</th>
           </tr>
         </thead>
 
-        <tbody>
+        <tbody class="[&>tr]:border-base-200">
           {% for u in object_list %}
-            <tr class="hover">
+          <tr class="hover">
 
-              {# ---------- User (Email + Partner) ---------- #}
-              <td class="align-top">
-                <div class="space-y-1">
-                  <a href="{% url 'base:user_detail' u.pk %}"
-                     class="link link-hover font-semibold">
-                    {{ u.email }}
+            <td class="font-medium">
+              <a href="{% url 'base:user_detail' u.pk %}"
+                 class="link link-hover">
+                {{ u.email }}
+              </a>
+
+              {% if u.partner %}
+                <div class="text-xs text-base-content/60 truncate max-w-[32ch] mt-0.5">
+                  {{ u.partner.name }}
+                </div>
+              {% endif %}
+            </td>
+
+            <td class="text-base-content/70">
+              {% if u.first_name or u.last_name %}
+                {{ u.first_name }} {{ u.last_name }}
+              {% else %}
+                —
+              {% endif %}
+            </td>
+
+            <td>
+              <div class="flex flex-wrap gap-2">
+                {% if u.company %}
+                  <a href="{% url 'base:company_detail' u.company.pk %}"
+                     class="badge badge-outline badge-primary">
+                    {{ u.company.name }}
                   </a>
+                {% endif %}
 
-                  {% if u.partner %}
-                    <div class="text-xs text-base-content/60 truncate max-w-[32ch]">
-                      {{ u.partner.name }}
+                {% for c in u.companies.all %}
+                  {% if not u.company or c.id != u.company.id %}
+                    <a href="{% url 'base:company_detail' c.pk %}"
+                       class="badge badge-ghost">
+                      {{ c.name }}
+                    </a>
+                  {% endif %}
+                {% endfor %}
+              </div>
+
+              <div class="text-[11px] text-base-content/50 mt-1">
+                Primary & allowed companies
+              </div>
+            </td>
+
+            <td class="text-center">
+              {% if u.email_verified %}
+                <span class="text-success font-medium">Yes</span>
+              {% else %}
+                <span class="text-base-content/40">No</span>
+              {% endif %}
+            </td>
+
+            <td>
+              {% if u.is_superuser %}
+                <span class="badge badge-error badge-outline">
+                  Superuser
+                </span>
+              {% elif u.is_staff %}
+                <span class="badge badge-warning badge-outline">
+                  Staff
+                </span>
+              {% else %}
+                <span class="badge badge-ghost">
+                  User
+                </span>
+              {% endif %}
+            </td>
+
+            <td>
+              {% if u.is_active %}
+                <span class="text-success font-medium">Active</span>
+              {% else %}
+                <span class="text-base-content/40">Inactive</span>
+              {% endif %}
+            </td>
+
+            <td class="text-right">
+              <div class="inline-flex items-center gap-2 justify-end">
+
+                {% if u.id in user_change_ids %}
+                  <a href="{% url 'base:user_edit' u.pk %}"
+                     class="tooltip tooltip-left"
+                     data-tip="Edit">
+                    <div class="btn btn-ghost btn-xs text-primary hover:bg-primary/10">
+                      <svg xmlns="http://www.w3.org/2000/svg"
+                           class="h-4 w-4"
+                           fill="none"
+                           viewBox="0 0 24 24"
+                           stroke="currentColor">
+                        <path stroke-linecap="round"
+                              stroke-linejoin="round"
+                              stroke-width="2"
+                              d="M15.232 5.232l3.536 3.536M9 11l6.232-6.232a2.5 2.5 0 013.536 3.536L12.536 14.536
+                                 9 15l.464-3.464z" />
+                      </svg>
                     </div>
-                  {% endif %}
-                </div>
-              </td>
-
-              {# ---------- Name ---------- #}
-              <td class="align-top text-sm">
-                {% if u.first_name or u.last_name %}
-                  <div class="font-medium">
-                    {{ u.first_name }} {{ u.last_name }}
-                  </div>
-                {% else %}
-                  <span class="text-base-content/50">—</span>
+                  </a>
                 {% endif %}
-              </td>
 
-              {# ---------- Companies ---------- #}
-              <td class="align-top">
-                <div class="flex flex-wrap gap-2">
+              </div>
+            </td>
 
-                  {# Primary company #}
-                  {% if u.company %}
-                    <a href="{% url 'base:company_detail' u.company.pk %}"
-                       class="badge badge-outline badge-primary"
-                       title="Primary company">
-                      {{ u.company.name }}
-                    </a>
-                  {% endif %}
-
-                  {# Allowed companies (excluding primary) #}
-                  {% for c in u.companies.all %}
-                    {% if not u.company or c.id != u.company.id %}
-                      <a href="{% url 'base:company_detail' c.pk %}"
-                         class="badge badge-ghost"
-                         title="Allowed company">
-                        {{ c.name }}
-                      </a>
-                    {% endif %}
-                  {% endfor %}
-                </div>
-
-                <div class="text-[11px] text-base-content/50 mt-1">
-                  Primary & allowed companies
-                </div>
-              </td>
-
-              {# ---------- Email Verified ---------- #}
-              <td class="align-top text-center">
-                {% if u.email_verified %}
-                  <span class="badge badge-success badge-sm">Yes</span>
-                {% else %}
-                  <span class="badge badge-ghost badge-sm">No</span>
-                {% endif %}
-              </td>
-
-              {# ---------- Role ---------- #}
-              <td class="align-top">
-                {% if u.is_superuser %}
-                  <span class="badge badge-error badge-outline">Superuser</span>
-                {% elif u.is_staff %}
-                  <span class="badge badge-warning badge-outline">Staff</span>
-                {% else %}
-                  <span class="badge badge-ghost">User</span>
-                {% endif %}
-              </td>
-
-              {# ---------- Status ---------- #}
-              <td class="align-top">
-                {% if u.is_active %}
-                  <span class="badge badge-success badge-sm">Active</span>
-                {% else %}
-                  <span class="badge badge-error badge-sm">Inactive</span>
-                {% endif %}
-              </td>
-
-              {# ---------- Actions ---------- #}
-              <td class="text-right align-top">
-                <div class="inline-flex items-center gap-2 justify-end">
-
-
-                  {% if u.id in user_change_ids %}
-                    <!-- Edit User -->
-                    <a href="{% url 'base:user_edit' u.pk %}"
-                       class="tooltip tooltip-left"
-                       data-tip="Edit">
-                      <div class="btn btn-ghost btn-xs text-primary hover:bg-primary/10">
-                        <svg xmlns="http://www.w3.org/2000/svg"
-                             class="h-4 w-4"
-                             fill="none"
-                             viewBox="0 0 24 24"
-                             stroke="currentColor">
-                          <path stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="2"
-                                d="M15.232 5.232l3.536 3.536
-                                   M9 11l6.232-6.232a2.5 2.5 0 013.536 3.536
-                                   L12.536 14.536 9 15l.464-3.464z" />
-                        </svg>
-                      </div>
-                    </a>
-
-                  {% endif %}
-
-                </div>
-              </td>
-
-            </tr>
+          </tr>
           {% endfor %}
         </tbody>
-
       </table>
-    </div>
+    </section>
 
-    {# ================= Pagination ================= #}
     {% include "partials/paginator.html" %}
 
   {% else %}
 
-    {# ================= Empty state ================= #}
-    <section
-      class="max-w-xl mx-auto rounded-xl border border-dashed
-             border-base-300 bg-base-100 p-10 text-center space-y-3">
+    <section class="card bg-base-100 border border-dashed border-base-300 shadow-sm">
+      <div class="py-16 text-center">
+        <p class="font-medium text-base-content/70">
+          No users found
+        </p>
+        <p class="text-sm text-base-content/50 mt-1">
+          No users match the current filters or access scope
+        </p>
 
-      <h2 class="text-lg font-semibold">
-        No users found
-      </h2>
-
-      <p class="text-sm text-base-content/60">
-        No users match the current filters, or you may not have access in this scope.
-      </p>
-
-      {% if can_add_user %}
-        <a href="{% url 'base:user_create' %}"
-           class="btn btn-secondary btn-sm mt-4">
-          + Create User
-        </a>
-      {% endif %}
+        {% if can_add_user %}
+          <a href="{% url 'base:user_create' %}"
+             class="btn btn-primary btn-sm mt-4">
+            + Add User
+          </a>
+        {% endif %}
+      </div>
     </section>
 
   {% endif %}
+
 </div>
 {% endblock %}

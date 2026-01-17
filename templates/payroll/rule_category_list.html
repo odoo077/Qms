@@ -1,131 +1,140 @@
-<!-- templates/payroll/rule_category_list.html -->
 {% extends "base.html" %}
 
-{% block page_title %}Salary Rule Categories{% endblock %}
 {% block title %}Payroll · Rule Categories{% endblock %}
 
-{% block page_actions %}
-  <a href="{% url 'payroll:rule_category_create' %}"
-     class="btn btn-primary btn-sm gap-2">
-    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none"
-         viewBox="0 0 24 24" stroke="currentColor">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-            d="M12 4v16m8-8H4"/>
-    </svg>
-    New Category
-  </a>
-{% endblock %}
-
 {% block content %}
-<div class="w-full px-6 py-8">
-  <div class="mx-auto w-full space-y-6">
+<div class="w-full px-6 py-8 space-y-8">
 
-    <!-- Header -->
+  <!-- ===================================================== -->
+  <!-- PAGE HEADER (LIST STANDARD) -->
+  <!-- ===================================================== -->
+  <section class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+
     <div class="space-y-1">
-      <h1 class="text-2xl font-semibold">Salary Rule Categories</h1>
+      <h1 class="text-3xl font-semibold tracking-tight">
+        Salary Rule Categories
+      </h1>
       <p class="text-sm text-base-content/60">
-        Group salary rule results (Basic, Allowances, Deductions).
+        Group salary rule results such as Basic, Allowances, and Deductions.
       </p>
     </div>
 
+    <a href="{% url 'payroll:rule_category_create' %}"
+       class="btn btn-primary btn-sm gap-2 shadow-sm">
+      <svg xmlns="http://www.w3.org/2000/svg"
+           class="h-4 w-4"
+           fill="none"
+           viewBox="0 0 24 24"
+           stroke="currentColor">
+        <path stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M12 4v16m8-8H4"/>
+      </svg>
+      New Category
+    </a>
 
-    <div class="card bg-base-100 border border-base-300">
-      <div class="card-body p-0">
+  </section>
 
-        {% if object_list %}
+  <!-- ===================================================== -->
+  <!-- TABLE (LIST STANDARD) -->
+  <!-- ===================================================== -->
+  <section class="card bg-base-100 border border-base-200 shadow-sm overflow-x-auto">
 
-        <!-- Meta -->
-        <div class="px-6 pt-5 pb-3 flex items-center justify-between text-sm text-base-content/60">
-          <div>
-            {{ page_obj.paginator.count }}
-            result{{ page_obj.paginator.count|pluralize }}
-          </div>
-          <div>
-            Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
-          </div>
-        </div>
+    <table class="table w-full text-sm">
+      <thead class="bg-base-200/60">
+        <tr>
+          <th class="font-semibold">Name</th>
+          <th class="font-semibold w-40">Code</th>
+          <th class="font-semibold w-32">Sequence</th>
+          <th class="font-semibold">Company</th>
+          <th class="font-semibold w-40 text-right">Actions</th>
+        </tr>
+      </thead>
 
-        <!-- Table -->
-        <div class="overflow-x-auto">
-          <table class="table table-zebra w-full">
-            <thead>
-              <tr class="bg-base-200">
-                <th class="w-[32%]">Name</th>
-                <th class="w-[18%]">Code</th>
-                <th class="w-[18%]">Sequence</th>
-                <th class="w-[22%]">Company</th>
-                <th class="w-[10%] text-right">Actions</th>
-              </tr>
-            </thead>
+      <tbody class="[&>tr]:border-base-200">
+        {% for c in object_list %}
+          <tr class="hover">
 
-            <tbody>
-              {% for c in object_list %}
-              <tr>
-                <td class="font-medium">
-                  <div class="flex flex-col">
-                    <span>{{ c.name }}</span>
-                    <span class="text-xs text-base-content/60">
-                      ID: {{ c.pk }}
-                    </span>
+            <!-- Name -->
+            <td class="font-medium">
+              <div class="flex flex-col">
+                <span>{{ c.name }}</span>
+                <span class="text-xs text-base-content/60">
+                  ID: {{ c.pk }}
+                </span>
+              </div>
+            </td>
+
+            <!-- Code -->
+            <td class="font-mono">
+              {{ c.code }}
+            </td>
+
+            <!-- Sequence -->
+            <td>
+              {{ c.sequence }}
+            </td>
+
+            <!-- Company -->
+            <td class="text-sm">
+              {{ c.company }}
+            </td>
+
+            <!-- Actions -->
+            <td class="text-right">
+              <div class="flex justify-end gap-1">
+
+                <!-- Edit -->
+                <a href="{% url 'payroll:rule_category_edit' c.pk %}"
+                   class="tooltip tooltip-left"
+                   data-tip="Edit">
+                  <div class="btn btn-ghost btn-xs text-primary hover:bg-primary/10">
+                    Edit
                   </div>
-                </td>
+                </a>
 
-                <td>
-                  <span class="font-mono text-sm">
-                    {{ c.code }}
-                  </span>
-                </td>
-
-                <td>
-                  {{ c.sequence }}
-                </td>
-
-                <td class="text-sm">
-                  {{ c.company }}
-                </td>
-
-                <td class="text-right">
-                  <div class="inline-flex gap-2">
-                    <a href="{% url 'payroll:rule_category_edit' c.pk %}"
-                       class="btn btn-xs btn-outline btn-primary">
-                      Edit
-                    </a>
-                    <a href="{% url 'payroll:rule_category_delete' c.pk %}"
-                       class="btn btn-xs btn-outline btn-error">
-                      Delete
-                    </a>
+                <!-- Delete -->
+                <a href="{% url 'payroll:rule_category_delete' c.pk %}"
+                   class="tooltip tooltip-left"
+                   data-tip="Delete">
+                  <div class="btn btn-ghost btn-xs text-error hover:bg-error/10">
+                    Delete
                   </div>
-                </td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
+                </a>
 
-        <!-- Pagination -->
-        <div class="px-6 py-4 border-t border-base-300">
-          {% include "partials/paginator.html" %}
-        </div>
+              </div>
+            </td>
 
-        {% else %}
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="5" class="py-16">
+              <div class="flex flex-col items-center text-center gap-2 text-base-content/70">
+                <p class="font-medium">
+                  No rule categories found
+                </p>
+                <p class="text-sm text-base-content/60 max-w-md">
+                  Create categories to organize salary calculation results.
+                </p>
+                <a href="{% url 'payroll:rule_category_create' %}"
+                   class="btn btn-primary btn-sm mt-3">
+                  Create Category
+                </a>
+              </div>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
 
-        <!-- Empty State -->
-        <div class="p-12 text-center space-y-3">
-          <h3 class="text-lg font-semibold">No Rule Categories</h3>
-          <p class="text-sm text-base-content/60">
-            Create categories to group salary rule results.
-          </p>
-          <a href="{% url 'payroll:rule_category_create' %}"
-             class="btn btn-primary btn-sm">
-            Create first category
-          </a>
-        </div>
+    </table>
 
-        {% endif %}
+  </section>
 
-      </div>
-    </div>
+  <!-- ===================================================== -->
+  <!-- PAGINATION -->
+  <!-- ===================================================== -->
+  {% include "partials/paginator.html" %}
 
-  </div>
 </div>
 {% endblock %}

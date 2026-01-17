@@ -617,53 +617,100 @@
 <!-- Theme Selector -->
 <div class="dropdown dropdown-end">
 
-  <label tabindex="0" class="btn btn-ghost btn-circle btn-sm">
-  <svg xmlns="http://www.w3.org/2000/svg"
-       viewBox="0 0 24 24"
-       class="h-5 w-5"
-       fill="none">
+  <!-- Button -->
+  <label
+    tabindex="0"
+    class="btn btn-ghost btn-sm gap-2 normal-case text-base-content/70 hover:text-base-content"
+  >
+    <!-- Palette Icon -->
+    <svg xmlns="http://www.w3.org/2000/svg"
+         class="w-5 h-5"
+         viewBox="0 0 24 24"
+         fill="none"
+         stroke="currentColor"
+         stroke-width="1.5">
+      <path
+        d="M12 3C6.48 3 2 7.04 2 12c0 3.31 2.69 6 6 6h2.5a1.5 1.5 0 0 1 1.5 1.5v.25a2.25 2.25 0 0 0 2.25 2.25h.75c4.42 0 8-3.58 8-8s-4.48-11-11-11z"
+      />
+      <circle cx="7.5" cy="10.5" r="0.8" />
+      <circle cx="11" cy="8" r="0.8" />
+      <circle cx="14.5" cy="10.5" r="0.8" />
+      <circle cx="10" cy="13.5" r="0.8" />
+    </svg>
 
-    <!-- Main palette -->
-    <path
-      d="M12 3C6.48 3 2 7.04 2 12c0 3.31 2.69 6 6 6h2.5a1.5 1.5 0 0 1 1.5 1.5v.25a2.25 2.25 0 0 0 2.25 2.25h.75c4.42 0 8-3.58 8-8s-4.48-11-11-11z"
-      fill="url(#grad)"
-    />
-
-    <!-- Color dots -->
-    <circle cx="7.5" cy="10.5" r="1" fill="#f43f5e"/>
-    <circle cx="11" cy="8" r="1" fill="#facc15"/>
-    <circle cx="14.5" cy="10.5" r="1" fill="#22c55e"/>
-    <circle cx="10" cy="13.5" r="1" fill="#3b82f6"/>
-
-    <!-- Gradient -->
-    <defs>
-      <linearGradient id="grad" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0%" stop-color="#6366f1"/>
-        <stop offset="50%" stop-color="#ec4899"/>
-        <stop offset="100%" stop-color="#22c55e"/>
-      </linearGradient>
-    </defs>
-
-  </svg>
-</label>
-
+    <span class="text-sm font-medium">Theme</span>
+  </label>
 
   <!-- Dropdown -->
-  <ul tabindex="0"
-      class="dropdown-content z-[50] menu p-2 shadow-lg bg-base-100 rounded-box w-52 text-sm">
+  <ul
+    tabindex="0"
+    class="dropdown-content z-[50] menu p-2 shadow-lg bg-base-100 rounded-box w-52 text-sm border border-base-200"
+  >
+    <li>
+      <a onclick="setTheme('corporate')" class="flex items-center gap-3">
+        <span class="w-2 h-2 rounded-full bg-primary"></span>
+        Corporate
+      </a>
+    </li>
 
-    <li><a onclick="setTheme('corporate')">🏢 Corporate (Default)</a></li>
-    <li><a onclick="setTheme('business')">💼 Business</a></li>
-    <li><a onclick="setTheme('winter')">❄️ Winter</a></li>
-    <li><a onclick="setTheme('luxury')">💎 Luxury</a></li>
-    <li><a onclick="setTheme('dim')">🌙 Dim</a></li>
-    <li><a onclick="setTheme('night')">🌌 Night</a></li>
-    <li><a onclick="setTheme('forest')">🌲 Forest</a></li>
-    <li><a onclick="setTheme('dracula')">🧛 Dracula</a></li>
-    <li><a onclick="setTheme('abyss')">🌊 Abyss</a></li>
+    <li>
+      <a onclick="setTheme('business')" class="flex items-center gap-3">
+        <span class="w-2 h-2 rounded-full bg-secondary"></span>
+        Business
+      </a>
+    </li>
 
+    <li>
+      <a onclick="setTheme('winter')" class="flex items-center gap-3">
+        <span class="w-2 h-2 rounded-full bg-info"></span>
+        Winter
+      </a>
+    </li>
+
+    <li>
+      <a onclick="setTheme('luxury')" class="flex items-center gap-3">
+        <span class="w-2 h-2 rounded-full bg-warning"></span>
+        Luxury
+      </a>
+    </li>
+
+    <li>
+      <a onclick="setTheme('dim')" class="flex items-center gap-3">
+        <span class="w-2 h-2 rounded-full bg-neutral"></span>
+        Dim
+      </a>
+    </li>
+
+    <li>
+      <a onclick="setTheme('night')" class="flex items-center gap-3">
+        <span class="w-2 h-2 rounded-full bg-accent"></span>
+        Night
+      </a>
+    </li>
+
+    <li>
+      <a onclick="setTheme('forest')" class="flex items-center gap-3">
+        <span class="w-2 h-2 rounded-full bg-success"></span>
+        Forest
+      </a>
+    </li>
+
+    <li>
+      <a onclick="setTheme('dracula')" class="flex items-center gap-3">
+        <span class="w-2 h-2 rounded-full bg-error"></span>
+        Dracula
+      </a>
+    </li>
+
+    <li>
+      <a onclick="setTheme('abyss')" class="flex items-center gap-3">
+        <span class="w-2 h-2 rounded-full bg-primary"></span>
+        Abyss
+      </a>
+    </li>
   </ul>
 </div>
+
 
 
 {# Profile / Login #}

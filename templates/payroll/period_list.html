@@ -1,137 +1,158 @@
-<!-- templates/payroll/period_list.html -->
 {% extends "base.html" %}
 
-{% block page_title %}Payroll Periods{% endblock %}
 {% block title %}Payroll · Periods{% endblock %}
 
-{% block page_actions %}
-  <a href="{% url 'payroll:period_create' %}"
-     class="btn btn-primary btn-sm gap-2">
-    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none"
-         viewBox="0 0 24 24" stroke="currentColor">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-            d="M12 4v16m8-8H4"/>
-    </svg>
-    New Period
-  </a>
-{% endblock %}
-
 {% block content %}
-<div class="w-full px-6 py-8">
-  <div class="mx-auto w-full space-y-6">
+<div class="w-full px-6 py-8 space-y-8">
 
-    <!-- Header -->
+  <!-- ===================================================== -->
+  <!-- PAGE HEADER (LIST STANDARD) -->
+  <!-- ===================================================== -->
+  <section class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+
     <div class="space-y-1">
-      <h1 class="text-2xl font-semibold">Payroll Periods</h1>
+      <h1 class="text-3xl font-semibold tracking-tight">
+        Payroll Periods
+      </h1>
       <p class="text-sm text-base-content/60">
         Manage payroll periods per company.
       </p>
     </div>
 
+    <a href="{% url 'payroll:period_create' %}"
+       class="btn btn-primary btn-sm gap-2 shadow-sm">
+      <svg xmlns="http://www.w3.org/2000/svg"
+           class="h-4 w-4"
+           fill="none"
+           viewBox="0 0 24 24"
+           stroke="currentColor">
+        <path stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M12 4v16m8-8H4"/>
+      </svg>
+      New Period
+    </a>
 
-    <div class="card bg-base-100 border border-base-300">
-      <div class="card-body p-0">
+  </section>
 
-        {% if object_list %}
+  <!-- ===================================================== -->
+  <!-- TABLE (LIST STANDARD) -->
+  <!-- ===================================================== -->
+  <section class="card bg-base-100 border border-base-200 shadow-sm overflow-x-auto">
 
-        <!-- Meta -->
-        <div class="px-6 pt-5 pb-3 flex items-center justify-between text-sm text-base-content/60">
-          <div>
-            {{ page_obj.paginator.count }}
-            result{{ page_obj.paginator.count|pluralize }}
-          </div>
-          <div>
-            Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
-          </div>
-        </div>
+    <table class="table w-full text-sm">
+      <thead class="bg-base-200/60">
+        <tr>
+          <th class="font-semibold">Company</th>
+          <th class="font-semibold">Month</th>
+          <th class="font-semibold">Date Range</th>
+          <th class="font-semibold w-28">State</th>
+          <th class="font-semibold w-24">Year</th>
+          <th class="font-semibold w-40 text-right">Actions</th>
+        </tr>
+      </thead>
 
-        <!-- Table -->
-        <div class="overflow-x-auto">
-          <table class="table table-zebra w-full">
-            <thead>
-              <tr class="bg-base-200">
-                <th class="w-[20%]">Company</th>
-                <th class="w-[14%]">Month</th>
-                <th class="w-[22%]">Date Range</th>
-                <th class="w-[14%]">State</th>
-                <th class="w-[14%]">Year</th>
-                <th class="w-[16%] text-right">Actions</th>
-              </tr>
-            </thead>
+      <tbody class="[&>tr]:border-base-200">
+        {% for p in object_list %}
+          <tr class="hover">
 
-            <tbody>
-              {% for p in object_list %}
-              <tr>
-                <td class="font-medium">
-                  {{ p.company }}
-                </td>
+            <!-- Company -->
+            <td class="font-medium">
+              {{ p.company }}
+            </td>
 
-                <td>
-                  {{ p.month }}
-                </td>
+            <!-- Month -->
+            <td>
+              {{ p.month }}
+            </td>
 
-                <td class="text-sm">
-                  {{ p.date_from }} → {{ p.date_to }}
-                </td>
+            <!-- Date Range -->
+            <td class="text-sm">
+              {{ p.date_from }} → {{ p.date_to }}
+            </td>
 
-                <td>
-                  {% if p.state == "open" %}
-                    <span class="badge badge-success badge-outline">Open</span>
-                  {% else %}
-                    <span class="badge badge-ghost">Closed</span>
-                  {% endif %}
-                </td>
+            <!-- State -->
+            <td>
+              {% if p.state == "open" %}
+                <span class="badge badge-success badge-sm">
+                  Open
+                </span>
+              {% else %}
+                <span class="badge badge-ghost badge-sm">
+                  Closed
+                </span>
+              {% endif %}
+            </td>
 
-                <td>
-                  {{ p.year }}
-                </td>
+            <!-- Year -->
+            <td>
+              {{ p.year }}
+            </td>
 
-                <td class="text-right">
-                  <div class="inline-flex gap-2">
-                    <a href="{% url 'payroll:period_detail' p.pk %}"
-                       class="btn btn-xs btn-outline">
-                      View
-                    </a>
-                    <a href="{% url 'payroll:period_edit' p.pk %}"
-                       class="btn btn-xs btn-outline btn-primary">
-                      Edit
-                    </a>
-                    <a href="{% url 'payroll:period_delete' p.pk %}"
-                       class="btn btn-xs btn-outline btn-error">
-                      Delete
-                    </a>
+            <!-- Actions -->
+            <td class="text-right">
+              <div class="flex justify-end gap-1">
+
+                <!-- View -->
+                <a href="{% url 'payroll:period_detail' p.pk %}"
+                   class="tooltip tooltip-left"
+                   data-tip="View">
+                  <div class="btn btn-ghost btn-xs hover:bg-base-200">
+                    View
                   </div>
-                </td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
+                </a>
 
-        <!-- Pagination -->
-        <div class="px-6 py-4 border-t border-base-300">
-          {% include "partials/paginator.html" %}
-        </div>
+                <!-- Edit -->
+                <a href="{% url 'payroll:period_edit' p.pk %}"
+                   class="tooltip tooltip-left"
+                   data-tip="Edit">
+                  <div class="btn btn-ghost btn-xs text-primary hover:bg-primary/10">
+                    Edit
+                  </div>
+                </a>
 
-        {% else %}
+                <!-- Delete -->
+                <a href="{% url 'payroll:period_delete' p.pk %}"
+                   class="tooltip tooltip-left"
+                   data-tip="Delete">
+                  <div class="btn btn-ghost btn-xs text-error hover:bg-error/10">
+                    Delete
+                  </div>
+                </a>
 
-        <!-- Empty State -->
-        <div class="p-12 text-center space-y-3">
-          <h3 class="text-lg font-semibold">No Payroll Periods</h3>
-          <p class="text-sm text-base-content/60">
-            Create payroll periods to start generating payslips.
-          </p>
-          <a href="{% url 'payroll:period_create' %}"
-             class="btn btn-primary btn-sm">
-            Create first period
-          </a>
-        </div>
+              </div>
+            </td>
 
-        {% endif %}
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="6" class="py-16">
+              <div class="flex flex-col items-center text-center gap-2 text-base-content/70">
+                <p class="font-medium">
+                  No payroll periods found
+                </p>
+                <p class="text-sm text-base-content/60 max-w-md">
+                  Create payroll periods to start generating payslips.
+                </p>
+                <a href="{% url 'payroll:period_create' %}"
+                   class="btn btn-primary btn-sm mt-3">
+                  Create Period
+                </a>
+              </div>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
 
-      </div>
-    </div>
+    </table>
 
-  </div>
+  </section>
+
+  <!-- ===================================================== -->
+  <!-- PAGINATION -->
+  <!-- ===================================================== -->
+  {% include "partials/paginator.html" %}
+
 </div>
 {% endblock %}

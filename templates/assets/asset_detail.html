@@ -10,9 +10,9 @@ Asset · {{ object.code }}
   <!-- ===================================================== -->
   <!-- PAGE HEADER -->
   <!-- ===================================================== -->
-  <section class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+  <section class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
     <div>
-      <h1 class="text-3xl font-bold tracking-tight">
+      <h1 class="text-3xl font-semibold tracking-tight">
         {{ object.code }} — {{ object.name }}
       </h1>
       <p class="text-sm text-base-content/60">
@@ -20,7 +20,7 @@ Asset · {{ object.code }}
       </p>
     </div>
 
-    <div class="flex gap-2 flex-wrap">
+    <div class="flex flex-wrap gap-2">
       <a href="{% url 'assets:asset_list' %}"
          class="btn btn-ghost btn-sm">
         Back
@@ -45,6 +45,27 @@ Asset · {{ object.code }}
         </a>
       {% endif %}
     </div>
+  </section>
+
+  <!-- ===================================================== -->
+  <!-- STATUS BADGES -->
+  <!-- ===================================================== -->
+  <section class="flex flex-wrap gap-2">
+    {% if object.active %}
+      <span class="badge badge-success badge-sm">Active</span>
+    {% else %}
+      <span class="badge badge-ghost badge-sm">Archived</span>
+    {% endif %}
+
+    {% if object.status == "available" %}
+      <span class="badge badge-success badge-sm">Available</span>
+    {% elif object.status == "assigned" %}
+      <span class="badge badge-primary badge-sm">Assigned</span>
+    {% elif object.status == "maintenance" %}
+      <span class="badge badge-warning badge-sm">Maintenance</span>
+    {% else %}
+      <span class="badge badge-ghost badge-sm">Retired</span>
+    {% endif %}
   </section>
 
   <!-- ===================================================== -->
@@ -84,20 +105,44 @@ Asset · {{ object.code }}
           {{ object.department|default:"—" }}
         </div>
 
-        <div class="text-base-content/60">Status</div>
+        <div class="text-base-content/60">Parent Asset</div>
         <div class="md:col-span-2">
-          {% if object.status == "available" %}
-            <span class="badge badge-success badge-sm">Available</span>
-          {% elif object.status == "assigned" %}
-            <span class="badge badge-primary badge-sm">Assigned</span>
-          {% elif object.status == "maintenance" %}
-            <span class="badge badge-warning badge-sm">Maintenance</span>
+          {% if object.parent %}
+            <a href="{% url 'assets:asset_detail' object.parent.id %}"
+               class="link link-hover font-medium">
+              {{ object.parent }}
+            </a>
           {% else %}
-            <span class="badge badge-ghost badge-sm">Retired</span>
+            —
+          {% endif %}
+        </div>
+
+        <div class="text-base-content/60">Purchase Date</div>
+        <div class="md:col-span-2">
+          {{ object.purchase_date|date:"Y-m-d"|default:"—" }}
+        </div>
+
+        <div class="text-base-content/60">Purchase Value</div>
+        <div class="md:col-span-2">
+          {% if object.purchase_value %}
+            {{ object.purchase_value }}
+          {% else %}
+            —
           {% endif %}
         </div>
 
       </dl>
+
+      {% if object.note %}
+        <div class="pt-4 border-t border-base-200">
+          <div class="text-xs uppercase tracking-wide text-base-content/60 mb-1">
+            Notes
+          </div>
+          <p class="text-sm text-base-content/80 whitespace-pre-line">
+            {{ object.note }}
+          </p>
+        </div>
+      {% endif %}
 
     </div>
   </section>
@@ -163,8 +208,8 @@ Asset · {{ object.code }}
         Assignment History
       </h2>
 
-      <table class="table table-zebra w-full text-sm">
-        <thead class="bg-base-200">
+      <table class="table w-full text-sm">
+        <thead class="bg-base-200/60">
           <tr>
             <th>Employee</th>
             <th>From</th>

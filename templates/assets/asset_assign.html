@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Assign Asset{% endblock %}
+{% block title %}Assign Asset · {{ asset.code }}{% endblock %}
 
 {% block content %}
 <div class="w-full px-6 py-6 space-y-6">
@@ -8,29 +8,27 @@
   <!-- ===================================================== -->
   <!-- PAGE HEADER -->
   <!-- ===================================================== -->
-  <section class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+  <section class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
     <div>
-      <h1 class="text-3xl font-bold tracking-tight">
+      <h1 class="text-3xl font-semibold tracking-tight">
         Assign Asset
       </h1>
       <p class="text-sm text-base-content/60">
-        Assign this asset to an employee and start a new assignment.
+        Start a new assignment for the selected asset.
       </p>
     </div>
 
-    <div class="flex gap-2">
-      <a href="{% url 'assets:asset_detail' asset.id %}"
-         class="btn btn-ghost btn-sm">
-        Back
-      </a>
-    </div>
+    <a href="{% url 'assets:asset_detail' asset.id %}"
+       class="btn btn-ghost btn-sm">
+      Back to Asset
+    </a>
   </section>
 
   <!-- ===================================================== -->
   <!-- ASSET CONTEXT -->
   <!-- ===================================================== -->
   <section class="card bg-base-200/40 border border-base-300">
-    <div class="p-5 flex flex-col md:flex-row md:items-center md:justify-between gap-4 text-sm">
+    <div class="p-5 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
 
       <div>
         <div class="text-xs uppercase tracking-wide text-base-content/50">
@@ -38,6 +36,9 @@
         </div>
         <div class="font-medium">
           {{ asset.code }} — {{ asset.name }}
+        </div>
+        <div class="text-xs text-base-content/60 mt-1">
+          {{ asset.company }}{% if asset.category %} · {{ asset.category }}{% endif %}
         </div>
       </div>
 
@@ -53,11 +54,11 @@
   <!-- ASSIGNMENT FORM -->
   <!-- ===================================================== -->
   <section class="card bg-base-100 border border-base-200 shadow-sm">
-    <form method="post" class="p-6 space-y-8">
+    <form method="post" class="p-6 lg:p-8 space-y-8">
       {% csrf_token %}
 
       <!-- =============================================== -->
-      <!-- NON FIELD ERRORS -->
+      <!-- GLOBAL ERRORS -->
       <!-- =============================================== -->
       {% if form.non_field_errors %}
         <div class="alert alert-error text-sm">
@@ -71,7 +72,7 @@
       <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
 
         <!-- Employee -->
-        <div class="form-control w-full">
+        <div class="form-control">
           <label class="label p-0 mb-1">
             <span class="label-text text-sm font-medium">
               {{ form.employee.label }}
@@ -82,10 +83,13 @@
           {% for error in form.employee.errors %}
             <p class="text-error text-xs mt-1">{{ error }}</p>
           {% endfor %}
+          <p class="text-xs text-base-content/60 mt-1">
+            Select the employee who will receive this asset.
+          </p>
         </div>
 
         <!-- Start Date -->
-        <div class="form-control w-full">
+        <div class="form-control">
           <label class="label p-0 mb-1">
             <span class="label-text text-sm font-medium">
               {{ form.date_from.label }}
@@ -103,7 +107,7 @@
       </div>
 
       <!-- Note -->
-      <div class="form-control w-full">
+      <div class="form-control">
         <label class="label p-0 mb-1">
           <span class="label-text text-sm font-medium">
             {{ form.note.label }}
@@ -113,6 +117,9 @@
         {% for error in form.note.errors %}
           <p class="text-error text-xs mt-1">{{ error }}</p>
         {% endfor %}
+        <p class="text-xs text-base-content/60 mt-1">
+          Optional note for assignment context or condition.
+        </p>
       </div>
 
       <!-- =============================================== -->
@@ -121,24 +128,20 @@
       <div class="alert alert-info text-sm">
         After assignment, this asset will be marked as
         <strong>Assigned</strong> and cannot be assigned again
-        until it is unassigned.
+        until it is unassigned through the workflow.
       </div>
 
       <!-- =============================================== -->
       <!-- ACTIONS -->
       <!-- =============================================== -->
-      <div class="flex justify-end gap-2 pt-6 border-t border-base-200">
-
+      <div class="flex justify-end gap-3 pt-6 border-t border-base-200">
         <a href="{% url 'assets:asset_detail' asset.id %}"
            class="btn btn-ghost btn-sm">
           Cancel
         </a>
-
-        <button type="submit"
-                class="btn btn-primary btn-sm">
+        <button type="submit" class="btn btn-primary btn-sm">
           Assign Asset
         </button>
-
       </div>
 
     </form>

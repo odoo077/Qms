@@ -3,46 +3,39 @@
 {% block title %}Resume Lines{% endblock %}
 
 {% block content %}
-<div class="w-full px-6 py-8 space-y-8">
+<div class="w-full px-6 py-6 space-y-6">
 
   <!-- ===================================================== -->
-  <!-- Page Header (List Standard) -->
+  <!-- PAGE HEADER (List Standard) -->
   <!-- ===================================================== -->
-  <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-    <div class="space-y-1">
+  <section class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+    <div>
       <h1 class="text-3xl font-semibold tracking-tight">
         Resume Lines
       </h1>
       <p class="text-sm text-base-content/60">
-        Manage employee resume entries such as education, experience, and certifications.
+        Manage employee resume entries such as education, experience, and certifications
       </p>
     </div>
 
     <div>
       <a href="{% url 'skills:resumeline_create' %}"
-         class="btn btn-primary btn-sm gap-2 shadow-sm">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4"
-             fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round"
-                stroke-width="2" d="M12 4v16m8-8H4"/>
-        </svg>
-        New Resume Line
+         class="btn btn-primary btn-sm">
+        + New Resume Line
       </a>
     </div>
-  </div>
+  </section>
 
   <!-- ===================================================== -->
-  <!-- Filters (List Standard) -->
+  <!-- FILTERS (List Standard) -->
   <!-- ===================================================== -->
-  <form method="get"
-        class="card bg-base-100 border border-base-200 shadow-sm">
-    <div class="card-body p-5 space-y-4">
-
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+  <section class="card bg-base-100 border border-base-200 shadow-sm">
+    <form method="get" class="p-5">
+      <div class="grid grid-cols-1 md:grid-cols-6 gap-4 items-end">
 
         <!-- Employee -->
-        <div>
-          <label class="label pb-1">
+        <div class="md:col-span-2">
+          <label class="label p-0 mb-1">
             <span class="label-text text-xs text-base-content/60">
               Employee
             </span>
@@ -51,12 +44,12 @@
                  name="employee"
                  value="{{ params.employee }}"
                  placeholder="Employee name"
-                 class="input input-bordered w-full" />
+                 class="input input-bordered w-full">
         </div>
 
         <!-- Resume Line Type -->
-        <div>
-          <label class="label pb-1">
+        <div class="md:col-span-2">
+          <label class="label p-0 mb-1">
             <span class="label-text text-xs text-base-content/60">
               Resume Line Type
             </span>
@@ -65,12 +58,12 @@
                  name="type"
                  value="{{ params.type }}"
                  placeholder="Resume line type"
-                 class="input input-bordered w-full" />
+                 class="input input-bordered w-full">
         </div>
 
         <!-- Title / Name -->
-        <div>
-          <label class="label pb-1">
+        <div class="md:col-span-2">
+          <label class="label p-0 mb-1">
             <span class="label-text text-xs text-base-content/60">
               Title / Name
             </span>
@@ -79,46 +72,37 @@
                  name="name"
                  value="{{ params.name }}"
                  placeholder="Resume title"
-                 class="input input-bordered w-full" />
+                 class="input input-bordered w-full">
+        </div>
+
+        <!-- Actions -->
+        <div class="md:col-span-6 flex justify-end gap-2 pt-2">
+          <button type="submit"
+                  class="btn btn-primary btn-sm px-4 shadow-sm hover:shadow-md transition-all">
+            Apply
+          </button>
+
+          <a href="{% url 'skills:resumeline_list' %}"
+             class="btn btn-ghost btn-sm text-base-content/60 hover:text-base-content hover:bg-base-200">
+            Reset
+          </a>
         </div>
 
       </div>
-
-      <!-- Actions -->
-      <div class="flex justify-end gap-2 pt-2">
-        <button type="submit"
-                class="btn btn-primary btn-sm">
-          Apply Filters
-        </button>
-        <a href="{% url 'skills:resumeline_list' %}"
-           class="btn btn-ghost btn-sm text-base-content/60">
-          Reset
-        </a>
-      </div>
-
-    </div>
-  </form>
+    </form>
+  </section>
 
   <!-- ===================================================== -->
-  <!-- Table (List Standard) -->
+  <!-- TABLE (List Standard) -->
   <!-- ===================================================== -->
-  <div class="card bg-base-100 border border-base-200 shadow-sm overflow-x-auto">
-
+  <section class="card bg-base-100 border border-base-200 shadow-sm overflow-x-auto">
     <table class="table w-full text-sm">
       <thead class="bg-base-200/60">
         <tr>
-          <th class="font-semibold">
-            Employee
-          </th>
-          <th class="font-semibold">
-            Resume Line Type
-          </th>
-          <th class="font-semibold">
-            Title / Name
-          </th>
-          <th class="font-semibold w-40 text-right">
-            Actions
-          </th>
+          <th>Employee</th>
+          <th>Resume Line Type</th>
+          <th>Title / Name</th>
+          <th class="text-right w-32">Actions</th>
         </tr>
       </thead>
 
@@ -130,60 +114,54 @@
               {{ obj.employee }}
             </td>
 
-            <td>
+            <td class="text-base-content/70">
               {{ obj.line_type }}
             </td>
 
-            <td>
+            <td class="text-base-content/70">
               {{ obj.name }}
             </td>
 
             <td class="text-right">
-              <div class="flex justify-end gap-1">
+              <div class="inline-flex items-center gap-2">
 
-              <!-- Edit  -->
-              <a href="{% url 'skills:resumeline_update' obj.id %}"
-                 class="tooltip tooltip-left"
-                 data-tip="Edit">
-                <div class="btn btn-ghost btn-xs text-primary hover:bg-primary/10">
-                  <svg xmlns="http://www.w3.org/2000/svg"
-                       class="h-4 w-4"
-                       fill="none"
-                       viewBox="0 0 24 24"
-                       stroke="currentColor">
-                    <path stroke-linecap="round"
-                          stroke-linejoin="round"
-                          stroke-width="2"
-                          d="M15.232 5.232l3.536 3.536
-                             M9 11l6.232-6.232a2.5 2.5 0 013.536 3.536
-                             L12.536 14.536 9 15l.464-3.464z" />
-                  </svg>
-                </div>
-              </a>
+                <!-- Edit -->
+                <a href="{% url 'skills:resumeline_update' obj.id %}"
+                   class="tooltip tooltip-left"
+                   data-tip="Edit">
+                  <div class="btn btn-ghost btn-xs text-primary hover:bg-primary/10">
+                    <svg xmlns="http://www.w3.org/2000/svg"
+                         class="h-4 w-4"
+                         fill="none"
+                         viewBox="0 0 24 24"
+                         stroke="currentColor">
+                      <path stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M15.232 5.232l3.536 3.536M9 11l6.232-6.232a2.5 2.5 0 013.536 3.536L12.536 14.536
+                               9 15l.464-3.464z" />
+                    </svg>
+                  </div>
+                </a>
 
-
-              <!-- Delete  -->
-              <a href="{% url 'skills:resumeline_delete' obj.id %}"
-                 class="tooltip tooltip-left"
-                 data-tip="Delete">
-                <div class="btn btn-ghost btn-xs text-error hover:bg-error/10">
-                  <svg xmlns="http://www.w3.org/2000/svg"
-                       class="h-4 w-4"
-                       fill="none"
-                       viewBox="0 0 24 24"
-                       stroke="currentColor">
-                    <path stroke-linecap="round"
-                          stroke-linejoin="round"
-                          stroke-width="2"
-                          d="M19 7l-.867 12.142A2 2 0 0116.138 21
-                             H7.862a2 2 0 01-1.995-1.858L5 7
-                             m5-4h4
-                             m-4 0a1 1 0 00-1 1v1h6V4
-                             a1 1 0 00-1-1
-                             m-4 0h4" />
-                  </svg>
-                </div>
-              </a>
+                <!-- Delete -->
+                <a href="{% url 'skills:resumeline_delete' obj.id %}"
+                   class="tooltip tooltip-left"
+                   data-tip="Delete">
+                  <div class="btn btn-ghost btn-xs text-error hover:bg-error/10">
+                    <svg xmlns="http://www.w3.org/2000/svg"
+                         class="h-4 w-4"
+                         fill="none"
+                         viewBox="0 0 24 24"
+                         stroke="currentColor">
+                      <path stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7
+                               m5-4h4m-4 0a1 1 0 00-1 1v1h6V4a1 1 0 00-1-1m-4 0h4" />
+                    </svg>
+                  </div>
+                </a>
 
               </div>
             </td>
@@ -191,30 +169,26 @@
           </tr>
         {% empty %}
           <tr>
-            <td colspan="4" class="py-16">
-              <div class="flex flex-col items-center text-center gap-2 text-base-content/70">
-                <p class="font-medium">
-                  No resume lines found
-                </p>
-                <p class="text-sm text-base-content/60 max-w-md">
-                  Start by adding resume details such as education, experience, or certifications.
-                </p>
-                <a href="{% url 'skills:resumeline_create' %}"
-                   class="btn btn-primary btn-sm mt-3">
-                  Add Resume Line
-                </a>
-              </div>
+            <td colspan="4" class="py-16 text-center">
+              <p class="font-medium text-base-content/70">
+                No resume lines found
+              </p>
+              <p class="text-sm text-base-content/50 mt-1">
+                Start by adding resume details such as education, experience, or certifications.
+              </p>
+              <a href="{% url 'skills:resumeline_create' %}"
+                 class="btn btn-primary btn-sm mt-4">
+                + Add Resume Line
+              </a>
             </td>
           </tr>
         {% endfor %}
       </tbody>
-
     </table>
-
-  </div>
+  </section>
 
   <!-- ===================================================== -->
-  <!-- Pagination -->
+  <!-- PAGINATION -->
   <!-- ===================================================== -->
   {% include "partials/paginator.html" %}
 

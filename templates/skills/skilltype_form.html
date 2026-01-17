@@ -5,30 +5,34 @@
 {% endblock %}
 
 {% block content %}
-<div class="w-full px-6 py-8 space-y-8">
+<div class="w-full px-6 py-6 space-y-8">
 
   <!-- ===================================================== -->
-  <!-- Page Header -->
+  <!-- PAGE HEADER -->
   <!-- ===================================================== -->
-  <div class="space-y-1">
-    <h1 class="text-3xl font-semibold tracking-tight">
-      {% if object %}
-        Edit Skill Type
-      {% else %}
-        Create Skill Type
-      {% endif %}
-    </h1>
-    <p class="text-sm text-base-content/60">
-      Define skill categories used for evaluations, career paths, and certifications
-    </p>
-  </div>
+  <section class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+    <div class="space-y-1">
+      <h1 class="text-3xl font-semibold tracking-tight">
+        {% if object %}Edit Skill Type{% else %}Create Skill Type{% endif %}
+      </h1>
+      <p class="text-sm text-base-content/60">
+        Define skill categories used for evaluations, career paths, and certifications.
+      </p>
+    </div>
+
+    <a href="{% url 'skills:skilltype_list' %}"
+       class="btn btn-ghost btn-sm">
+      Back to list
+    </a>
+  </section>
 
   <!-- ===================================================== -->
-  <!-- Form -->
+  <!-- FORM -->
   <!-- ===================================================== -->
   <form method="post" class="space-y-8">
     {% csrf_token %}
 
+    <!-- GLOBAL ERRORS -->
     {% if form.non_field_errors %}
       <div class="alert alert-error text-sm">
         {{ form.non_field_errors }}
@@ -40,133 +44,149 @@
     {% endfor %}
 
     <!-- ===================================================== -->
-    <!-- Main Card -->
+    <!-- BASIC INFORMATION -->
     <!-- ===================================================== -->
-    <div class="card bg-base-100">
-      <div class="card-body space-y-10">
+    <section class="card bg-base-100 border border-base-200 shadow-sm">
+      <div class="p-6 space-y-6">
 
-        <!-- ================================================= -->
-        <!-- Core Information -->
-        <!-- ================================================= -->
-        <section class="space-y-4">
-          <h2 class="text-xs font-semibold uppercase tracking-wider text-base-content/60">
-            Core Information
-          </h2>
+        <h2 class="text-xs font-semibold uppercase tracking-wider text-base-content/60">
+          Basic Information
+        </h2>
 
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
 
-            <!-- Name -->
-            <div>
-              <label class="label pb-1">
-                <span class="label-text font-medium">
-                  Name <span class="text-error">*</span>
-                </span>
-              </label>
-              {{ form.name }}
-              {% for error in form.name.errors %}
-                <p class="text-error text-xs mt-1">{{ error }}</p>
-              {% endfor %}
-            </div>
-
-            <!-- Sequence -->
-            <div>
-              <label class="label pb-1">
-                <span class="label-text font-medium">
-                  Sequence
-                </span>
-              </label>
-              {{ form.sequence }}
-              {% for error in form.sequence.errors %}
-                <p class="text-error text-xs mt-1">{{ error }}</p>
-              {% endfor %}
-            </div>
-
-          </div>
-        </section>
-
-        <!-- ================================================= -->
-        <!-- Behavior -->
-        <!-- ================================================= -->
-        <section class="space-y-4">
-          <h2 class="text-xs font-semibold uppercase tracking-wider text-base-content/60">
-            Behavior
-          </h2>
-
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-            <!-- Certification -->
-            <label class="label cursor-pointer justify-start gap-3">
-              {{ form.is_certification }}
-              <span class="label-text font-medium">
-                Is Certification
+          <!-- Name -->
+          <div class="form-control w-full">
+            <label class="label p-0 mb-1">
+              <span class="label-text text-sm font-medium">
+                {{ form.name.label }}
+                <span class="text-error">*</span>
               </span>
             </label>
+            {{ form.name }}
+            {% for e in form.name.errors %}
+              <p class="text-error text-xs mt-1">{{ e }}</p>
+            {% endfor %}
+          </div>
 
-            <!-- Active -->
+          <!-- Sequence -->
+          <div class="form-control w-full">
+            <label class="label p-0 mb-1">
+              <span class="label-text text-sm font-medium">
+                {{ form.sequence.label }}
+              </span>
+            </label>
+            {{ form.sequence }}
+            {% for e in form.sequence.errors %}
+              <p class="text-error text-xs mt-1">{{ e }}</p>
+            {% endfor %}
+            <p class="text-xs text-base-content/60 mt-1">
+              Lower values appear first.
+            </p>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================================================== -->
+    <!-- SETTINGS -->
+    <!-- ===================================================== -->
+    <section class="card bg-base-100 border border-base-200 shadow-sm">
+      <div class="p-6 space-y-6">
+
+        <h2 class="text-xs font-semibold uppercase tracking-wider text-base-content/60">
+          Settings
+        </h2>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+          <!-- Certification -->
+          <div class="form-control">
+            <label class="label cursor-pointer justify-start gap-3">
+              {{ form.is_certification }}
+              <span class="label-text text-sm font-medium">
+                Certification Type
+              </span>
+            </label>
+            <p class="text-xs text-base-content/60 ml-7">
+              Mark this skill as a certification-based skill.
+            </p>
+            {% for e in form.is_certification.errors %}
+              <p class="text-error text-xs mt-1">{{ e }}</p>
+            {% endfor %}
+          </div>
+
+          <!-- Active -->
+          <div class="form-control">
             <label class="label cursor-pointer justify-start gap-3">
               {{ form.active }}
-              <span class="label-text font-medium">
+              <span class="label-text text-sm font-medium">
                 Active
               </span>
             </label>
-
+            <p class="text-xs text-base-content/60 ml-7">
+              Inactive skill types will be hidden from operational usage.
+            </p>
+            {% for e in form.active.errors %}
+              <p class="text-error text-xs mt-1">{{ e }}</p>
+            {% endfor %}
           </div>
-        </section>
 
-        <!-- ================================================= -->
-        <!-- Statistics (Edit only) -->
-        <!-- ================================================= -->
-        {% if object %}
-          <section class="space-y-4">
-            <h2 class="text-xs font-semibold uppercase tracking-wider text-base-content/60">
-              Statistics
-            </h2>
+        </div>
+      </div>
+    </section>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label class="label pb-1">
-                  <span class="label-text font-medium">
-                    Levels Count
-                  </span>
-                </label>
-                <input type="text"
-                       class="input input-bordered w-full bg-base-200 cursor-not-allowed"
-                       value="{{ object.levels_count }}"
-                       readonly>
-              </div>
-            </div>
-          </section>
-        {% endif %}
+    <!-- ===================================================== -->
+    <!-- INSIGHTS (EDIT ONLY) -->
+    <!-- ===================================================== -->
+    {% if object %}
+    <section class="card bg-base-100 border border-base-200 shadow-sm">
+      <div class="p-6 space-y-4">
+
+        <h2 class="text-xs font-semibold uppercase tracking-wider text-base-content/60">
+          Insights
+        </h2>
+
+        <div class="form-control w-full md:w-1/3">
+          <label class="label p-0 mb-1">
+            <span class="label-text text-sm font-medium">
+              Levels Count
+            </span>
+          </label>
+          <input type="text"
+                 value="{{ object.levels_count }}"
+                 readonly
+                 class="input input-bordered bg-base-200 cursor-not-allowed">
+          <p class="text-xs text-base-content/60 mt-1">
+            Number of active levels linked to this skill type.
+          </p>
+        </div>
 
       </div>
-    </div>
+    </section>
+    {% endif %}
 
     <!-- ===================================================== -->
-    <!-- Actions -->
+    <!-- ACTIONS -->
     <!-- ===================================================== -->
-    <div class="flex justify-between items-center pt-4 border-t border-base-200">
+    <div class="flex justify-end gap-3 pt-6 border-t border-base-200">
 
-      <div class="flex gap-3">
-        <a href="{% url 'skills:skilltype_list' %}"
-           class="btn btn-ghost">
-          Back to list
+      <a href="{% url 'skills:skilltype_list' %}"
+         class="btn btn-ghost btn-sm">
+        Cancel
+      </a>
+
+      {% if object %}
+        <a href="{% url 'skills:skilltype_delete' object.id %}"
+           class="btn btn-ghost btn-sm text-error">
+          Delete
         </a>
-
-        {% if object %}
-          <a href="{% url 'skills:skilltype_delete' object.id %}"
-             class="btn btn-ghost text-error">
-            Delete
-          </a>
-        {% endif %}
-      </div>
+      {% endif %}
 
       <button type="submit"
-              class="btn btn-primary">
-        {% if object %}
-          Save Changes
-        {% else %}
-          Create Skill Type
-        {% endif %}
+              class="btn btn-primary btn-sm">
+        {% if object %}Save Changes{% else %}Create Skill Type{% endif %}
       </button>
 
     </div>

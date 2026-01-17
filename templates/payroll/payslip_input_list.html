@@ -1,141 +1,149 @@
 {% extends "base.html" %}
 
-{% block page_title %}Payslip Inputs{% endblock %}
 {% block title %}Payroll · Payslip Inputs{% endblock %}
 
-{% block page_actions %}
-  <a href="{% url 'payroll:payslip_input_create' %}"
-     class="btn btn-primary btn-sm gap-2">
-    <svg xmlns="http://www.w3.org/2000/svg"
-         class="h-4 w-4"
-         fill="none"
-         viewBox="0 0 24 24"
-         stroke="currentColor">
-      <path stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            d="M12 4v16m8-8H4" />
-    </svg>
-    New Input
-  </a>
-{% endblock %}
-
 {% block content %}
-<div class="w-full px-6 py-8">
-  <div class="mx-auto w-full space-y-6">
+<div class="w-full px-6 py-8 space-y-8">
 
-    <!-- Header -->
+  <!-- ===================================================== -->
+  <!-- PAGE HEADER (LIST STANDARD) -->
+  <!-- ===================================================== -->
+  <section class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+
     <div class="space-y-1">
-      <h1 class="text-2xl font-semibold">Payslip Inputs</h1>
+      <h1 class="text-3xl font-semibold tracking-tight">
+        Payslip Inputs
+      </h1>
       <p class="text-sm text-base-content/60">
         Manual inputs linked to specific payslips.
       </p>
     </div>
 
+    <a href="{% url 'payroll:payslip_input_create' %}"
+       class="btn btn-primary btn-sm gap-2 shadow-sm">
+      <svg xmlns="http://www.w3.org/2000/svg"
+           class="h-4 w-4"
+           fill="none"
+           viewBox="0 0 24 24"
+           stroke="currentColor">
+        <path stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M12 4v16m8-8H4" />
+      </svg>
+      New Input
+    </a>
 
-    <div class="card bg-base-100 border border-base-300">
-      <div class="card-body p-0">
+  </section>
 
-        {% if object_list %}
+  <!-- ===================================================== -->
+  <!-- TABLE (LIST STANDARD) -->
+  <!-- ===================================================== -->
+  <section class="card bg-base-100 border border-base-200 shadow-sm overflow-x-auto">
 
-        <!-- Meta -->
-        <div class="px-6 pt-5 pb-3 flex items-center justify-between
-                    text-sm text-base-content/60">
-          <div>
-            {{ page_obj.paginator.count }}
-            result{{ page_obj.paginator.count|pluralize }}
-          </div>
-          <div>
-            Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
-          </div>
-        </div>
+    <table class="table w-full text-sm">
+      <thead class="bg-base-200/60">
+        <tr>
+          <th class="font-semibold">Payslip</th>
+          <th class="font-semibold">Employee</th>
+          <th class="font-semibold">Input Type</th>
+          <th class="font-semibold">Name</th>
+          <th class="font-semibold w-24">Sequence</th>
+          <th class="font-semibold w-32 text-right">Amount</th>
+          <th class="font-semibold w-40 text-right">Actions</th>
+        </tr>
+      </thead>
 
-        <!-- Table -->
-        <div class="overflow-x-auto">
-          <table class="table table-zebra w-full">
-            <thead>
-              <tr class="bg-base-200">
-                <th class="w-[20%]">Payslip</th>
-                <th class="w-[16%]">Employee</th>
-                <th class="w-[14%]">Input Type</th>
-                <th class="w-[18%]">Name</th>
-                <th class="w-[10%]">Sequence</th>
-                <th class="w-[12%] text-right">Amount</th>
-                <th class="w-[10%] text-right">Actions</th>
-              </tr>
-            </thead>
+      <tbody class="[&>tr]:border-base-200">
+        {% for pi in object_list %}
+          <tr class="hover">
 
-            <tbody>
-              {% for pi in object_list %}
-              <tr>
-                <td class="text-sm">
-                  {{ pi.payslip.period.year }}-{{ pi.payslip.period.month }}
-                </td>
+            <!-- Payslip -->
+            <td>
+              {{ pi.payslip.period.year }}-{{ pi.payslip.period.month }}
+            </td>
 
-                <td class="text-sm">
-                  {{ pi.payslip.employee }}
-                </td>
+            <!-- Employee -->
+            <td class="font-medium">
+              {{ pi.payslip.employee }}
+            </td>
 
-                <td>
-                  <span class="badge badge-outline">
-                    {{ pi.input_type.code }}
-                  </span>
-                </td>
+            <!-- Input Type -->
+            <td>
+              <span class="badge badge-outline badge-sm">
+                {{ pi.input_type.code }}
+              </span>
+            </td>
 
-                <td>
-                  {{ pi.name|default:"—" }}
-                </td>
+            <!-- Name -->
+            <td>
+              {{ pi.name|default:"—" }}
+            </td>
 
-                <td>
-                  {{ pi.sequence }}
-                </td>
+            <!-- Sequence -->
+            <td>
+              {{ pi.sequence }}
+            </td>
 
-                <td class="text-right font-mono">
-                  {{ pi.amount }}
-                </td>
+            <!-- Amount -->
+            <td class="text-right font-mono">
+              {{ pi.amount }}
+            </td>
 
-                <td class="text-right">
-                  <div class="inline-flex gap-2">
-                    <a href="{% url 'payroll:payslip_input_edit' pi.pk %}"
-                       class="btn btn-xs btn-outline btn-primary">
-                      Edit
-                    </a>
-                    <a href="{% url 'payroll:payslip_input_delete' pi.pk %}"
-                       class="btn btn-xs btn-outline btn-error">
-                      Delete
-                    </a>
+            <!-- Actions -->
+            <td class="text-right">
+              <div class="flex justify-end gap-1">
+
+                <!-- Edit -->
+                <a href="{% url 'payroll:payslip_input_edit' pi.pk %}"
+                   class="tooltip tooltip-left"
+                   data-tip="Edit">
+                  <div class="btn btn-ghost btn-xs text-primary hover:bg-primary/10">
+                    Edit
                   </div>
-                </td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
+                </a>
 
-        <!-- Pagination -->
-        <div class="px-6 py-4 border-t border-base-300">
-          {% include "partials/paginator.html" %}
-        </div>
+                <!-- Delete -->
+                <a href="{% url 'payroll:payslip_input_delete' pi.pk %}"
+                   class="tooltip tooltip-left"
+                   data-tip="Delete">
+                  <div class="btn btn-ghost btn-xs text-error hover:bg-error/10">
+                    Delete
+                  </div>
+                </a>
 
-        {% else %}
+              </div>
+            </td>
 
-        <!-- Empty State -->
-        <div class="p-12 text-center space-y-3">
-          <h3 class="text-lg font-semibold">No Payslip Inputs</h3>
-          <p class="text-sm text-base-content/60">
-            Add manual inputs to affect payslip calculations.
-          </p>
-          <a href="{% url 'payroll:payslip_input_create' %}"
-             class="btn btn-primary btn-sm">
-            Create first input
-          </a>
-        </div>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="7" class="py-16">
+              <div class="flex flex-col items-center text-center gap-2 text-base-content/70">
+                <p class="font-medium">
+                  No payslip inputs found
+                </p>
+                <p class="text-sm text-base-content/60 max-w-md">
+                  Add manual inputs to affect payslip calculations.
+                </p>
+                <a href="{% url 'payroll:payslip_input_create' %}"
+                   class="btn btn-primary btn-sm mt-3">
+                  Create Input
+                </a>
+              </div>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
 
-        {% endif %}
+    </table>
 
-      </div>
-    </div>
+  </section>
 
-  </div>
+  <!-- ===================================================== -->
+  <!-- PAGINATION -->
+  <!-- ===================================================== -->
+  {% include "partials/paginator.html" %}
+
 </div>
 {% endblock %}

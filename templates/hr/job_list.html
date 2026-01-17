@@ -5,12 +5,9 @@
 {% block content %}
 <div class="w-full px-6 py-6 space-y-6">
 
-  <!-- ===================================================== -->
-  <!-- PAGE HEADER -->
-  <!-- ===================================================== -->
   <section class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
     <div>
-      <h1 class="text-3xl font-bold tracking-tight">
+      <h1 class="text-3xl font-semibold tracking-tight">
         Jobs
       </h1>
       <p class="text-sm text-base-content/60">
@@ -26,29 +23,24 @@
     </div>
   </section>
 
-  <!-- ===================================================== -->
-  <!-- TABLE CARD -->
-  <!-- ===================================================== -->
   <section class="card bg-base-100 border border-base-200 shadow-sm overflow-x-auto">
 
     <table class="table w-full text-sm">
-
-      <thead class="bg-base-200">
+      <thead class="bg-base-200/60">
         <tr>
           <th>Job</th>
           <th>Company</th>
           <th>Department</th>
           <th class="text-center">Employees</th>
           <th class="text-center">Vacancies</th>
-          <th class="text-right">Actions</th>
+          <th class="text-right w-24">Actions</th>
         </tr>
       </thead>
 
-      <tbody>
+      <tbody class="[&>tr]:border-base-200">
         {% for job in object_list %}
-        <tr class="{% cycle 'bg-base-100' 'bg-base-200/40' %} hover:bg-base-300/30">
+        <tr class="hover">
 
-          <!-- Job -->
           <td class="font-medium">
             <a href="{% url 'hr:job_detail' job.pk %}"
                class="link link-hover">
@@ -56,24 +48,20 @@
             </a>
           </td>
 
-          <!-- Company -->
-          <td class="opacity-80">
+          <td class="text-base-content/70">
             {{ job.company }}
           </td>
 
-          <!-- Department -->
-          <td class="opacity-80">
+          <td class="text-base-content/70">
             {{ job.department|default:"—" }}
           </td>
 
-          <!-- Employees Count -->
           <td class="text-center">
             <span class="badge badge-ghost badge-sm">
               {{ job.employees_count|default:0 }}
             </span>
           </td>
 
-          <!-- Vacancies -->
           <td class="text-center">
             {% if job.vacancies|default:0 > 0 %}
               <span class="badge badge-success badge-sm">
@@ -86,11 +74,9 @@
             {% endif %}
           </td>
 
-          <!-- Actions -->
           <td class="text-right">
-            <div class="inline-flex gap-2">
+            <div class="inline-flex items-center gap-2 justify-end">
 
-              <!-- Edit Job -->
               <a href="{% url 'hr:job_edit' job.pk %}"
                  class="tooltip tooltip-left"
                  data-tip="Edit">
@@ -110,8 +96,6 @@
                 </div>
               </a>
 
-
-              <!-- Delete Job -->
               <a href="{% url 'hr:job_delete' job.pk %}"
                  class="tooltip tooltip-left"
                  data-tip="Delete">
@@ -140,14 +124,13 @@
         </tr>
         {% empty %}
         <tr>
-          <td colspan="6" class="text-center py-16">
-            <p class="text-base font-medium text-base-content/70">
+          <td colspan="6" class="py-16 text-center">
+            <p class="font-medium text-base-content/70">
               No jobs found
             </p>
             <p class="text-sm text-base-content/50 mt-1">
               Create job positions to start managing workforce structure
             </p>
-
             <a href="{% url 'hr:job_create' %}"
                class="btn btn-primary btn-sm mt-4">
               + Add Job
@@ -161,9 +144,6 @@
 
   </section>
 
-  <!-- ===================================================== -->
-  <!-- PAGINATION -->
-  <!-- ===================================================== -->
   {% include "partials/paginator.html" %}
 
 </div>

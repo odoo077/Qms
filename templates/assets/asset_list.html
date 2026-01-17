@@ -1,5 +1,4 @@
 {% extends "base.html" %}
-
 {% block title %}Assets{% endblock %}
 
 {% block content %}
@@ -25,7 +24,32 @@
   </section>
 
   <!-- ===================================================== -->
-  <!-- ASSIGNMENT CONTEXT -->
+  <!-- KPIs -->
+  <!-- ===================================================== -->
+  <section class="grid grid-cols-1 sm:grid-cols-4 gap-4">
+    <div class="stat bg-base-100 border border-base-200 rounded-lg py-4">
+      <div class="stat-title text-xs">Available</div>
+      <div class="stat-value text-success text-2xl">{{ available_count }}</div>
+    </div>
+
+    <div class="stat bg-base-100 border border-base-200 rounded-lg py-4">
+      <div class="stat-title text-xs">Assigned</div>
+      <div class="stat-value text-primary text-2xl">{{ assigned_count }}</div>
+    </div>
+
+    <div class="stat bg-base-100 border border-base-200 rounded-lg py-4">
+      <div class="stat-title text-xs">Maintenance</div>
+      <div class="stat-value text-warning text-2xl">{{ issue_count }}</div>
+    </div>
+
+    <div class="stat bg-base-100 border border-base-200 rounded-lg py-4">
+      <div class="stat-title text-xs">Retired</div>
+      <div class="stat-value text-base-content/50 text-2xl">{{ retired_count }}</div>
+    </div>
+  </section>
+
+  <!-- ===================================================== -->
+  <!-- ASSIGNMENT MODE -->
   <!-- ===================================================== -->
   {% if assign_mode and assign_to_employee %}
   <section class="card bg-base-100 border border-base-300 shadow-sm">
@@ -53,9 +77,7 @@
           </p>
           <p class="text-sm font-semibold">
             Assign asset to
-            <span class="text-primary">
-              {{ assign_to_employee.name }}
-            </span>
+            <span class="text-primary">{{ assign_to_employee.name }}</span>
           </p>
         </div>
       </div>
@@ -70,11 +92,11 @@
   {% endif %}
 
   <!-- ===================================================== -->
-  <!-- FILTERS -->
+  <!-- FILTERS (IDEAL – COMPACT & CLEAN) -->
   <!-- ===================================================== -->
-  <section class="card bg-base-100 border border-base-200 shadow-sm p-6">
+  <section class="card bg-base-100 border border-base-200 shadow-sm p-4">
     <form method="get">
-      <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-end">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-3 items-end">
 
         <!-- Search -->
         <div class="lg:col-span-4">
@@ -85,38 +107,52 @@
           </label>
           <input type="text"
                  name="q"
-                 value="{{ request.GET.q|default:'' }}"
-                 placeholder="Asset code or name"
-                 class="input input-bordered w-full">
+                 value="{{ filters.q }}"
+                 placeholder="Code, name, or serial"
+                 class="input input-bordered input-sm w-full">
         </div>
 
         <!-- Status -->
-        <div class="lg:col-span-3">
+        <div class="lg:col-span-2">
           <label class="label p-0 mb-1">
             <span class="label-text text-xs text-base-content/60">
-              Asset Status
+              Status
             </span>
           </label>
-          <select name="status" class="select select-bordered w-full">
+          <select name="status" class="select select-bordered select-sm w-full">
             <option value="">All</option>
-            <option value="available" {% if request.GET.status == "available" %}selected{% endif %}>Available</option>
-            <option value="assigned" {% if request.GET.status == "assigned" %}selected{% endif %}>Assigned</option>
-            <option value="maintenance" {% if request.GET.status == "maintenance" %}selected{% endif %}>Maintenance</option>
-            <option value="retired" {% if request.GET.status == "retired" %}selected{% endif %}>Retired</option>
+            <option value="available" {% if filters.status == "available" %}selected{% endif %}>Available</option>
+            <option value="assigned" {% if filters.status == "assigned" %}selected{% endif %}>Assigned</option>
+            <option value="maintenance" {% if filters.status == "maintenance" %}selected{% endif %}>Maintenance</option>
+            <option value="retired" {% if filters.status == "retired" %}selected{% endif %}>Retired</option>
           </select>
         </div>
 
         <!-- Record -->
-        <div class="lg:col-span-3">
+        <div class="lg:col-span-2">
           <label class="label p-0 mb-1">
             <span class="label-text text-xs text-base-content/60">
               Record
             </span>
           </label>
-          <select name="active" class="select select-bordered w-full">
+          <select name="active" class="select select-bordered select-sm w-full">
             <option value="">All</option>
-            <option value="1" {% if request.GET.active == "1" %}selected{% endif %}>Active</option>
-            <option value="0" {% if request.GET.active == "0" %}selected{% endif %}>Archived</option>
+            <option value="1" {% if filters.active == "1" %}selected{% endif %}>Active</option>
+            <option value="0" {% if filters.active == "0" %}selected{% endif %}>Archived</option>
+          </select>
+        </div>
+
+        <!-- Holder -->
+        <div class="lg:col-span-2">
+          <label class="label p-0 mb-1">
+            <span class="label-text text-xs text-base-content/60">
+              Holder
+            </span>
+          </label>
+          <select name="has_holder" class="select select-bordered select-sm w-full">
+            <option value="">All</option>
+            <option value="1" {% if filters.has_holder == "1" %}selected{% endif %}>Has holder</option>
+            <option value="0" {% if filters.has_holder == "0" %}selected{% endif %}>No holder</option>
           </select>
         </div>
 
@@ -186,17 +222,16 @@
             {% endif %}
           </td>
 
+          <!-- ACTIONS -->
           <td class="text-right">
             <div class="inline-flex gap-1">
 
-
-
-              {# ================= Assign Asset ================= #}
               {% if obj.active and obj.status == "available" %}
                 <a href="{% url 'assets:asset_assign' obj.id %}{% if assign_mode and assign_to_employee %}?assign_to={{ assign_to_employee.id }}{% endif %}"
                    class="tooltip tooltip-left"
                    data-tip="{% if assign_mode %}Assign to {{ assign_to_employee.name }}{% else %}Assign{% endif %}">
                   <div class="btn btn-ghost btn-xs text-primary hover:bg-primary/10">
+                    <!-- plus-user icon -->
                     <svg xmlns="http://www.w3.org/2000/svg"
                          class="h-4 w-4"
                          fill="none"
@@ -209,13 +244,12 @@
                                a4 4 0 00-4 4v2
                                M8.5 7a4 4 0 100-8 4 4 0 000 8
                                M20 8v6
-                               M23 11h-6" />
+                               M23 11h-6"/>
                     </svg>
                   </div>
                 </a>
               {% endif %}
 
-              {# ================= Unassign Asset ================= #}
               {% if obj.status == "assigned" %}
                 <a href="{% url 'assets:asset_unassign' obj.id %}"
                    class="tooltip tooltip-left"
@@ -231,15 +265,12 @@
                             stroke-width="2"
                             d="M16 21v-2a4 4 0 00-4-4H5
                                a4 4 0 00-4 4v2
-                               M8.5 7a4 4 0 100-8 4 4 0 000 8
-                               M23 11h-6" />
+                               M8.5 7a4 4 0 100-8 4 4 0 000 8"/>
                     </svg>
                   </div>
                 </a>
               {% endif %}
 
-
-              <!-- Edit Asset -->
               <a href="{% url 'assets:asset_edit' obj.id %}"
                  class="tooltip tooltip-left"
                  data-tip="Edit">
@@ -254,13 +285,11 @@
                           stroke-width="2"
                           d="M15.232 5.232l3.536 3.536
                              M9 11l6.232-6.232a2.5 2.5 0 013.536 3.536
-                             L12.536 14.536 9 15l.464-3.464z" />
+                             L12.536 14.536 9 15l.464-3.464z"/>
                   </svg>
                 </div>
               </a>
 
-
-              <!-- Delete Asset -->
               <a href="{% url 'assets:asset_delete' obj.id %}"
                  class="tooltip tooltip-left"
                  data-tip="Delete">
@@ -278,11 +307,10 @@
                              m5-4h4
                              m-4 0a1 1 0 00-1 1v1h6V4
                              a1 1 0 00-1-1
-                             m-4 0h4" />
+                             m-4 0h4"/>
                   </svg>
                 </div>
               </a>
-
 
             </div>
           </td>

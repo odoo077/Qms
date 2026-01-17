@@ -6,11 +6,8 @@
 {% endblock %}
 
 {% block content %}
-<div class="px-4 py-6 space-y-8 mx-auto">
+<div class="w-full px-6 py-6 space-y-6">
 
-  {# ===================================================== #}
-  {# Breadcrumbs                                          #}
-  {# ===================================================== #}
   <nav class="text-sm breadcrumbs">
     <ul>
       <li>
@@ -24,21 +21,17 @@
     </ul>
   </nav>
 
-  {# ===================================================== #}
-  {# Header                                               #}
-  {# ===================================================== #}
-  <div class="space-y-1">
-    <h1 class="text-2xl font-bold">
-      {% if object %}Edit User{% else %}Create New User{% endif %}
-    </h1>
-    <p class="text-sm text-base-content/60 max-w-3xl">
-      Manage user identity, access, and company assignment.
-    </p>
-  </div>
+  <section class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+    <div>
+      <h1 class="text-3xl font-semibold tracking-tight">
+        {% if object %}Edit User{% else %}New User{% endif %}
+      </h1>
+      <p class="text-sm text-base-content/60 max-w-3xl">
+        Manage user identity, access, and company assignment.
+      </p>
+    </div>
+  </section>
 
-  {# ===================================================== #}
-  {# Global Form Errors                                   #}
-  {# ===================================================== #}
   {% if form.non_field_errors %}
     <div class="alert alert-error text-sm">
       <ul class="list-disc pl-4">
@@ -49,13 +42,10 @@
     </div>
   {% endif %}
 
-  <form method="post" class="space-y-8">
+  <form method="post" class="space-y-6">
     {% csrf_token %}
 
-    {# ===================================================== #}
-    {# User Information                                    #}
-    {# ===================================================== #}
-    <section class="card bg-base-100 border border-base-300">
+    <section class="card bg-base-100 border border-base-200 shadow-sm">
       <div class="card-body p-6 space-y-6">
 
         <h2 class="text-sm font-semibold text-base-content/70">
@@ -64,10 +54,11 @@
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
 
-          {# First Name #}
           <div class="form-control">
-            <label class="label">
-              <span class="label-text font-medium">First Name</span>
+            <label class="label p-0 mb-1">
+              <span class="label-text text-xs text-base-content/60">
+                First Name
+              </span>
             </label>
             {{ form.first_name|add_class:"input input-bordered w-full" }}
             {% if form.first_name.errors %}
@@ -77,10 +68,11 @@
             {% endif %}
           </div>
 
-          {# Last Name #}
           <div class="form-control">
-            <label class="label">
-              <span class="label-text font-medium">Last Name</span>
+            <label class="label p-0 mb-1">
+              <span class="label-text text-xs text-base-content/60">
+                Last Name
+              </span>
             </label>
             {{ form.last_name|add_class:"input input-bordered w-full" }}
             {% if form.last_name.errors %}
@@ -90,10 +82,11 @@
             {% endif %}
           </div>
 
-          {# Email #}
           <div class="form-control md:col-span-2">
-            <label class="label">
-              <span class="label-text font-medium">Email</span>
+            <label class="label p-0 mb-1">
+              <span class="label-text text-xs text-base-content/60">
+                Email
+              </span>
             </label>
             {{ form.email|add_class:"input input-bordered w-full" }}
             {% if form.email.errors %}
@@ -103,14 +96,25 @@
             {% endif %}
           </div>
 
+          {% if object and form.is_active %}
+            <div class="form-control md:col-span-2">
+              <label class="flex items-center gap-3 cursor-pointer">
+                {{ form.is_active }}
+                <span class="text-sm font-medium">Active</span>
+              </label>
+              {% if form.is_active.errors %}
+                <p class="text-error text-xs mt-1">
+                  {{ form.is_active.errors|striptags }}
+                </p>
+              {% endif %}
+            </div>
+          {% endif %}
+
         </div>
       </div>
     </section>
 
-    {# ===================================================== #}
-    {# Company & Access                                    #}
-    {# ===================================================== #}
-    <section class="card bg-base-100 border border-base-300">
+    <section class="card bg-base-100 border border-base-200 shadow-sm">
       <div class="card-body p-6 space-y-6">
 
         <h2 class="text-sm font-semibold text-base-content/70">
@@ -119,10 +123,11 @@
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
 
-          {# Default Company #}
           <div class="form-control">
-            <label class="label">
-              <span class="label-text font-medium">Default Company</span>
+            <label class="label p-0 mb-1">
+              <span class="label-text text-xs text-base-content/60">
+                Default Company
+              </span>
             </label>
             {{ form.company|add_class:"select select-bordered w-full" }}
             {% if form.company.errors %}
@@ -132,11 +137,12 @@
             {% endif %}
           </div>
 
-          {# Allowed Companies #}
           {% if form.companies %}
             <div class="form-control">
-              <label class="label">
-                <span class="label-text font-medium">Allowed Companies</span>
+              <label class="label p-0 mb-1">
+                <span class="label-text text-xs text-base-content/60">
+                  Allowed Companies
+                </span>
               </label>
               {{ form.companies|add_class:"select select-bordered w-full" }}
               {% if form.companies.errors %}
@@ -151,11 +157,8 @@
       </div>
     </section>
 
-    {# ===================================================== #}
-    {# Password (Create only)                               #}
-    {# ===================================================== #}
     {% if form.password1 %}
-      <section class="card bg-base-100 border border-base-300">
+      <section class="card bg-base-100 border border-base-200 shadow-sm">
         <div class="card-body p-6 space-y-6">
 
           <h2 class="text-sm font-semibold text-base-content/70">
@@ -165,8 +168,10 @@
           <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
 
             <div class="form-control">
-              <label class="label">
-                <span class="label-text font-medium">Password</span>
+              <label class="label p-0 mb-1">
+                <span class="label-text text-xs text-base-content/60">
+                  Password
+                </span>
               </label>
               {{ form.password1|add_class:"input input-bordered w-full" }}
               {% if form.password1.errors %}
@@ -177,8 +182,10 @@
             </div>
 
             <div class="form-control">
-              <label class="label">
-                <span class="label-text font-medium">Confirm Password</span>
+              <label class="label p-0 mb-1">
+                <span class="label-text text-xs text-base-content/60">
+                  Confirm Password
+                </span>
               </label>
               {{ form.password2|add_class:"input input-bordered w-full" }}
               {% if form.password2.errors %}
@@ -193,11 +200,7 @@
       </section>
     {% endif %}
 
-    {# ===================================================== #}
-    {# Actions                                              #}
-    {# ===================================================== #}
     <div class="flex items-center gap-3 pt-2">
-
       <button type="submit" class="btn btn-primary">
         {% if object %}Save changes{% else %}Create user{% endif %}
       </button>
@@ -207,13 +210,13 @@
       </a>
 
       {% if object %}
-        <span class="text-xs text-base-content/60 ml-auto">
+        <span class="ml-auto text-xs text-base-content/60">
           User ID: #{{ object.id }}
         </span>
       {% endif %}
-
     </div>
 
   </form>
+
 </div>
 {% endblock %}

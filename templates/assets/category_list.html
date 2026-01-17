@@ -9,70 +9,117 @@
   <!-- ===================================================== -->
   <section class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
     <div>
-      <h1 class="text-3xl font-semibold tracking-tight">
+      <h1 class="text-3xl font-bold tracking-tight">
         Asset Categories
       </h1>
       <p class="text-sm text-base-content/60">
-        Organize and manage asset classification structure
+        Manage asset classification and hierarchy structure.
       </p>
     </div>
 
-    <div>
-      <a href="{% url 'assets:category_create' %}"
-         class="btn btn-primary btn-sm">
-        + New Category
-      </a>
+    <a href="{% url 'assets:category_create' %}"
+       class="btn btn-primary btn-sm">
+      + New Category
+    </a>
+  </section>
+
+  <!-- ===================================================== -->
+  <!-- KPIs -->
+  <!-- ===================================================== -->
+  <section class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+    <div class="stat bg-base-100 border border-base-200 rounded-lg py-4">
+      <div class="stat-title text-xs">Active</div>
+      <div class="stat-value text-success text-2xl">
+        {{ active_count }}
+      </div>
+    </div>
+
+    <div class="stat bg-base-100 border border-base-200 rounded-lg py-4">
+      <div class="stat-title text-xs">Archived</div>
+      <div class="stat-value text-base-content/50 text-2xl">
+        {{ archived_count }}
+      </div>
+    </div>
+
+    <div class="stat bg-base-100 border border-base-200 rounded-lg py-4">
+      <div class="stat-title text-xs">Companies</div>
+      <div class="stat-value text-primary text-2xl">
+        {{ company_count }}
+      </div>
     </div>
   </section>
 
   <!-- ===================================================== -->
-  <!-- FILTERS -->
+  <!-- FILTERS (COMPACT – SAME AS ASSETS PAGE) -->
   <!-- ===================================================== -->
-  <section class="card bg-base-100 border border-base-200 shadow-sm">
-    <form method="get" class="p-5">
-      <div class="grid grid-cols-1 md:grid-cols-6 gap-4 items-end">
+  <section class="card bg-base-100 border border-base-200 shadow-sm p-4">
+    <form method="get">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-3 items-end">
 
         <!-- Search -->
-        <div class="md:col-span-3">
+        <div class="lg:col-span-4">
           <label class="label p-0 mb-1">
-            <span class="label-text text-xs text-base-content/60">
+            <span class="label-text text-xs font-medium text-base-content/60">
               Search
             </span>
           </label>
           <input type="text"
                  name="q"
-                 value="{{ request.GET.q|default:'' }}"
-                 placeholder="Search by category name"
-                 class="input input-bordered w-full">
+                 value="{{ filters.q }}"
+                 placeholder="Category or parent name"
+                 class="input input-bordered input-sm w-full">
         </div>
 
         <!-- Status -->
-        <div class="md:col-span-2">
+        <div class="lg:col-span-2">
           <label class="label p-0 mb-1">
             <span class="label-text text-xs text-base-content/60">
               Status
             </span>
           </label>
-          <select name="active" class="select select-bordered w-full">
+          <select name="active" class="select select-bordered select-sm w-full">
             <option value="">All</option>
-            <option value="1" {% if request.GET.active == "1" %}selected{% endif %}>
-              Active
-            </option>
-            <option value="0" {% if request.GET.active == "0" %}selected{% endif %}>
-              Archived
-            </option>
+            <option value="1" {% if filters.active == "1" %}selected{% endif %}>Active</option>
+            <option value="0" {% if filters.active == "0" %}selected{% endif %}>Archived</option>
+          </select>
+        </div>
+
+        <!-- Hierarchy -->
+        <div class="lg:col-span-2">
+          <label class="label p-0 mb-1">
+            <span class="label-text text-xs text-base-content/60">
+              Hierarchy
+            </span>
+          </label>
+          <select name="has_parent" class="select select-bordered select-sm w-full">
+            <option value="">All</option>
+            <option value="0" {% if filters.has_parent == "0" %}selected{% endif %}>Root only</option>
+            <option value="1" {% if filters.has_parent == "1" %}selected{% endif %}>Child only</option>
+          </select>
+        </div>
+
+        <!-- Order -->
+        <div class="lg:col-span-2">
+          <label class="label p-0 mb-1">
+            <span class="label-text text-xs text-base-content/60">
+              Order
+            </span>
+          </label>
+          <select name="order" class="select select-bordered select-sm w-full">
+            <option value="">Name (A–Z)</option>
+            <option value="-name" {% if filters.order == "-name" %}selected{% endif %}>Name (Z–A)</option>
+            <option value="company" {% if filters.order == "company" %}selected{% endif %}>Company</option>
+            <option value="latest" {% if filters.order == "latest" %}selected{% endif %}>Recently created</option>
           </select>
         </div>
 
         <!-- Actions -->
-        <div class="md:col-span-1 flex justify-end items-center gap-2">
-          <button type="submit"
-                  class="btn btn-primary btn-sm px-4 shadow-sm hover:shadow-md transition-all">
+        <div class="lg:col-span-2 flex justify-end gap-2">
+          <button type="submit" class="btn btn-primary btn-sm">
             Apply
           </button>
-
           <a href="{% url 'assets:category_list' %}"
-             class="btn btn-ghost btn-sm text-base-content/60 hover:text-base-content hover:bg-base-200">
+             class="btn btn-ghost btn-sm">
             Reset
           </a>
         </div>
@@ -82,23 +129,23 @@
   </section>
 
   <!-- ===================================================== -->
-  <!-- TABLE -->
+  <!-- TABLE (MATCH ASSETS TABLE) -->
   <!-- ===================================================== -->
   <section class="card bg-base-100 border border-base-200 shadow-sm overflow-x-auto">
-    <table class="table w-full text-sm">
-      <thead class="bg-base-200/60">
+    <table class="table table-zebra w-full text-sm">
+      <thead class="bg-base-200">
         <tr>
           <th>Name</th>
           <th>Parent</th>
           <th>Company</th>
           <th>Status</th>
-          <th class="text-right w-24">Actions</th>
+          <th class="text-right">Actions</th>
         </tr>
       </thead>
 
-      <tbody class="[&>tr]:border-base-200">
+      <tbody>
         {% for obj in object_list %}
-        <tr class="hover">
+        <tr>
 
           <td class="font-medium">
             <a href="{% url 'assets:category_detail' obj.id %}"
@@ -115,16 +162,17 @@
             {{ obj.company|default:"—" }}
           </td>
 
-          <td class="text-sm">
+          <td>
             {% if obj.active %}
-              <span class="text-success font-medium">Active</span>
+              <span class="badge badge-success badge-sm">Active</span>
             {% else %}
-              <span class="text-base-content/40">Archived</span>
+              <span class="badge badge-ghost badge-sm">Archived</span>
             {% endif %}
           </td>
 
+          <!-- ================= ACTIONS (IDENTICAL STYLE) ================= -->
           <td class="text-right">
-            <div class="inline-flex items-center gap-2">
+            <div class="inline-flex gap-1">
 
               <!-- Edit -->
               <a href="{% url 'assets:category_edit' obj.id %}"
@@ -139,8 +187,9 @@
                     <path stroke-linecap="round"
                           stroke-linejoin="round"
                           stroke-width="2"
-                          d="M15.232 5.232l3.536 3.536M9 11l6.232-6.232a2.5 2.5 0 013.536 3.536L12.536 14.536
-                             9 15l.464-3.464z" />
+                          d="M15.232 5.232l3.536 3.536
+                             M9 11l6.232-6.232a2.5 2.5 0 013.536 3.536
+                             L12.536 14.536 9 15l.464-3.464z"/>
                   </svg>
                 </div>
               </a>
@@ -158,7 +207,12 @@
                     <path stroke-linecap="round"
                           stroke-linejoin="round"
                           stroke-width="2"
-                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5-4h4m-4 0a1 1 0 00-1 1v1h6V4a1 1 0 00-1-1m-4 0h4" />
+                          d="M19 7l-.867 12.142A2 2 0 0116.138 21
+                             H7.862a2 2 0 01-1.995-1.858L5 7
+                             m5-4h4
+                             m-4 0a1 1 0 00-1 1v1h6V4
+                             a1 1 0 00-1-1
+                             m-4 0h4"/>
                   </svg>
                 </div>
               </a>
@@ -170,11 +224,11 @@
         {% empty %}
         <tr>
           <td colspan="5" class="py-16 text-center">
-            <p class="font-medium text-base-content/70">
+            <p class="text-base font-medium text-base-content/70">
               No asset categories found
             </p>
             <p class="text-sm text-base-content/50 mt-1">
-              Create categories to organize assets by structure
+              Create categories to organize assets.
             </p>
             <a href="{% url 'assets:category_create' %}"
                class="btn btn-primary btn-sm mt-4">

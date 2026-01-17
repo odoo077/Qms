@@ -14,27 +14,51 @@
         Asset Assignments
       </h1>
       <p class="text-sm text-base-content/60">
-        Active and historical asset assignment records.
+        Read-only history of asset assignments across employees.
       </p>
     </div>
 
-    <div class="flex gap-2">
-      <a href="{% url 'assets:asset_list' %}"
-         class="btn btn-primary btn-sm">
-        Assign from Assets
-      </a>
+    <a href="{% url 'assets:asset_list' %}"
+       class="btn btn-primary btn-sm">
+      Assign from Assets
+    </a>
+  </section>
+
+  <!-- ===================================================== -->
+  <!-- KPIs -->
+  <!-- ===================================================== -->
+  <section class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+    <div class="stat bg-base-100 border border-base-200 rounded-lg py-4">
+      <div class="stat-title text-xs">Total Assignments</div>
+      <div class="stat-value text-2xl">
+        {{ total_count }}
+      </div>
+    </div>
+
+    <div class="stat bg-base-100 border border-base-200 rounded-lg py-4">
+      <div class="stat-title text-xs">Open</div>
+      <div class="stat-value text-success text-2xl">
+        {{ open_count }}
+      </div>
+    </div>
+
+    <div class="stat bg-base-100 border border-base-200 rounded-lg py-4">
+      <div class="stat-title text-xs">Closed</div>
+      <div class="stat-value text-base-content/50 text-2xl">
+        {{ closed_count }}
+      </div>
     </div>
   </section>
 
   <!-- ===================================================== -->
-  <!-- FILTERS -->
+  <!-- FILTERS (PROFESSIONAL & COMPACT) -->
   <!-- ===================================================== -->
-  <section class="card bg-base-100 border border-base-200 shadow-sm p-5">
+  <section class="card bg-base-100 border border-base-200 shadow-sm p-4">
     <form method="get">
-      <div class="grid grid-cols-1 md:grid-cols-6 gap-4 items-end">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-3 items-end">
 
         <!-- Search -->
-        <div class="md:col-span-3">
+        <div class="lg:col-span-4">
           <label class="label p-0 mb-1">
             <span class="label-text text-xs font-medium text-base-content/60">
               Search
@@ -42,31 +66,57 @@
           </label>
           <input type="text"
                  name="q"
-                 value="{{ request.GET.q|default:'' }}"
+                 value="{{ filters.q }}"
                  placeholder="Asset code, asset name, or employee"
-                 class="input input-bordered w-full">
+                 class="input input-bordered input-sm w-full">
         </div>
 
         <!-- State -->
-        <div class="md:col-span-2">
+        <div class="lg:col-span-3">
           <label class="label p-0 mb-1">
-            <span class="label-text text-xs font-medium text-base-content/60">
+            <span class="label-text text-xs text-base-content/60">
               Assignment State
             </span>
           </label>
-          <select name="state" class="select select-bordered w-full">
+          <select name="state" class="select select-bordered select-sm w-full">
             <option value="">All</option>
-            <option value="open" {% if request.GET.state == "open" %}selected{% endif %}>
-              Open (Active)
+            <option value="open" {% if filters.state == "open" %}selected{% endif %}>
+              Open
             </option>
-            <option value="closed" {% if request.GET.state == "closed" %}selected{% endif %}>
+            <option value="closed" {% if filters.state == "closed" %}selected{% endif %}>
               Closed
             </option>
           </select>
         </div>
 
+        <!-- Date From -->
+        <div class="lg:col-span-2">
+          <label class="label p-0 mb-1">
+            <span class="label-text text-xs text-base-content/60">
+              From
+            </span>
+          </label>
+          <input type="date"
+                 name="date_from"
+                 value="{{ request.GET.date_from|default:'' }}"
+                 class="input input-bordered input-sm w-full">
+        </div>
+
+        <!-- Date To -->
+        <div class="lg:col-span-2">
+          <label class="label p-0 mb-1">
+            <span class="label-text text-xs text-base-content/60">
+              To
+            </span>
+          </label>
+          <input type="date"
+                 name="date_to"
+                 value="{{ request.GET.date_to|default:'' }}"
+                 class="input input-bordered input-sm w-full">
+        </div>
+
         <!-- Actions -->
-        <div class="md:col-span-1 flex justify-end gap-2">
+        <div class="lg:col-span-1 flex justify-end gap-2">
           <button type="submit" class="btn btn-primary btn-sm">
             Apply
           </button>
@@ -85,7 +135,6 @@
   <!-- ===================================================== -->
   <section class="card bg-base-100 border border-base-200 shadow-sm overflow-x-auto">
     <table class="table table-zebra w-full text-sm">
-
       <thead class="bg-base-200">
         <tr>
           <th>Asset</th>
@@ -114,7 +163,7 @@
           </td>
 
           <!-- Employee -->
-          <td>
+          <td class="text-base-content/70">
             {{ obj.employee }}
           </td>
 
@@ -125,11 +174,7 @@
 
           <!-- To -->
           <td class="whitespace-nowrap">
-            {% if obj.date_to %}
-              {{ obj.date_to|date:"Y-m-d" }}
-            {% else %}
-              —
-            {% endif %}
+            {{ obj.date_to|date:"Y-m-d"|default:"—" }}
           </td>
 
           <!-- Duration -->
@@ -150,10 +195,40 @@
             {% endif %}
           </td>
 
-          <!-- Actions -->
+          <!-- ACTIONS -->
           <td class="text-right">
             <div class="inline-flex gap-1">
-              <!-- Delete Assignment -->
+
+              <!-- View -->
+              <a href="{% url 'assets:assignment_detail' obj.id %}"
+                 class="tooltip tooltip-left"
+                 data-tip="View">
+                <div class="btn btn-ghost btn-xs text-primary hover:bg-primary/10">
+                  <svg xmlns="http://www.w3.org/2000/svg"
+                       class="h-4 w-4"
+                       fill="none"
+                       viewBox="0 0 24 24"
+                       stroke="currentColor">
+                    <path stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M15 12a3 3 0 11-6 0
+                             3 3 0 016 0z
+                             M2.458 12C3.732 7.943
+                             7.523 5 12 5
+                             c4.478 0 8.268 2.943
+                             9.542 7
+                             -1.274 4.057
+                             -5.064 7
+                             -9.542 7
+                             -4.477 0
+                             -8.268-2.943
+                             -9.542-7z"/>
+                  </svg>
+                </div>
+              </a>
+
+              <!-- Delete -->
               <a href="{% url 'assets:assignment_delete' obj.id %}"
                  class="tooltip tooltip-left"
                  data-tip="Delete">
@@ -171,10 +246,11 @@
                              m5-4h4
                              m-4 0a1 1 0 00-1 1v1h6V4
                              a1 1 0 00-1-1
-                             m-4 0h4" />
+                             m-4 0h4"/>
                   </svg>
                 </div>
               </a>
+
             </div>
           </td>
 
@@ -189,15 +265,10 @@
             <p class="text-sm text-base-content/50 mt-1">
               Assign assets to employees to start tracking usage.
             </p>
-            <a href="{% url 'assets:asset_list' %}"
-               class="btn btn-primary btn-sm mt-4">
-              Go to Assets
-            </a>
           </td>
         </tr>
         {% endfor %}
       </tbody>
-
     </table>
   </section>
 

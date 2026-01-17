@@ -10,39 +10,46 @@ Asset Category · {{ object.name }}
   <!-- ===================================================== -->
   <!-- PAGE HEADER -->
   <!-- ===================================================== -->
-  <section class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+  <section class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+
     <div>
-      <h1 class="text-3xl font-bold tracking-tight">
+      <h1 class="text-3xl font-semibold tracking-tight">
         {{ object.name }}
       </h1>
       <p class="text-sm text-base-content/60">
-        Asset category definition and hierarchy
+        Asset category structure and hierarchy details
       </p>
     </div>
 
-    <div class="flex gap-2">
+    <div class="flex items-center gap-2">
       <a href="{% url 'assets:category_list' %}"
          class="btn btn-ghost btn-sm">
         Back
       </a>
 
-      <a href="{% url 'assets:category_edit' object.id %}"
-         class="btn btn-outline btn-sm">
-        Edit
-      </a>
+      {% if can_edit_object %}
+        <a href="{% url 'assets:category_edit' object.id %}"
+           class="btn btn-outline btn-sm">
+          Edit
+        </a>
+      {% endif %}
 
-      <a href="{% url 'assets:category_delete' object.id %}"
-         class="btn btn-outline btn-error btn-sm">
-        Delete
-      </a>
+      {% if can_delete_object %}
+        <a href="{% url 'assets:category_delete' object.id %}"
+           class="btn btn-outline btn-error btn-sm">
+          Delete
+        </a>
+      {% endif %}
     </div>
+
   </section>
 
   <!-- ===================================================== -->
-  <!-- STATUS INDICATORS -->
+  <!-- STATUS BADGES -->
   <!-- ===================================================== -->
   <section class="flex flex-wrap gap-2">
-    {% if object.active %}
+
+    {% if category_state.active %}
       <span class="badge badge-success badge-sm">
         Active
       </span>
@@ -52,7 +59,7 @@ Asset Category · {{ object.name }}
       </span>
     {% endif %}
 
-    {% if object.parent %}
+    {% if category_state.has_parent %}
       <span class="badge badge-ghost badge-sm">
         Child Category
       </span>
@@ -61,40 +68,41 @@ Asset Category · {{ object.name }}
         Root Category
       </span>
     {% endif %}
+
+    {% if category_state.has_children %}
+      <span class="badge badge-info badge-sm">
+        Has Subcategories
+      </span>
+    {% endif %}
+
   </section>
 
   <!-- ===================================================== -->
-  <!-- DETAILS CARD -->
+  <!-- DETAILS -->
   <!-- ===================================================== -->
   <section class="card bg-base-100 border border-base-200 shadow-sm">
     <div class="p-6 space-y-6">
 
-      <h2 class="text-base font-semibold tracking-wide">
+      <h2 class="text-sm font-semibold uppercase tracking-wider text-base-content/60">
         Category Information
       </h2>
 
       <dl class="grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-4 text-sm">
 
         <!-- Name -->
-        <div class="text-base-content/60">
-          Name
-        </div>
+        <div class="text-base-content/60">Name</div>
         <div class="font-medium md:col-span-2">
-          {{ object.name|default:"—" }}
+          {{ object.name }}
         </div>
 
         <!-- Company -->
-        <div class="text-base-content/60">
-          Company
-        </div>
+        <div class="text-base-content/60">Company</div>
         <div class="md:col-span-2">
           {{ object.company|default:"—" }}
         </div>
 
         <!-- Parent -->
-        <div class="text-base-content/60">
-          Parent Category
-        </div>
+        <div class="text-base-content/60">Parent Category</div>
         <div class="md:col-span-2">
           {% if object.parent %}
             <a href="{% url 'assets:category_detail' object.parent.id %}"
@@ -107,33 +115,70 @@ Asset Category · {{ object.name }}
         </div>
 
         <!-- Hierarchy -->
-        <div class="text-base-content/60">
-          Hierarchy Path
-        </div>
+        <div class="text-base-content/60">Hierarchy Path</div>
         <div class="md:col-span-2 text-xs text-base-content/70 break-all">
           {{ object.parent_path|default:"—" }}
-        </div>
-
-        <!-- Status -->
-        <div class="text-base-content/60">
-          Status
-        </div>
-        <div class="md:col-span-2">
-          {% if object.active %}
-            <span class="badge badge-success badge-sm">
-              Active
-            </span>
-          {% else %}
-            <span class="badge badge-ghost badge-sm">
-              Archived
-            </span>
-          {% endif %}
         </div>
 
       </dl>
 
     </div>
   </section>
+
+  <!-- ===================================================== -->
+  <!-- CHILD CATEGORIES -->
+  <!-- ===================================================== -->
+  {% if children %}
+  <section class="card bg-base-100 border border-base-200 shadow-sm">
+    <div class="p-6 space-y-4">
+
+      <h2 class="text-sm font-semibold uppercase tracking-wider text-base-content/60">
+        Subcategories
+      </h2>
+
+      <div class="overflow-x-auto">
+        <table class="table table-sm w-full text-sm">
+          <thead class="bg-base-200/60">
+            <tr>
+              <th>Name</th>
+              <th>Status</th>
+              <th class="text-right">Action</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {% for child in children %}
+            <tr class="hover">
+              <td class="font-medium">
+                <a href="{% url 'assets:category_detail' child.id %}"
+                   class="link link-hover">
+                  {{ child.name }}
+                </a>
+              </td>
+
+              <td>
+                {% if child.active %}
+                  <span class="badge badge-success badge-sm">Active</span>
+                {% else %}
+                  <span class="badge badge-ghost badge-sm">Archived</span>
+                {% endif %}
+              </td>
+
+              <td class="text-right">
+                <a href="{% url 'assets:category_detail' child.id %}"
+                   class="btn btn-ghost btn-xs">
+                  View
+                </a>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+  </section>
+  {% endif %}
 
 </div>
 {% endblock %}

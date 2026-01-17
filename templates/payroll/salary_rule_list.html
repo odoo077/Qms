@@ -1,152 +1,167 @@
-<!-- templates/payroll/salary_rule_list.html -->
 {% extends "base.html" %}
 
-{% block page_title %}Salary Rules{% endblock %}
 {% block title %}Payroll · Salary Rules{% endblock %}
 
-{% block page_actions %}
-  <a href="{% url 'payroll:salary_rule_create' %}"
-     class="btn btn-primary btn-sm gap-2">
-    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none"
-         viewBox="0 0 24 24" stroke="currentColor">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-            d="M12 4v16m8-8H4"/>
-    </svg>
-    New Rule
-  </a>
-{% endblock %}
-
 {% block content %}
-<div class="w-full px-6 py-8">
-  <div class="mx-auto w-full  space-y-6">
+<div class="w-full px-6 py-8 space-y-8">
 
-    <!-- Header -->
+  <!-- ===================================================== -->
+  <!-- PAGE HEADER (LIST STANDARD) -->
+  <!-- ===================================================== -->
+  <section class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+
     <div class="space-y-1">
-      <h1 class="text-2xl font-semibold">Salary Rules</h1>
+      <h1 class="text-3xl font-semibold tracking-tight">
+        Salary Rules
+      </h1>
       <p class="text-sm text-base-content/60">
         Define calculation rules per payroll structure.
       </p>
     </div>
 
+    <a href="{% url 'payroll:salary_rule_create' %}"
+       class="btn btn-primary btn-sm gap-2 shadow-sm">
+      <svg xmlns="http://www.w3.org/2000/svg"
+           class="h-4 w-4"
+           fill="none"
+           viewBox="0 0 24 24"
+           stroke="currentColor">
+        <path stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M12 4v16m8-8H4"/>
+      </svg>
+      New Rule
+    </a>
 
-    <div class="card bg-base-100 border border-base-300">
-      <div class="card-body p-0">
+  </section>
 
-        {% if object_list %}
+  <!-- ===================================================== -->
+  <!-- TABLE (LIST STANDARD) -->
+  <!-- ===================================================== -->
+  <section class="card bg-base-100 border border-base-200 shadow-sm overflow-x-auto">
 
-        <!-- Meta -->
-        <div class="px-6 pt-5 pb-3 flex items-center justify-between text-sm text-base-content/60">
-          <div>
-            {{ page_obj.paginator.count }}
-            result{{ page_obj.paginator.count|pluralize }}
-          </div>
-          <div>
-            Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
-          </div>
-        </div>
+    <table class="table w-full text-sm">
+      <thead class="bg-base-200/60">
+        <tr>
+          <th class="font-semibold">Rule</th>
+          <th class="font-semibold w-40">Code</th>
+          <th class="font-semibold">Structure</th>
+          <th class="font-semibold w-40">Category</th>
+          <th class="font-semibold w-24">Seq</th>
+          <th class="font-semibold w-32">Condition</th>
+          <th class="font-semibold w-40 text-right">Actions</th>
+        </tr>
+      </thead>
 
-        <!-- Table -->
-        <div class="overflow-x-auto">
-          <table class="table table-zebra w-full">
-            <thead>
-              <tr class="bg-base-200">
-                <th class="w-[22%]">Rule</th>
-                <th class="w-[14%]">Code</th>
-                <th class="w-[18%]">Structure</th>
-                <th class="w-[16%]">Category</th>
-                <th class="w-[10%]">Sequence</th>
-                <th class="w-[10%]">Condition</th>
-                <th class="w-[10%] text-right">Actions</th>
-              </tr>
-            </thead>
+      <tbody class="[&>tr]:border-base-200">
+        {% for r in object_list %}
+          <tr class="hover">
 
-            <tbody>
-              {% for r in object_list %}
-              <tr>
-                <td class="font-medium">
-                  <div class="flex flex-col">
-                    <span>{{ r.name }}</span>
-                    <span class="text-xs text-base-content/60">
-                      ID: {{ r.pk }}
-                    </span>
+            <!-- Rule -->
+            <td class="font-medium">
+              <div class="flex flex-col">
+                <span>{{ r.name }}</span>
+                <span class="text-xs text-base-content/60">
+                  ID: {{ r.pk }}
+                </span>
+              </div>
+            </td>
+
+            <!-- Code -->
+            <td class="font-mono">
+              {{ r.code }}
+            </td>
+
+            <!-- Structure -->
+            <td>
+              <div class="flex flex-col">
+                <span>{{ r.struct.name }}</span>
+                <span class="text-xs text-base-content/60">
+                  {{ r.struct.company }}
+                </span>
+              </div>
+            </td>
+
+            <!-- Category -->
+            <td>
+              <span class="badge badge-outline badge-sm">
+                {{ r.category.code }}
+              </span>
+            </td>
+
+            <!-- Sequence -->
+            <td>
+              {{ r.sequence }}
+            </td>
+
+            <!-- Condition -->
+            <td>
+              {% if r.condition_select == "python" %}
+                <span class="badge badge-warning badge-sm">
+                  Python
+                </span>
+              {% else %}
+                <span class="badge badge-ghost badge-sm">
+                  Always
+                </span>
+              {% endif %}
+            </td>
+
+            <!-- Actions -->
+            <td class="text-right">
+              <div class="flex justify-end gap-1">
+
+                <!-- Edit -->
+                <a href="{% url 'payroll:salary_rule_edit' r.pk %}"
+                   class="tooltip tooltip-left"
+                   data-tip="Edit">
+                  <div class="btn btn-ghost btn-xs text-primary hover:bg-primary/10">
+                    Edit
                   </div>
-                </td>
+                </a>
 
-                <td>
-                  <span class="font-mono text-sm">{{ r.code }}</span>
-                </td>
-
-                <td class="text-sm">
-                  {{ r.struct.name }}
-                  <div class="text-xs text-base-content/60">
-                    {{ r.struct.company }}
+                <!-- Delete -->
+                <a href="{% url 'payroll:salary_rule_delete' r.pk %}"
+                   class="tooltip tooltip-left"
+                   data-tip="Delete">
+                  <div class="btn btn-ghost btn-xs text-error hover:bg-error/10">
+                    Delete
                   </div>
-                </td>
+                </a>
 
-                <td>
-                  <span class="badge badge-outline">
-                    {{ r.category.code }}
-                  </span>
-                </td>
+              </div>
+            </td>
 
-                <td>
-                  {{ r.sequence }}
-                </td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="7" class="py-16">
+              <div class="flex flex-col items-center text-center gap-2 text-base-content/70">
+                <p class="font-medium">
+                  No salary rules found
+                </p>
+                <p class="text-sm text-base-content/60 max-w-md">
+                  Start by creating your first salary calculation rule.
+                </p>
+                <a href="{% url 'payroll:salary_rule_create' %}"
+                   class="btn btn-primary btn-sm mt-3">
+                  Create Rule
+                </a>
+              </div>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
 
-                <td>
-                  {% if r.condition_select == "python" %}
-                    <span class="badge badge-warning badge-outline">
-                      Python
-                    </span>
-                  {% else %}
-                    <span class="badge badge-ghost">
-                      Always
-                    </span>
-                  {% endif %}
-                </td>
+    </table>
 
-                <td class="text-right">
-                  <div class="inline-flex gap-2">
-                    <a href="{% url 'payroll:salary_rule_edit' r.pk %}"
-                       class="btn btn-xs btn-outline btn-primary">
-                      Edit
-                    </a>
-                    <a href="{% url 'payroll:salary_rule_delete' r.pk %}"
-                       class="btn btn-xs btn-outline btn-error">
-                      Delete
-                    </a>
-                  </div>
-                </td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
+  </section>
 
-        <!-- Pagination -->
-        <div class="px-6 py-4 border-t border-base-300">
-          {% include "partials/paginator.html" %}
-        </div>
+  <!-- ===================================================== -->
+  <!-- PAGINATION -->
+  <!-- ===================================================== -->
+  {% include "partials/paginator.html" %}
 
-        {% else %}
-
-        <!-- Empty State -->
-        <div class="p-12 text-center space-y-3">
-          <h3 class="text-lg font-semibold">No Salary Rules</h3>
-          <p class="text-sm text-base-content/60">
-            Start by creating your first salary rule.
-          </p>
-          <a href="{% url 'payroll:salary_rule_create' %}"
-             class="btn btn-primary btn-sm">
-            Create first rule
-          </a>
-        </div>
-
-        {% endif %}
-
-      </div>
-    </div>
-
-  </div>
 </div>
 {% endblock %}
